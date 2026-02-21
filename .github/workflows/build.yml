@@ -20,10 +20,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install backend dependencies
-        run: npm ci
+        run: npm install
         working-directory: backend
 
       - name: Lint backend
@@ -39,7 +38,7 @@ jobs:
           MONGODB_URI: mongodb://localhost:27017/test
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm install
         working-directory: frontend
 
       - name: Lint frontend
