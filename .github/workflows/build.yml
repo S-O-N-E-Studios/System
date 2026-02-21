@@ -7,8 +7,8 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build-and-test:
-    name: Build & Test
+  backend:
+    name: Backend
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -21,15 +21,15 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install backend dependencies
+      - name: Install dependencies
         run: npm install
         working-directory: backend
 
-      - name: Lint backend
+      - name: Lint
         run: npm run lint
         working-directory: backend
 
-      - name: Test backend
+      - name: Test
         run: npm run test:ci
         working-directory: backend
         env:
@@ -37,34 +37,48 @@ jobs:
           JWT_SECRET: test-secret-for-ci
           MONGODB_URI: mongodb://localhost:27017/test
 
-      - name: Install frontend dependencies
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+
+  frontend:
+    name: Frontend
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
         run: npm install
         working-directory: frontend
 
-      - name: Lint frontend
+      - name: Lint
         run: npm run lint
         working-directory: frontend
 
-      - name: Test frontend
+      - name: Test
         run: npm test -- --watchAll=false --coverage --passWithNoTests
         working-directory: frontend
         env:
           CI: true
 
-      - name: Build frontend
+      - name: Build
         run: npm run build
         working-directory: frontend
         env:
           CI: true
           GENERATE_SOURCEMAP: false
 
-      - name: Upload backend coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage
-          path: backend/coverage/
-
-      - name: Upload frontend coverage
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
@@ -73,7 +87,7 @@ jobs:
   sonarqube:
     name: SonarCloud
     runs-on: windows-latest
-    needs: build-and-test
+    needs: [backend, frontend]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
