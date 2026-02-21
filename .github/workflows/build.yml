@@ -5,15 +5,108 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
-  sonarqube:
-    name: SonarQube
+  backend:
+    name: Backend
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - name: SonarQube Scan
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: backend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: backend
+
+      - name: Test
+        run: npm run test:ci
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-for-ci
+          MONGODB_URI: mongodb://localhost:27017/test
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+
+  frontend:
+    name: Frontend
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Test
+        run: npm test -- --watchAll=false --coverage --passWithNoTests
+        working-directory: frontend
+        env:
+          CI: true
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          CI: true
+          GENERATE_SOURCEMAP: false
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+
+  sonarqube:
+    name: SonarCloud
+    runs-on: windows-latest
+    needs: [backend, frontend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download backend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+
+      - name: Download frontend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+
+      - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
