@@ -134,7 +134,8 @@ jobs:
           name: backend-coverage
           path: backend/coverage
 
-      - name: Download frontend coverage
+      - name: Download frontend coverage (optional)
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: frontend-coverage
