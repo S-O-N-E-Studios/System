@@ -1,0 +1,300 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S.O.N.E STUDIOS — Design Token System v2.0
+   Locked per approved Functional Prototype & UI Design Document.
+   All CSS must reference these tokens — no hardcoded hex in components.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Dark Theme (Default) ─────────────────────────────────────────────── */
+:root,
+[data-theme='dark'] {
+  --bg-primary: #080808;
+  --bg-secondary: #111111;
+  --bg-card: #181818;
+
+  --accent: #c9a961;
+  --accent-light: #e2c98a;
+  --accent-dim: #8b7355;
+  --accent-glow: rgba(201, 169, 97, 0.07);
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #aaaaaa;
+  --text-muted: #5e5e5e;
+
+  --border: rgba(201, 169, 97, 0.13);
+  --border-strong: rgba(201, 169, 97, 0.25);
+
+  --status-active: #4ade80;
+  --status-review: #facc15;
+  --status-planning: #60a5fa;
+  --status-done: #a78bfa;
+  --status-danger: #f87171;
+
+  --nav-backdrop: rgba(10, 10, 10, 0.85);
+
+  --table-header-bg: #0d3d3d;
+  --table-subheader-bg: rgba(13, 61, 61, 0.35);
+}
+
+/* ─── Light Theme Overrides ────────────────────────────────────────────── */
+[data-theme='light'] {
+  --bg-primary: #fefefe;
+  --bg-secondary: #f5f5f0;
+  --bg-card: #ffffff;
+
+  --accent: #8b7355;
+  --accent-light: #a68e6e;
+  --accent-dim: #6b5d4f;
+  --accent-glow: rgba(139, 115, 85, 0.07);
+
+  --text-primary: #2a2a2a;
+  --text-secondary: #5a5a5a;
+  --text-muted: #8a8a8a;
+
+  --border: rgba(139, 115, 85, 0.15);
+  --border-strong: rgba(139, 115, 85, 0.25);
+
+  --nav-backdrop: rgba(254, 254, 254, 0.85);
+
+  --table-header-bg: #e8f0ef;
+  --table-subheader-bg: rgba(200, 220, 218, 0.35);
+}
+
+/* ─── Global Theme Transition ──────────────────────────────────────────── */
+body {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Reduced Motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Base Reset & Defaults ────────────────────────────────────────────── */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-radius: 0 !important;
+  }
+
+  html {
+    font-family: 'Montserrat', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-secondary);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 300;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Geometric crosshatch texture on primary backgrounds */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.2;
+    pointer-events: none;
+    z-index: 0;
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(201, 169, 97, 0.03) 10px,
+        rgba(201, 169, 97, 0.03) 11px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        rgba(201, 169, 97, 0.03) 10px,
+        rgba(201, 169, 97, 0.03) 11px
+      );
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+  }
+
+  /* Sharp corners — non-negotiable */
+  button,
+  input,
+  select,
+  textarea,
+  [role='dialog'],
+  [role='menu'] {
+    border-radius: 0 !important;
+  }
+
+  /* Focus indicators */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* Scrollbar: hidden by default on sidebar */
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Selection colour */
+  ::selection {
+    background-color: rgba(201, 169, 97, 0.3);
+    color: var(--text-primary);
+  }
+}
+
+/* ─── Typography Utility Classes ───────────────────────────────────────── */
+@layer components {
+  .text-h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3rem;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+  }
+
+  .text-h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--text-primary);
+  }
+
+  .text-h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.35rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+  }
+
+  .text-stat {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .text-currency {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .text-eyebrow {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .text-table-header {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .text-table-cell {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 300;
+    color: var(--text-secondary);
+  }
+
+  .text-body {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 300;
+    color: var(--text-secondary);
+  }
+
+  .text-button {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .text-nav {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+  }
+
+  .text-mono {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  /* ─── Animation Keyframes ─────────────────────────────────────────────── */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 1s ease forwards;
+  }
+
+  /* ─── Skeleton Loader ─────────────────────────────────────────────────── */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--bg-secondary) 25%,
+      var(--accent-glow) 50%,
+      var(--bg-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+}

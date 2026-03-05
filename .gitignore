@@ -13,6 +13,7 @@ yarn.lock
 # Build outputs
 backend/dist/
 frontend/build/
+frontend/dist/
 frontend/.next/
 
 # Test coverage
