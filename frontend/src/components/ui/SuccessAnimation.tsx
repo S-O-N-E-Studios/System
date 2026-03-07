@@ -1,5 +1,5 @@
 import LottieAnimation from '@/components/ui/LottieAnimation';
-import successAnimation from '@/animations/Success animation.json';
+import successAnimation from '@/animations/success-animation.json';
 
 interface SuccessAnimationProps {
   className?: string;

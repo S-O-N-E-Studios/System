@@ -1,5 +1,5 @@
 import LottieAnimation from '@/components/ui/LottieAnimation';
-import noDataAnimation from '@/animations/no data.json';
+import noDataAnimation from '@/animations/no-data.json';
 
 interface EmptyStateProps {
   /** Short heading shown under the animation */

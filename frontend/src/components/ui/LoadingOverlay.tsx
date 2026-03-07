@@ -1,5 +1,5 @@
 import LottieAnimation from '@/components/ui/LottieAnimation';
-import sandyLoading from '@/animations/Sandy Loading.json';
+import sandyLoading from '@/animations/sandy-loading.json';
 
 interface LoadingOverlayProps {
   fullscreen?: boolean;
