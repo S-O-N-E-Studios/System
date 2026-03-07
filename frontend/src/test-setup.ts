@@ -15,10 +15,10 @@ Object.defineProperty(globalThis, 'ResizeObserver', {
 // Polyfill canvas getContext for libraries like lottie-web that expect a 2D context.
 // JSDOM doesn't implement HTMLCanvasElement.prototype.getContext, so we provide a minimal stub.
 const canvasContextStub: Partial<CanvasRenderingContext2D> = {
-  fillStyle: null,
+  fillStyle: undefined,
   fillRect: () => {},
   clearRect: () => {},
-  getImageData: () => ({ data: [] } as ImageData),
+  getImageData: () => ({ data: [] } as unknown as ImageData),
   putImageData: () => {},
   createLinearGradient: () => ({
     addColorStop: () => {},
