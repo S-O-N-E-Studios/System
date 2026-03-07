@@ -97,7 +97,7 @@ export const authMock = {
     return { available, suggestion: available ? undefined : `${slug}-1` };
   },
 
-  acceptInvite: async (_token: string, _password: string): Promise<{ user: User; tokens: AuthTokens }> => {
+  acceptInvite: async (..._args: [string, string]): Promise<{ user: User; tokens: AuthTokens }> => {
     await delay(400);
     const user = mockDemoUser('invite@example.com');
     return { user, tokens: mockTokens() };
