@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useProjectStore } from '@/store/projectStore';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
+import EmptyState from '@/components/ui/EmptyState';
 import type { ProjectTab } from '@/types';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
@@ -54,6 +55,16 @@ export default function Projects() {
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
   };
+
+  const filteredProjects = useMemo(
+    () =>
+      mockProjects.filter((p) =>
+        p.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+      ),
+    [searchQuery]
+  );
+
+  const showEmpty = filteredProjects.length === 0;
 
   return (
     <div className="animate-fade-in">
@@ -110,6 +121,12 @@ export default function Projects() {
       {/* Professional Services Table */}
       {activeTab === 'ps' && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto min-w-full">
+          {showEmpty ? (
+            <EmptyState
+              title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
+              description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
+            />
+          ) : (
           <table className="w-full">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -119,7 +136,7 @@ export default function Projects() {
               </tr>
             </thead>
             <tbody>
-              {mockProjects.map((p, i) => (
+              {filteredProjects.map((p, i) => (
                 <>
                   <tr
                     key={p.id}
@@ -192,12 +209,19 @@ export default function Projects() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       )}
 
       {/* Geo-Technical Table */}
       {activeTab === 'geo' && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+          {showEmpty ? (
+            <EmptyState
+              title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
+              description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
+            />
+          ) : (
           <table className="w-full">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -207,7 +231,7 @@ export default function Projects() {
               </tr>
             </thead>
             <tbody>
-              {mockProjects.map((p, i) => (
+              {filteredProjects.map((p, i) => (
                 <tr
                   key={p.id}
                   className={[
@@ -238,12 +262,19 @@ export default function Projects() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       )}
 
       {/* Construction Management Table */}
       {activeTab === 'cm' && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+          {showEmpty ? (
+            <EmptyState
+              title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
+              description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
+            />
+          ) : (
           <table className="w-full">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -253,7 +284,7 @@ export default function Projects() {
               </tr>
             </thead>
             <tbody>
-              {mockProjects.map((p, i) => (
+              {filteredProjects.map((p, i) => (
                 <tr
                   key={p.id}
                   className={[
@@ -288,6 +319,7 @@ export default function Projects() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       )}
     </div>
