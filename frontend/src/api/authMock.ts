@@ -97,7 +97,10 @@ export const authMock = {
     return { available, suggestion: available ? undefined : `${slug}-1` };
   },
 
-  acceptInvite: async (..._args: [string, string]): Promise<{ user: User; tokens: AuthTokens }> => {
+  acceptInvite: async (token: string, password: string): Promise<{ user: User; tokens: AuthTokens }> => {
+    // Parameters are intentionally unused in the mock but referenced to satisfy lint rules.
+    void token;
+    void password;
     await delay(400);
     const user = mockDemoUser('invite@example.com');
     return { user, tokens: mockTokens() };
