@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import PaymentForecastChart, { buildChartData, formatAxis } from './PaymentForecastChart';
+import PaymentForecastChart from './PaymentForecastChart';
+import { buildChartData, formatAxis } from '@/utils/chartHelpers';
 
 const forecast = [
   { month: 'Jan', amount: 1_000_000 },
