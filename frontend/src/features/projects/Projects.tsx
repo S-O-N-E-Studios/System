@@ -5,45 +5,29 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { useProjects } from '@/hooks/useProjects';
 import type { ProjectTab } from '@/types';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
+
+type BadgeStatus = 'active' | 'review' | 'planning' | 'done' | 'danger' | 'accent';
+
+function projectStatusToBadge(status: string): { badge: BadgeStatus; label: string } {
+  switch (status) {
+    case 'active': return { badge: 'active', label: 'Active' };
+    case 'in_review': return { badge: 'review', label: 'In Review' };
+    case 'not_started': return { badge: 'planning', label: 'Not Started' };
+    case 'complete': return { badge: 'done', label: 'Complete' };
+    case 'overdue': return { badge: 'danger', label: 'Overdue' };
+    default: return { badge: 'planning', label: status };
+  }
+}
 
 const tabs: { key: ProjectTab; label: string }[] = [
   { key: 'ps', label: 'Professional Services' },
   { key: 'geo', label: 'Geo-Technical' },
   { key: 'cm', label: 'Construction Management' },
-];
-
-// Placeholder data
-const mockProjects = [
-  {
-    id: '1', name: 'Polokwane Water Treatment Upgrade', ref: 'PRJ-2026-001',
-    gps: '-23.9045, 29.4688', contractValue: 45000000, expenditure: 18200000,
-    balance: 26800000, status: 'active' as const, attachments: 12,
-    geoTecEngineer: 'Geoscience Ltd', geoTecReport: 'submitted', ddrStatus: 'complete',
-    challenges: 'Groundwater contamination at borehole BH-3', recommendation: 'Re-route foundation to avoid contaminated zone',
-    contractor: 'BuildCorp SA', startDate: '15 Jan 2026', completionDate: '30 Nov 2026',
-    percentComplete: 42, constructionStatus: 'on_track',
-  },
-  {
-    id: '2', name: 'Mokopane Road Rehabilitation', ref: 'PRJ-2026-002',
-    gps: '-24.1868, 29.0148', contractValue: 32000000, expenditure: 14500000,
-    balance: 17500000, status: 'review' as const, attachments: 8,
-    geoTecEngineer: 'Terra Investigations', geoTecReport: 'in_review', ddrStatus: 'in_review',
-    challenges: 'Expansive clay subsoils along section km 4-7', recommendation: 'Lime stabilisation required',
-    contractor: 'RoadWorks Inc', startDate: '01 Mar 2026', completionDate: '28 Feb 2027',
-    percentComplete: 28, constructionStatus: 'at_risk',
-  },
-  {
-    id: '3', name: 'Tzaneen Bridge Construction', ref: 'PRJ-2026-003',
-    gps: '-23.8318, 30.1636', contractValue: 78000000, expenditure: 5200000,
-    balance: 72800000, status: 'planning' as const, attachments: 3,
-    geoTecEngineer: '', geoTecReport: 'not_started', ddrStatus: 'pending',
-    challenges: '', recommendation: '',
-    contractor: '', startDate: '01 Jun 2026', completionDate: '31 Dec 2027',
-    percentComplete: 5, constructionStatus: 'delayed',
-  },
 ];
 
 export default function Projects() {
@@ -52,19 +36,43 @@ export default function Projects() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { data: projectsResponse, isLoading, error } = useProjects({ search: searchQuery || undefined });
+
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
   };
 
+  const projects = useMemo(() => projectsResponse?.data ?? [], [projectsResponse]);
+
   const filteredProjects = useMemo(
     () =>
-      mockProjects.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      ),
-    [searchQuery]
+      searchQuery.trim()
+        ? projects.filter((p) =>
+            p.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+          )
+        : projects,
+    [projects, searchQuery]
   );
 
-  const showEmpty = filteredProjects.length === 0;
+  const showEmpty = !isLoading && filteredProjects.length === 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] relative">
+        <LoadingOverlay fullscreen={false} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-[0.82rem] text-[var(--status-danger)]">
+          Failed to load projects. Please try again later.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -154,10 +162,12 @@ export default function Projects() {
                         {p.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-mono">{p.ref}</td>
+                    <td className="px-4 py-3 text-mono">{p.referenceCode}</td>
                     <td className="px-4 py-3">
                       <button className="text-mono !text-[var(--status-planning)] cursor-pointer hover:underline">
-                        {p.gps}
+                        {p.gpsLatitude && p.gpsLongitude
+                          ? `${p.gpsLatitude}, ${p.gpsLongitude}`
+                          : '—'}
                       </button>
                     </td>
                     <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
@@ -166,7 +176,7 @@ export default function Projects() {
                         onClick={() => toggleDrillDown(p.id)}
                         className="flex items-center gap-1 text-currency cursor-pointer"
                       >
-                        {formatRands(p.expenditure)}
+                        {formatRands(p.expenditureToDate)}
                         {expandedRow === p.id
                           ? <ChevronUp className="h-3 w-3 text-[var(--accent)]" />
                           : <ChevronDown className="h-3 w-3 text-[var(--accent)]" />
@@ -177,8 +187,8 @@ export default function Projects() {
                       {formatRands(p.balance)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={p.status}>
-                        {p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : p.status === 'planning' ? 'Not Started' : 'Complete'}
+                      <StatusBadge status={projectStatusToBadge(p.status).badge}>
+                        {projectStatusToBadge(p.status).label}
                       </StatusBadge>
                     </td>
                     <td className="px-4 py-3">
@@ -186,11 +196,10 @@ export default function Projects() {
                         <button className="text-[var(--text-muted)] hover:text-[var(--accent)]" aria-label="Attachments">
                           <Paperclip className="h-3.5 w-3.5" />
                         </button>
-                        <span className="text-[0.6rem] text-[var(--text-muted)]">{p.attachments}</span>
+                        <span className="text-[0.6rem] text-[var(--text-muted)]">{p.attachmentCount}</span>
                       </div>
                     </td>
                   </tr>
-                  {/* Drill-down panel */}
                   {expandedRow === p.id && (
                     <tr key={`${p.id}-drill`}>
                       <td colSpan={8} className="px-4 py-4 bg-[rgba(201,169,97,0.04)] border-t border-[var(--accent)]">
@@ -246,11 +255,11 @@ export default function Projects() {
                   </td>
                   <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={p.geoTecReport === 'submitted' ? 'active' : p.geoTecReport === 'in_review' ? 'review' : 'planning'}>
-                      {p.geoTecReport === 'submitted' ? 'Submitted' : p.geoTecReport === 'in_review' ? 'In Review' : 'Pending'}
+                    <StatusBadge status={p.geoTecReportStatus === 'submitted' ? 'active' : p.geoTecReportStatus === 'in_review' ? 'review' : 'planning'}>
+                      {p.geoTecReportStatus === 'submitted' ? 'Submitted' : p.geoTecReportStatus === 'in_review' ? 'In Review' : 'Pending'}
                     </StatusBadge>
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
+                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditureToDate)}</td>
                   <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.challenges || '—'}</td>
                   <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.recommendation || '—'}</td>
                   <td className="px-4 py-3">
@@ -298,11 +307,11 @@ export default function Projects() {
                     {p.contractor || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
                   <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
-                  <td className="px-4 py-3 text-table-cell text-[var(--text-muted)]">{p.startDate}</td>
-                  <td className="px-4 py-3 text-table-cell">{p.completionDate}</td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
+                  <td className="px-4 py-3 text-table-cell text-[var(--text-muted)]">{p.startDate ?? '—'}</td>
+                  <td className="px-4 py-3 text-table-cell">{p.completionDate ?? '—'}</td>
+                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditureToDate)}</td>
                   <td className="px-4 py-3 w-[160px]">
-                    <ProgressBar value={p.percentComplete} height={4} />
+                    <ProgressBar value={p.percentComplete ?? 0} height={4} />
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={

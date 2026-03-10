@@ -8,6 +8,7 @@ const mockUser: User = {
   firstName: 'Test',
   lastName: 'User',
   role: 'ORG_ADMIN',
+  status: 'active',
   tenants: [
     { id: 't1', slug: 'test-org', name: 'Test Org', role: 'ORG_ADMIN' },
     { id: 't2', slug: 'other-org', name: 'Other Org', role: 'MEMBER' },

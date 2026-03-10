@@ -5,22 +5,20 @@ import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Avatar from '@/components/ui/Avatar';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import EmptyState from '@/components/ui/EmptyState';
+import { useUsers } from '@/hooks/useUsers';
 import { Sun, Moon } from 'lucide-react';
 
 const settingsTabs = ['General', 'Users', 'Notifications', 'Appearance', 'Billing'] as const;
 type SettingsTab = typeof settingsTabs[number];
 
-const mockUsers = [
-  { id: '1', name: 'Fortune Mabona', email: 'fortune@sonestudios.co.za', role: 'ORG_ADMIN', status: 'active' },
-  { id: '2', name: 'Thabo Ndlovu', email: 'thabo@sonestudios.co.za', role: 'PROJECT_MANAGER', status: 'active' },
-  { id: '3', name: 'Lerato Khumalo', email: 'lerato@sonestudios.co.za', role: 'MEMBER', status: 'active' },
-  { id: '4', name: 'Sipho Dlamini', email: 'sipho@sonestudios.co.za', role: 'VIEWER', status: 'suspended' },
-];
-
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('General');
   const { currentTenant } = useTenantStore();
   const { theme, toggleTheme } = useUiStore();
+
+  const { data: users, isLoading: usersLoading } = useUsers();
 
   return (
     <div className="animate-fade-in">
@@ -72,6 +70,13 @@ export default function Settings() {
                 <h3 className="text-h3">Team Members</h3>
                 <Button variant="primary">Invite User</Button>
               </div>
+              {usersLoading ? (
+                <div className="min-h-[200px] relative">
+                  <LoadingOverlay fullscreen={false} />
+                </div>
+              ) : !users || users.length === 0 ? (
+                <EmptyState title="No team members." description="Invite users to get started." />
+              ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -82,12 +87,12 @@ export default function Settings() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockUsers.map((u, i) => (
+                    {users.map((u, i) => (
                       <tr key={u.id} className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar name={u.name} size="md" />
-                            <span className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{u.name}</span>
+                            <Avatar name={`${u.firstName} ${u.lastName}`} size="md" />
+                            <span className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{u.firstName} {u.lastName}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-table-cell">{u.email}</td>
@@ -105,6 +110,7 @@ export default function Settings() {
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 
@@ -159,11 +165,11 @@ export default function Settings() {
                 </div>
                 <div className="flex items-baseline justify-between py-2 border-b border-[var(--border)]">
                   <span className="text-[0.7rem] text-[var(--text-muted)]">Seats</span>
-                  <span className="text-[0.82rem] text-[var(--text-primary)]">4 / 10</span>
+                  <span className="text-[0.82rem] text-[var(--text-primary)]">— / —</span>
                 </div>
                 <div className="flex items-baseline justify-between py-2 border-b border-[var(--border)]">
                   <span className="text-[0.7rem] text-[var(--text-muted)]">Next Billing Date</span>
-                  <span className="text-[0.82rem] text-[var(--text-primary)]">1 April 2026</span>
+                  <span className="text-[0.82rem] text-[var(--text-primary)]">—</span>
                 </div>
               </div>
               <p className="text-[0.7rem] text-[var(--text-muted)]">

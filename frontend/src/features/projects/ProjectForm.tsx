@@ -5,6 +5,7 @@ import { projectSchema, type ProjectFormData } from '@/types';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { useUiStore } from '@/store/uiStore';
+import { useCreateProject, useUpdateProject } from '@/hooks/useProjects';
 import { ArrowLeft } from 'lucide-react';
 
 export default function ProjectForm() {
@@ -12,6 +13,9 @@ export default function ProjectForm() {
   const navigate = useNavigate();
   const { addToast } = useUiStore();
   const isEdit = Boolean(id);
+
+  const createMutation = useCreateProject();
+  const updateMutation = useUpdateProject(id ?? '');
 
   const {
     register,
@@ -26,10 +30,19 @@ export default function ProjectForm() {
     },
   });
 
-  const onSubmit = async () => {
-    // Will connect to API in Sprint 4
-    addToast({ type: 'success', message: isEdit ? 'Project updated.' : 'Project created.' });
-    navigate(`/${tenantSlug}/projects`);
+  const onSubmit = async (data: ProjectFormData) => {
+    try {
+      if (isEdit) {
+        await updateMutation.mutateAsync(data);
+        addToast({ type: 'success', message: 'Project updated.' });
+      } else {
+        await createMutation.mutateAsync(data);
+        addToast({ type: 'success', message: 'Project created.' });
+      }
+      navigate(`/${tenantSlug}/projects`);
+    } catch {
+      addToast({ type: 'error', message: 'Failed to save project. Please try again.' });
+    }
   };
 
   return (
@@ -117,7 +130,11 @@ export default function ProjectForm() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button type="submit" variant="primary" isLoading={isSubmitting}>
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={isSubmitting || createMutation.isPending || updateMutation.isPending}
+          >
             {isEdit ? 'Save Changes' : 'Create Project'}
           </Button>
           <Button type="button" variant="secondary" onClick={() => navigate(-1)}>

@@ -1,35 +1,17 @@
-import { useState } from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { useTasks } from '@/hooks/useTasks';
 import { Plus, GripVertical } from 'lucide-react';
 import type { TaskStatus, TaskPriority } from '@/types';
-
-interface KanbanTask {
-  id: string;
-  title: string;
-  priority: TaskPriority;
-  assignee: string;
-  dueDate: string;
-  status: TaskStatus;
-}
 
 const columns: { key: TaskStatus; label: string; color: string }[] = [
   { key: 'backlog', label: 'Backlog', color: 'var(--text-muted)' },
   { key: 'in_progress', label: 'In Progress', color: 'var(--status-active)' },
   { key: 'in_review', label: 'In Review', color: 'var(--status-review)' },
   { key: 'done', label: 'Done', color: 'var(--status-done)' },
-];
-
-const mockTasks: KanbanTask[] = [
-  { id: '1', title: 'Compile monthly progress report', priority: 'high', assignee: 'Fortune M.', dueDate: '3 Mar 2026', status: 'backlog' },
-  { id: '2', title: 'Review geo-tech borehole logs', priority: 'medium', assignee: 'Thabo N.', dueDate: '7 Mar 2026', status: 'backlog' },
-  { id: '3', title: 'Update construction schedule', priority: 'critical', assignee: 'Fortune M.', dueDate: '5 Mar 2026', status: 'in_progress' },
-  { id: '4', title: 'Prepare tender documents', priority: 'high', assignee: 'Lerato K.', dueDate: '10 Mar 2026', status: 'in_progress' },
-  { id: '5', title: 'Submit variation order #3', priority: 'medium', assignee: 'Thabo N.', dueDate: '8 Mar 2026', status: 'in_review' },
-  { id: '6', title: 'Upload site inspection photos', priority: 'low', assignee: 'Sipho D.', dueDate: '1 Mar 2026', status: 'done' },
-  { id: '7', title: 'Complete DDR initial draft', priority: 'high', assignee: 'Lerato K.', dueDate: '28 Feb 2026', status: 'done' },
 ];
 
 const priorityBorder: Record<TaskPriority, string> = {
@@ -40,7 +22,26 @@ const priorityBorder: Record<TaskPriority, string> = {
 };
 
 export default function Kanban() {
-  const [tasks] = useState(mockTasks);
+  const { data: tasksResponse, isLoading, error } = useTasks();
+  const tasks = tasksResponse?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] relative">
+        <LoadingOverlay fullscreen={false} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-[0.82rem] text-[var(--status-danger)]">
+          Failed to load tasks. Please try again later.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -48,8 +49,7 @@ export default function Kanban() {
         <h1 className="text-h1">Kanban Board</h1>
         <div className="flex items-center gap-3">
           <select className="bg-transparent border border-[var(--border)] px-3 py-2 text-[0.78rem] font-body text-[var(--text-secondary)] focus:border-[var(--accent)] focus:outline-none">
-            <option className="bg-[var(--bg-card)]">Sprint 4 — 23 Mar – 3 Apr</option>
-            <option className="bg-[var(--bg-card)]">Sprint 3 — 9 – 20 Mar</option>
+            <option className="bg-[var(--bg-card)]">Current Sprint</option>
           </select>
           <Button variant="primary">
             <Plus className="h-3.5 w-3.5" />
@@ -58,7 +58,6 @@ export default function Kanban() {
         </div>
       </div>
 
-      {/* Board */}
       {tasks.length === 0 ? (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg">
           <EmptyState
@@ -74,7 +73,6 @@ export default function Kanban() {
 
           return (
             <div key={col.key} className="flex flex-col">
-              {/* Column header */}
               <div
                 className="flex items-center justify-between px-4 py-3 mb-3 border-b-2"
                 style={{
@@ -94,7 +92,6 @@ export default function Kanban() {
                 </button>
               </div>
 
-              {/* Cards */}
               <div className="flex flex-col gap-2">
                 {colTasks.length === 0 && (
                   <p className="text-[0.7rem] text-[var(--text-muted)] py-4 text-center">No tasks</p>
@@ -120,10 +117,10 @@ export default function Kanban() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Avatar name={task.assignee} size="sm" />
-                        <span className="text-[0.55rem] text-[var(--text-muted)]">{task.assignee}</span>
+                        <Avatar name={task.assigneeName ?? '?'} size="sm" />
+                        <span className="text-[0.55rem] text-[var(--text-muted)]">{task.assigneeName ?? 'Unassigned'}</span>
                       </div>
-                      <span className="text-[0.55rem] text-[var(--text-muted)]">{task.dueDate}</span>
+                      <span className="text-[0.55rem] text-[var(--text-muted)]">{task.dueDate ?? '—'}</span>
                     </div>
                     <div className="mt-2">
                       <StatusBadge status={
@@ -137,7 +134,6 @@ export default function Kanban() {
                   </div>
                 ))}
 
-                {/* Add card at bottom */}
                 <button className="border border-dashed border-[var(--border)] p-3 text-[0.7rem] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all text-center">
                   + Add Task
                 </button>

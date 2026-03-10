@@ -1,14 +1,45 @@
 import { MapPin } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import EmptyState from '@/components/ui/EmptyState';
+import { useProjects } from '@/hooks/useProjects';
+import { formatRands } from '@/utils/formatters';
 
-const mockProjects = [
-  { id: '1', name: 'Polokwane Water Treatment', status: 'active' as const, value: 'R 45,000,000', hasGps: true },
-  { id: '2', name: 'Mokopane Road Rehabilitation', status: 'review' as const, value: 'R 32,000,000', hasGps: true },
-  { id: '3', name: 'Tzaneen Bridge Construction', status: 'planning' as const, value: 'R 78,000,000', hasGps: true },
-  { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, value: 'R 22,000,000', hasGps: false },
-];
+type BadgeStatus = 'active' | 'review' | 'planning' | 'done' | 'danger' | 'accent';
+
+function projectStatusToBadge(status: string): { badge: BadgeStatus; label: string } {
+  switch (status) {
+    case 'active': return { badge: 'active', label: 'Active' };
+    case 'in_review': return { badge: 'review', label: 'In Review' };
+    case 'not_started': return { badge: 'planning', label: 'Not Started' };
+    case 'complete': return { badge: 'done', label: 'Complete' };
+    case 'overdue': return { badge: 'danger', label: 'Overdue' };
+    default: return { badge: 'planning', label: status };
+  }
+}
 
 export default function MapsView() {
+  const { data: projectsResponse, isLoading, error } = useProjects();
+  const projects = projectsResponse?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] relative">
+        <LoadingOverlay fullscreen={false} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-[0.82rem] text-[var(--status-danger)]">
+          Failed to load projects.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-20 -mb-12">
       <div className="flex h-screen">
@@ -25,25 +56,29 @@ export default function MapsView() {
             </select>
           </div>
           <div className="divide-y divide-[var(--border)]">
-            {mockProjects.map((p) => (
-              <button
-                key={p.id}
-                className="w-full text-left px-4 py-3 hover:bg-[var(--accent-glow)] transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">
-                    {p.name}
-                  </p>
-                  <StatusBadge status={p.status}>
-                    {p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : 'New'}
+            {projects.length === 0 ? (
+              <EmptyState title="No projects." className="py-8" animationClassName="w-20 h-20" />
+            ) : (
+              projects.map((p) => (
+                <button
+                  key={p.id}
+                  className="w-full text-left px-4 py-3 hover:bg-[var(--accent-glow)] transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">
+                      {p.name}
+                    </p>
+                  <StatusBadge status={projectStatusToBadge(p.status).badge}>
+                    {projectStatusToBadge(p.status).label}
                   </StatusBadge>
-                </div>
-                <p className="text-currency text-[0.82rem]">{p.value}</p>
-                {!p.hasGps && (
-                  <p className="text-[0.6rem] text-[var(--text-muted)] mt-1">No GPS</p>
-                )}
-              </button>
-            ))}
+                  </div>
+                  <p className="text-currency text-[0.82rem]">{formatRands(p.contractValue)}</p>
+                  {!p.gpsLatitude && !p.gpsLongitude && (
+                    <p className="text-[0.6rem] text-[var(--text-muted)] mt-1">No GPS</p>
+                  )}
+                </button>
+              ))
+            )}
           </div>
         </div>
 

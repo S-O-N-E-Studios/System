@@ -1,35 +1,10 @@
-import { useState, useEffect } from 'react';
-import { paymentsApi, mockPaymentHistory } from '@/api/payments';
-import type { PaymentHistoryEntry } from '@/types';
+import { usePaymentHistory } from '@/hooks/usePayments';
 import PaymentHistoryTable from '@/components/ui/PaymentHistoryTable';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 export default function PaymentHistory() {
-  const [entries, setEntries] = useState<PaymentHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await paymentsApi.listPaymentHistory({ pageSize: 50 });
-        if (!cancelled) setEntries(res.data);
-      } catch {
-        if (!cancelled) {
-          setEntries(mockPaymentHistory());
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, []);
+  const { data, isLoading, error } = usePaymentHistory({ pageSize: 50 });
+  const entries = data?.data ?? [];
 
   return (
     <div className="animate-fade-in">
@@ -42,11 +17,13 @@ export default function PaymentHistory() {
 
       {error && (
         <div className="mb-6 p-4 border border-[var(--status-danger)] bg-[rgba(248,113,113,0.05)]">
-          <p className="text-[0.82rem] text-[var(--status-danger)]">{error}</p>
+          <p className="text-[0.82rem] text-[var(--status-danger)]">
+            Failed to load payment history. Please try again later.
+          </p>
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="min-h-[280px] relative">
           <LoadingOverlay fullscreen={false} />
         </div>

@@ -1,34 +1,31 @@
-import PaymentForecastChart, {
-  type PaymentForecastChartProps,
-} from '@/components/ui/PaymentForecastChart';
+import PaymentForecastChart from '@/components/ui/PaymentForecastChart';
 import EmptyState from '@/components/ui/EmptyState';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** Mock data: expected vs actual payments, in rands per month */
-function mockForecastData(): {
-  forecast: PaymentForecastChartProps['forecastData'];
-  actual: PaymentForecastChartProps['actualData'];
-} {
-  const expectedPerMonth = 6_200_000;
-  const forecast = MONTHS.map((month) => ({
-    month,
-    amount: expectedPerMonth,
-  }));
-
-  const actual = MONTHS.map((month, i) => {
-    const variance = 0.82 + (i % 5) * 0.04;
-    return {
-      month,
-      amount: Math.round(expectedPerMonth * variance),
-    };
-  });
-
-  return { forecast, actual };
-}
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { usePaymentForecast } from '@/hooks/usePayments';
 
 export default function PaymentForecast() {
-  const { forecast, actual } = mockForecastData();
+  const { data, isLoading, error } = usePaymentForecast();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[280px] relative">
+        <LoadingOverlay fullscreen={false} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-[0.82rem] text-[var(--status-danger)]">
+          Failed to load forecast data.
+        </p>
+      </div>
+    );
+  }
+
+  const forecast = data?.forecast ?? [];
+  const actual = data?.actual ?? [];
   const hasData = forecast.length > 0 || actual.length > 0;
 
   return (

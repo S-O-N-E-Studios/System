@@ -65,8 +65,25 @@ function buildDemoUser(email) {
 }
 
 exports.login = (req, res) => {
-  const { email } = req.body;
-  const user = buildDemoUser(email || 'demo@sone.engineering');
+  const { email, password } = req.body || {};
+
+  if (!email || !password) {
+    return res.status(400).json({
+      data: null,
+      message: 'Email and password are required',
+    });
+  }
+
+  // Demo-mode: accept any password of 8+ characters.
+  // Replace with real credential verification once the DB is connected.
+  if (password.length < 8) {
+    return res.status(401).json({
+      data: null,
+      message: 'Invalid email or password',
+    });
+  }
+
+  const user = buildDemoUser(email);
   const tokens = buildTokens();
 
   res.json({

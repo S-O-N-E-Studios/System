@@ -65,9 +65,10 @@ apiClient.interceptors.response.use(
           { refreshToken }
         );
 
+        const tokens = data.data ?? data;
         useAuthStore.getState().refreshTokens({
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
         });
 
         processQueue(null);

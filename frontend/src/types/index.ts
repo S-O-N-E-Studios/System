@@ -26,6 +26,7 @@ export interface User {
   lastName: string;
   role: UserRole;
   avatarUrl?: string;
+  status: 'active' | 'suspended' | 'invited';
   tenants: TenantSummary[];
 }
 
@@ -46,6 +47,7 @@ export interface Tenant {
   address?: string;
   timezone?: string;
   isActive: boolean;
+  userCount: number;
   createdAt: string;
 }
 

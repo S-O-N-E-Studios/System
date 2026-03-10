@@ -6,43 +6,40 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { useDashboardStats } from '@/hooks/useDashboard';
 import { FolderKanban, DollarSign, TrendingUp, FileBarChart, Plus, Download } from 'lucide-react';
 
 export default function Dashboard() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
+  const { data, isLoading, error } = useDashboardStats();
 
   const greeting = getGreeting();
   const firstName = user?.firstName ?? 'User';
 
-  // Placeholder data — will be replaced with React Query hooks
-  const stats = {
-    totalProjects: 24,
-    portfolioValue: 185000000,
-    expenditureToDate: 72500000,
-    expenditurePercent: 39,
-    reportsPending: 7,
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] relative">
+        <LoadingOverlay fullscreen={false} />
+      </div>
+    );
+  }
 
-  const recentProjects = [
-    { id: '1', name: 'Polokwane Water Treatment Upgrade', status: 'active' as const, updatedAt: '2 hours ago' },
-    { id: '2', name: 'Mokopane Road Rehabilitation', status: 'review' as const, updatedAt: '5 hours ago' },
-    { id: '3', name: 'Tzaneen Bridge Construction', status: 'planning' as const, updatedAt: '1 day ago' },
-    { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, updatedAt: '2 days ago' },
-    { id: '5', name: 'Lephalale Stormwater Drainage', status: 'done' as const, updatedAt: '3 days ago' },
-  ];
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-[0.82rem] text-[var(--status-danger)]">
+          Failed to load dashboard data. Please try again later.
+        </p>
+      </div>
+    );
+  }
 
-  const outstandingTasks = [
-    { id: '1', title: 'Submit monthly progress report — Polokwane', dueStatus: 'danger' as const, due: 'Overdue (2 days)' },
-    { id: '2', title: 'Review geo-tech report — Mokopane', dueStatus: 'review' as const, due: 'Due today' },
-    { id: '3', title: 'Update construction schedule — Tzaneen', dueStatus: 'planning' as const, due: 'Due in 3 days' },
-  ];
-
-  const sprintProgress = [
-    { name: 'Polokwane Water Treatment', sprint: 'Sprint 4', progress: 72, status: 'active' as const },
-    { name: 'Mokopane Road Rehab', sprint: 'Sprint 3', progress: 45, status: 'review' as const },
-    { name: 'Tzaneen Bridge', sprint: 'Sprint 1', progress: 12, status: 'planning' as const },
-  ];
+  const stats = data?.stats;
+  const recentProjects = data?.recentProjects ?? [];
+  const outstandingTasks = data?.outstandingTasks ?? [];
+  const sprintProgress = data?.sprintProgress ?? [];
 
   return (
     <div className="animate-fade-in">
@@ -66,31 +63,31 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Row — 4 contiguous stat cards */}
+      {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-0 mb-10">
         <StatCard
           label="Total Projects"
-          value={String(stats.totalProjects)}
+          value={String(stats?.totalProjects ?? 0)}
           subline="Active portfolio"
           icon={<FolderKanban className="h-5 w-5" />}
         />
         <StatCard
           label="Portfolio Value"
-          value={formatRands(stats.portfolioValue)}
+          value={formatRands(stats?.portfolioValue ?? 0)}
           subline="Combined contract value"
           icon={<DollarSign className="h-5 w-5" />}
           isCurrency
         />
         <StatCard
           label="Expenditure to Date"
-          value={formatRands(stats.expenditureToDate)}
-          subline={`${stats.expenditurePercent}% of portfolio`}
+          value={formatRands(stats?.expenditureToDate ?? 0)}
+          subline={`${stats?.expenditurePercent ?? 0}% of portfolio`}
           icon={<TrendingUp className="h-5 w-5" />}
           isCurrency
         />
         <StatCard
           label="Reports Pending"
-          value={String(stats.reportsPending)}
+          value={String(stats?.reportsPending ?? 0)}
           subline="Awaiting submission"
           icon={<FileBarChart className="h-5 w-5" />}
         />
@@ -184,24 +181,33 @@ export default function Dashboard() {
           <h2 className="text-h3">Sprint Progress</h2>
         </div>
         <div className="divide-y divide-[var(--border)]">
-          {sprintProgress.map((sprint) => (
-            <div key={sprint.name} className="px-6 py-4 flex items-center gap-6">
-              <div className="min-w-[200px]">
-                <p className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">
-                  {sprint.name}
-                </p>
-                <p className="text-[0.65rem] text-[var(--text-muted)]">{sprint.sprint}</p>
+          {sprintProgress.length === 0 ? (
+            <EmptyState
+              title="No sprint data."
+              description="Sprint progress will appear here once available."
+              className="py-8"
+              animationClassName="w-24 h-24"
+            />
+          ) : (
+            sprintProgress.map((sprint) => (
+              <div key={sprint.name} className="px-6 py-4 flex items-center gap-6">
+                <div className="min-w-[200px]">
+                  <p className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">
+                    {sprint.name}
+                  </p>
+                  <p className="text-[0.65rem] text-[var(--text-muted)]">{sprint.sprint}</p>
+                </div>
+                <div className="flex-1">
+                  <ProgressBar value={sprint.progress} />
+                </div>
+                <StatusBadge status={sprint.status}>
+                  {sprint.status === 'active' ? 'Active' :
+                   sprint.status === 'review' ? 'In Review' :
+                   'Not Started'}
+                </StatusBadge>
               </div>
-              <div className="flex-1">
-                <ProgressBar value={sprint.progress} />
-              </div>
-              <StatusBadge status={sprint.status}>
-                {sprint.status === 'active' ? 'Active' :
-                 sprint.status === 'review' ? 'In Review' :
-                 'Not Started'}
-              </StatusBadge>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

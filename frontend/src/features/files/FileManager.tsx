@@ -3,10 +3,12 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
 import { Upload, FileText, FileSpreadsheet, Image, File } from 'lucide-react';
-import type { DocumentType } from '@/types';
+import type { DocumentType, ProjectFile } from '@/types';
 import { formatFileSize } from '@/utils/formatters';
 import EmptyState from '@/components/ui/EmptyState';
 import SuccessAnimation from '@/components/ui/SuccessAnimation';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { useFiles, useUploadFile } from '@/hooks/useFiles';
 
 const FILE_UPLOAD_MODAL_ID = 'file-upload';
 
@@ -20,7 +22,6 @@ const DOCUMENT_TYPE_TABS: { key: 'all' | DocumentType; label: string }[] = [
   { key: 'environmental_report', label: 'Environmental Reports' },
 ];
 
-/** Document types only (no "All") for upload modal */
 const UPLOAD_DOCUMENT_TYPES: { value: DocumentType; label: string }[] = DOCUMENT_TYPE_TABS.filter(
   (t): t is { key: DocumentType; label: string } => t.key !== 'all'
 ).map((t) => ({ value: t.key, label: t.label }));
@@ -36,32 +37,7 @@ const EXTENSION_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'jpg', label: 'JPG' },
 ];
 
-interface FileCard {
-  id: string;
-  name: string;
-  documentType: DocumentType;
-  size: number;
-  date: string;
-  project: string;
-  mimeType: string;
-}
-
-const mockFiles: FileCard[] = [
-  { id: '1', name: 'Payment Certificate - Feb 2026.pdf', documentType: 'payment_certificate', size: 2_450_000, date: '28 Feb 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-  { id: '2', name: 'PC-001 Polokwane Phase 1.pdf', documentType: 'payment_certificate', size: 1_100_000, date: '15 Jan 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-  { id: '3', name: 'Tender Document - Tzaneen Bridge.docx', documentType: 'tender_document', size: 3_800_000, date: '10 Feb 2026', project: 'Tzaneen Bridge', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-  { id: '4', name: 'Tender SBD Forms - Mokopane.xlsx', documentType: 'tender_document', size: 890_000, date: '05 Feb 2026', project: 'Mokopane Road', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-  { id: '5', name: 'Road Layout Section A-A.pdf', documentType: 'drawings', size: 4_200_000, date: '20 Jan 2026', project: 'Mokopane Road', mimeType: 'application/pdf' },
-  { id: '6', name: 'Structural Details Rev 2.dwg', documentType: 'drawings', size: 8_700_000, date: '12 Feb 2026', project: 'Tzaneen Bridge', mimeType: 'application/acad' },
-  { id: '7', name: 'Survey Points Export.csv', documentType: 'digital_survey', size: 520_000, date: '01 Mar 2026', project: 'Polokwane Water Treatment', mimeType: 'text/csv' },
-  { id: '8', name: 'GPS Control Network.xlsx', documentType: 'digital_survey', size: 340_000, date: '18 Feb 2026', project: 'Mokopane Road', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-  { id: '9', name: 'Geo-Tech Report BH-1 to BH-5.pdf', documentType: 'geo_technical_report', size: 8_700_000, date: '05 Feb 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-  { id: '10', name: 'Borehole Log Summary.pdf', documentType: 'geo_technical_report', size: 2_100_000, date: '22 Jan 2026', project: 'Tzaneen Bridge', mimeType: 'application/pdf' },
-  { id: '11', name: 'Environmental Impact Assessment.pdf', documentType: 'environmental_report', size: 12_400_000, date: '14 Feb 2026', project: 'Tzaneen Bridge', mimeType: 'application/pdf' },
-  { id: '12', name: 'EIA Addendum - Water Quality.pdf', documentType: 'environmental_report', size: 1_800_000, date: '28 Feb 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-];
-
-function getIconForDocType(documentType: DocumentType): typeof FileText {
+function getIconForDocType(documentType?: DocumentType): typeof FileText {
   switch (documentType) {
     case 'payment_certificate':
     case 'tender_document':
@@ -82,6 +58,18 @@ function getFileExtension(name: string): string {
   return parts.length > 1 ? parts.pop()!.toLowerCase() : '';
 }
 
+function mapToDisplayFile(f: ProjectFile) {
+  return {
+    id: f.id,
+    name: f.originalName,
+    documentType: f.documentType,
+    size: f.size,
+    date: f.createdAt,
+    project: f.projectId ?? '',
+    mimeType: f.mimeType,
+  };
+}
+
 export default function FileManager() {
   const { openModal, closeModal } = useUiStore();
   const [activeTab, setActiveTab] = useState<'all' | DocumentType>('all');
@@ -90,6 +78,12 @@ export default function FileManager() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const category = activeTab === 'all' ? undefined : activeTab;
+  const { data: filesResponse, isLoading, error } = useFiles({ category });
+  const uploadMutation = useUploadFile();
+
+  const allFiles = (filesResponse?.data ?? []).map(mapToDisplayFile);
 
   useEffect(() => {
     if (!uploadSuccess) return;
@@ -100,15 +94,10 @@ export default function FileManager() {
     return () => clearTimeout(t);
   }, [uploadSuccess, closeModal]);
 
-  const byTab =
-    activeTab === 'all'
-      ? mockFiles
-      : mockFiles.filter((f) => f.documentType === activeTab);
-
   const displayedFiles =
     !extensionFilter
-      ? byTab
-      : byTab.filter((f) => getFileExtension(f.name) === extensionFilter);
+      ? allFiles
+      : allFiles.filter((f) => getFileExtension(f.name) === extensionFilter);
 
   const handleUploadZoneClick = () => openModal(FILE_UPLOAD_MODAL_ID);
 
@@ -117,11 +106,35 @@ export default function FileManager() {
     setSelectedFiles(files);
   };
 
-  const handleUploadSubmit = () => {
-    // Mock: in real app would POST files + selectedDocumentType
-    setSelectedFiles([]);
-    setUploadSuccess(true);
+  const handleUploadSubmit = async () => {
+    try {
+      for (const file of selectedFiles) {
+        await uploadMutation.mutateAsync({ file });
+      }
+      setSelectedFiles([]);
+      setUploadSuccess(true);
+    } catch {
+      // error handled by mutation state
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] relative">
+        <LoadingOverlay fullscreen={false} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-[0.82rem] text-[var(--status-danger)]">
+          Failed to load files. Please try again later.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -129,7 +142,7 @@ export default function FileManager() {
         <h1 className="text-h1">Files</h1>
       </div>
 
-      {/* Upload zone — opens modal */}
+      {/* Upload zone */}
       <button
         type="button"
         onClick={handleUploadZoneClick}
@@ -182,7 +195,7 @@ export default function FileManager() {
         {displayedFiles.length === 0 ? (
           <div className="col-span-full border border-dashed border-[var(--border)] bg-[var(--bg-secondary)]">
             <EmptyState
-              title={byTab.length === 0 ? 'No files in this category yet.' : 'No files match the selected type.'}
+              title={allFiles.length === 0 ? 'No files in this category yet.' : 'No files match the selected type.'}
               description="Try adjusting the filters or uploading documents for this category."
               className="py-16"
               animationClassName="w-40 h-40"
@@ -202,11 +215,13 @@ export default function FileManager() {
                     <p className="text-[0.82rem] font-body font-medium text-[var(--text-primary)] truncate">
                       {file.name}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[0.6rem] px-2 py-0.5 bg-[var(--accent-glow)] border border-[var(--border)] text-[var(--accent)]">
-                        {file.project}
-                      </span>
-                    </div>
+                    {file.project && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[0.6rem] px-2 py-0.5 bg-[var(--accent-glow)] border border-[var(--border)] text-[var(--accent)]">
+                          {file.project}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-[0.65rem] text-[var(--text-muted)]">{file.date}</span>
                       <span className="text-[0.65rem] text-[var(--text-muted)]">{formatFileSize(file.size)}</span>
@@ -222,7 +237,7 @@ export default function FileManager() {
         )}
       </div>
 
-      {/* Upload modal: user must tag files with a document category */}
+      {/* Upload modal */}
       <Modal
         modalId={FILE_UPLOAD_MODAL_ID}
         title={uploadSuccess ? 'Upload complete' : 'Upload files'}
@@ -286,6 +301,7 @@ export default function FileManager() {
               variant="primary"
               onClick={handleUploadSubmit}
               disabled={selectedFiles.length === 0}
+              isLoading={uploadMutation.isPending}
             >
               Upload
             </Button>
