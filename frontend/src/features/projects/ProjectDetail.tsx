@@ -6,8 +6,9 @@ import ProgressBar from '@/components/ui/ProgressBar';
 import { formatRands } from '@/utils/formatters';
 import { ArrowLeft, Edit, MapPin } from 'lucide-react';
 import ProjectActivitySchedule from './ProjectActivitySchedule';
+import ProjectPaymentHistory from './ProjectPaymentHistory';
 
-const detailTabs = ['Overview', 'Professional Services', 'Geo-Technical', 'Construction', 'Files', 'Activity'] as const;
+const detailTabs = ['Overview', 'Expenditure', 'Professional Services', 'Geo-Technical', 'Construction', 'Files', 'Activity'] as const;
 
 export default function ProjectDetail() {
   const { tenantSlug, id } = useParams<{ tenantSlug: string; id: string }>();
@@ -116,11 +117,14 @@ export default function ProjectDetail() {
         </div>
       )}
 
+      {/* Expenditure tab: payment history per project */}
+      {activeTab === 'Expenditure' && id && <ProjectPaymentHistory projectId={id} />}
+
       {/* Activity tab: Gantt-style schedule */}
       {activeTab === 'Activity' && <ProjectActivitySchedule />}
 
       {/* Placeholder for other tabs */}
-      {activeTab !== 'Overview' && activeTab !== 'Activity' && (
+      {activeTab !== 'Overview' && activeTab !== 'Expenditure' && activeTab !== 'Activity' && (
         <div className="flex items-center justify-center py-20 border border-dashed border-[var(--border)]">
           <div className="text-center">
             <h3 className="text-h3 mb-2">{activeTab}</h3>
