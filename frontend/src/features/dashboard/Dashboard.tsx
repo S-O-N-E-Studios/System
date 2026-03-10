@@ -5,6 +5,7 @@ import StatCard from '@/components/ui/StatCard';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Button from '@/components/ui/Button';
+import EmptyState from '@/components/ui/EmptyState';
 import { FolderKanban, DollarSign, TrendingUp, FileBarChart, Plus, Download } from 'lucide-react';
 
 export default function Dashboard() {
@@ -109,26 +110,35 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="divide-y divide-[var(--border)]">
-            {recentProjects.map((project) => (
-              <Link
-                key={project.id}
-                to={`/${tenantSlug}/projects/${project.id}`}
-                className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)] transition-all duration-300 group"
-              >
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={project.status}>
-                    {project.status === 'active' ? 'Active' :
-                     project.status === 'review' ? 'In Review' :
-                     project.status === 'planning' ? 'Not Started' :
-                     'Complete'}
-                  </StatusBadge>
-                  <span className="text-[0.82rem] font-body text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                    {project.name}
-                  </span>
-                </div>
-                <span className="text-[0.65rem] text-[var(--text-muted)]">{project.updatedAt}</span>
-              </Link>
-            ))}
+            {recentProjects.length === 0 ? (
+              <EmptyState
+                title="No recent projects."
+                description="Create a project to see it here."
+                className="py-8"
+                animationClassName="w-24 h-24"
+              />
+            ) : (
+              recentProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  to={`/${tenantSlug}/projects/${project.id}`}
+                  className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)] transition-all duration-300 group"
+                >
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={project.status}>
+                      {project.status === 'active' ? 'Active' :
+                       project.status === 'review' ? 'In Review' :
+                       project.status === 'planning' ? 'Not Started' :
+                       'Complete'}
+                    </StatusBadge>
+                    <span className="text-[0.82rem] font-body text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                      {project.name}
+                    </span>
+                  </div>
+                  <span className="text-[0.65rem] text-[var(--text-muted)]">{project.updatedAt}</span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
 
@@ -144,17 +154,26 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="divide-y divide-[var(--border)]">
-            {outstandingTasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-glow)] transition-colors"
-              >
-                <span className="text-[0.82rem] font-body text-[var(--text-primary)]">
-                  {task.title}
-                </span>
-                <StatusBadge status={task.dueStatus}>{task.due}</StatusBadge>
-              </div>
-            ))}
+            {outstandingTasks.length === 0 ? (
+              <EmptyState
+                title="No outstanding tasks."
+                description="All caught up for now."
+                className="py-8"
+                animationClassName="w-24 h-24"
+              />
+            ) : (
+              outstandingTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-glow)] transition-colors"
+                >
+                  <span className="text-[0.82rem] font-body text-[var(--text-primary)]">
+                    {task.title}
+                  </span>
+                  <StatusBadge status={task.dueStatus}>{task.due}</StatusBadge>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

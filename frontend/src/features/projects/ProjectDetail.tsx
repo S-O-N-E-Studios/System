@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import { formatRands } from '@/utils/formatters';
 import { ArrowLeft, Edit, MapPin } from 'lucide-react';
+import ProjectActivitySchedule from './ProjectActivitySchedule';
 
 const detailTabs = ['Overview', 'Professional Services', 'Geo-Technical', 'Construction', 'Files', 'Activity'] as const;
 
@@ -115,8 +116,11 @@ export default function ProjectDetail() {
         </div>
       )}
 
+      {/* Activity tab: Gantt-style schedule */}
+      {activeTab === 'Activity' && <ProjectActivitySchedule />}
+
       {/* Placeholder for other tabs */}
-      {activeTab !== 'Overview' && (
+      {activeTab !== 'Overview' && activeTab !== 'Activity' && (
         <div className="flex items-center justify-center py-20 border border-dashed border-[var(--border)]">
           <div className="text-center">
             <h3 className="text-h3 mb-2">{activeTab}</h3>

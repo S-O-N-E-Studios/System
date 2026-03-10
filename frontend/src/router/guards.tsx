@@ -2,6 +2,7 @@ import { Navigate, Outlet, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useEffect } from 'react';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 /**
  * Requires authentication. Redirects to login if unauthenticated.
@@ -10,7 +11,7 @@ export function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   if (isLoading) {
-    return <AuthLoadingSkeleton />;
+    return <LoadingOverlay />;
   }
 
   if (!isAuthenticated) {
@@ -85,13 +86,3 @@ export function SuperAdminGuard() {
   return <Outlet />;
 }
 
-function AuthLoadingSkeleton() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-8 w-48 skeleton" />
-        <div className="h-4 w-32 skeleton" />
-      </div>
-    </div>
-  );
-}

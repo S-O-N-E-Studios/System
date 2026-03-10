@@ -133,6 +133,15 @@ export interface Report {
 // ─── Files ────────────────────────────────────────────────────────────────
 export type FileCategory = 'report' | 'spreadsheet' | 'image' | 'document';
 
+/** Project documentation type (workflow-based, not file format) */
+export type DocumentType =
+  | 'payment_certificate'
+  | 'tender_document'
+  | 'drawings'
+  | 'digital_survey'
+  | 'geo_technical_report'
+  | 'environmental_report';
+
 export interface ProjectFile {
   id: string;
   tenantId: string;
@@ -142,6 +151,8 @@ export interface ProjectFile {
   mimeType: string;
   size: number;
   category: FileCategory;
+  /** Project documentation type for filtering (aligns with engineering workflow) */
+  documentType?: DocumentType;
   url: string;
   uploadedById: string;
   uploadedByName: string;
@@ -155,6 +166,22 @@ export interface ExpenditureEntry {
   amount: number;
   date: string;
   status: 'paid' | 'pending' | 'invoiced';
+}
+
+// ─── Payment History ──────────────────────────────────────────────────────
+export type PaymentStatus = 'completed' | 'pending' | 'failed' | 'processing';
+
+export interface PaymentHistoryEntry {
+  id: string;
+  tenantId: string;
+  projectId?: string;
+  projectName?: string;
+  consultantName: string;
+  invoiceNumber: string;
+  paymentDate: string;
+  paymentAmount: number;
+  paymentStatus: PaymentStatus;
+  createdAt?: string;
 }
 
 export interface DocumentChecklistItem {
@@ -172,6 +199,17 @@ export interface ActivityEntry {
   oldValue?: string;
   newValue?: string;
   timestamp: string;
+}
+
+// ─── Project Activity Schedule (Gantt) ─────────────────────────────────────
+export type ScheduleActivityStatus = 'on_track' | 'at_risk' | 'delayed';
+
+export interface ScheduleActivity {
+  id: string;
+  name: string;
+  startDate: string; // ISO date
+  endDate: string;   // ISO date
+  status: ScheduleActivityStatus;
 }
 
 // ─── UI State Types ───────────────────────────────────────────────────────
@@ -226,8 +264,8 @@ export const registerOrgSchema = z.object({
   adminEmail: z.string().email('Please enter a valid email'),
   adminPassword: z.string().min(8, 'Password must be at least 8 characters'),
   adminPasswordConfirm: z.string(),
-  agreeToTerms: z.literal(true, {
-    errorMap: () => ({ message: 'You must agree to the terms' }),
+  agreeToTerms: z.boolean().refine((v) => v === true, {
+    message: 'You must agree to the terms',
   }),
 }).refine(data => data.adminPassword === data.adminPasswordConfirm, {
   message: 'Passwords do not match',

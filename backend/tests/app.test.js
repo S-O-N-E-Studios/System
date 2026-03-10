@@ -8,8 +8,8 @@ describe('App', () => {
     expect(res.body.success).toBe(true);
   });
 
-  it('GET /api/v1/test returns API message', async () => {
-    const res = await request(app).get('/api/v1/test');
+  it('GET /api/test returns API message', async () => {
+    const res = await request(app).get('/api/test');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toContain('API');

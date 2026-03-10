@@ -1,9 +1,16 @@
+import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import StatCard from '@/components/ui/StatCard';
 import { formatRands } from '@/utils/formatters';
-import { Download, DollarSign, TrendingDown, Wallet } from 'lucide-react';
+import { Download, DollarSign, TrendingDown, Wallet, FileText, History, TrendingUp } from 'lucide-react';
+import PaymentHistory from './PaymentHistory';
+import PaymentForecast from './PaymentForecast';
+
+type ReportsTab = 'overview' | 'payment-history' | 'payment-forecast';
 
 export default function Reports() {
+  const [activeTab, setActiveTab] = useState<ReportsTab>('overview');
+
   return (
     <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -14,6 +21,54 @@ export default function Reports() {
         </Button>
       </div>
 
+      {/* Tab row */}
+      <div className="flex items-center gap-0 border-b border-[var(--border)] mb-8">
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          className={[
+            'text-button inline-flex items-center gap-2 px-6 py-3 transition-all duration-300',
+            activeTab === 'overview'
+              ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
+          ].join(' ')}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Overview
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('payment-history')}
+          className={[
+            'text-button inline-flex items-center gap-2 px-6 py-3 transition-all duration-300',
+            activeTab === 'payment-history'
+              ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
+          ].join(' ')}
+        >
+          <History className="h-3.5 w-3.5" />
+          Payment History
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('payment-forecast')}
+          className={[
+            'text-button inline-flex items-center gap-2 px-6 py-3 transition-all duration-300',
+            activeTab === 'payment-forecast'
+              ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
+          ].join(' ')}
+        >
+          <TrendingUp className="h-3.5 w-3.5" />
+          Payment Forecast
+        </button>
+      </div>
+
+      {activeTab === 'payment-history' && <PaymentHistory />}
+      {activeTab === 'payment-forecast' && <PaymentForecast />}
+
+      {activeTab === 'overview' && (
+        <>
       {/* Budget overview stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 mb-10">
         <StatCard label="Allocated" value={formatRands(185000000)} icon={<DollarSign className="h-5 w-5" />} isCurrency />
@@ -36,6 +91,8 @@ export default function Reports() {
           </div>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }
