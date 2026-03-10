@@ -1,6 +1,6 @@
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -23,7 +23,7 @@ export interface PaymentForecastChartProps {
   height?: number;
 }
 
-function buildChartData(forecastData: SeriesPoint[], actualData: SeriesPoint[]) {
+export function buildChartData(forecastData: SeriesPoint[], actualData: SeriesPoint[]) {
   const byMonth = new Map<string, { month: string; expected?: number; actual?: number }>();
 
   forecastData.forEach((p) => {
@@ -41,7 +41,7 @@ function buildChartData(forecastData: SeriesPoint[], actualData: SeriesPoint[]) 
   return Array.from(byMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
-function formatAxis(value: number): string {
+export function formatAxis(value: number): string {
   if (value >= 1_000_000) return `R ${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `R ${(value / 1_000).toFixed(0)}k`;
   return `R ${value}`;
@@ -89,7 +89,7 @@ export default function PaymentForecastChart({
   forecastData,
   actualData,
   title = 'Expected vs Actual Payments',
-  height = 280,
+  height = 360,
 }: PaymentForecastChartProps) {
   const data = buildChartData(forecastData, actualData);
 
@@ -101,9 +101,10 @@ export default function PaymentForecastChart({
       <div className="px-4 pb-4 pt-2">
         <div style={{ width: '100%', height }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={data}
               margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+              barGap={4}
             >
               <CartesianGrid
                 strokeDasharray="4 4"
@@ -122,35 +123,30 @@ export default function PaymentForecastChart({
                 axisLine={{ stroke: 'var(--border)' }}
                 tickLine={{ stroke: 'var(--border)' }}
               />
-              <Tooltip content={<PaymentTooltip />} />
+              <Tooltip content={<PaymentTooltip />} cursor={{ fill: 'var(--bg-secondary)', opacity: 0.4 }} />
               <Legend
                 wrapperStyle={{ fontSize: '0.7rem' }}
                 formatter={(value) => (
                   <span style={{ color: 'var(--text-secondary)' }}>{value}</span>
                 )}
-                iconType="line"
-                iconSize={12}
+                iconType="rect"
+                iconSize={10}
               />
-              <Line
-                type="monotone"
+              <Bar
                 dataKey="expected"
                 name="Expected Payments"
-                stroke="var(--accent)"
-                strokeWidth={2}
-                strokeDasharray="6 3"
-                dot={{ r: 4, stroke: 'var(--accent)', fill: 'var(--bg-card)', strokeWidth: 2 }}
-                activeDot={{ r: 5, stroke: 'var(--accent)', strokeWidth: 2 }}
+                fill="var(--accent)"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={32}
               />
-              <Line
-                type="monotone"
+              <Bar
                 dataKey="actual"
                 name="Actual Payments"
-                stroke="var(--teal-accent)"
-                strokeWidth={2}
-                dot={{ r: 4, stroke: 'var(--teal-accent)', fill: 'var(--bg-card)', strokeWidth: 2 }}
-                activeDot={{ r: 5, stroke: 'var(--teal-accent)', strokeWidth: 2 }}
+                fill="var(--teal-accent)"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={32}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>

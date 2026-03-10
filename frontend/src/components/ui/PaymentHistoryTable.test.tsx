@@ -47,14 +47,9 @@ describe('PaymentHistoryTable', () => {
       />
     );
 
-    // Hover to reveal actions then click
-    fireEvent.mouseOver(screen.getByText(BASE_ROW.invoiceNumber));
-
-    const downloadButton = screen.getByLabelText(/download invoice/i);
-    const viewButton = screen.getByLabelText(/view invoice/i);
-
-    fireEvent.click(downloadButton);
-    fireEvent.click(viewButton);
+    // Buttons are always in the DOM; opacity-0/group-hover is CSS-only (invisible to jsdom)
+    fireEvent.click(screen.getByLabelText(/download invoice/i));
+    fireEvent.click(screen.getByLabelText(/view invoice/i));
 
     expect(handleDownload).toHaveBeenCalledTimes(1);
     expect(handleView).toHaveBeenCalledTimes(1);
