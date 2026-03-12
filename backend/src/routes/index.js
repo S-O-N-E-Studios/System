@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
 
-const authRoutes = require('./authRoutes');
+// const authRoutes = require('./authRoutes');
+// const projectRoutes = require('./projectRoutes');
+// const taskRoutes = require('./taskRoutes');
+// const userRoutes = require('./userRoutes');
 
-router.use('/auth', authRoutes);
+// router.use('/auth', authRoutes);
+// router.use('/projects', projectRoutes);
+// router.use('/tasks', taskRoutes);
+// router.use('/users', userRoutes);
 
 router.get('/test', (req, res) => {
   res.json({
