@@ -33,7 +33,10 @@ export default function ProjectPaymentHistory({ projectId }: ProjectPaymentHisto
   }), [projectId, dateFrom, dateTo, statusFilter]);
 
   const { data, isLoading, error, refetch } = usePaymentHistory(queryParams);
-  const entries = data?.data ?? [];
+  const entries = useMemo(
+    () => data?.data ?? [],
+    [data?.data]
+  );
 
   const summary = useMemo(() => {
     const totalPaid = entries
