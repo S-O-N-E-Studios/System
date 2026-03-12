@@ -1,141 +1,90 @@
-# Backend API
+# Project Management Web Application
 
-This repository contains the **Express.js** and **MongoDB** powered backend for the
-Project Management application. It provides a RESTful interface for managing
-users, projects, tasks, files, comments and authentication.
+MERN Stack application for managing projects, tasks, and teams with Agile methodologies.
 
----
+## Tech Stack
 
-## 🛠️ Features
+- **Frontend:** React, Redux Toolkit, Material-UI
+- **Backend:** Node.js, Express, MongoDB
+- **Authentication:** JWT
+- **File Storage:** AWS S3 (or Azure Blob)
+- **Maps:** Google Maps API
 
-- User authentication with JWT and role-based access (admin, project manager, team member)
-- CRUD operations for projects, tasks, comments and file uploads
-- Middleware for request validation, error handling and file storage
-- Integration with AWS S3 for file uploads (configurable)
-- Comprehensive unit and integration tests with Jest & Supertest
-- Coding standards enforced via ESLint and Prettier
+## Prerequisites
 
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js v18+ (LTS recommended)
+- Node.js 18+
+- MongoDB 6+
 - npm or yarn
-- MongoDB (Atlas or local instance)
+- Git
 
-### Installation
+## Quick Start
 
-```bash
-# clone or copy the backend folder into your workspace
-cd backend
-npm install
-```
-
-### Configuration
-
-1. Duplicate the example environment file and edit values:
-
+1. **Clone the repository:**
    ```bash
-   cp .env.example .env
+   git clone <repository-url>
+   cd project-management-app
    ```
 
-2. Set your MongoDB connection string and other secrets in `.env`.
-   At minimum you must provide:
-
-   ```env
-   MONGO_URI=mongodb://localhost:27017/your-db
-   JWT_SECRET=supersecretkey
+2. **Install dependencies:**
+   ```bash
+   npm run install:all
    ```
 
-3. (Optional) Configure AWS credentials for file uploads and email settings.
+3. **Set up environment variables:**
+   ```bash
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env
+   ```
+   Edit both `.env` files with your values.
 
-### Running
+4. **Start MongoDB** (if using local):
+   ```bash
+   mongod
+   ```
 
-- Development (auto‑reload with nodemon):
+5. **Run development servers:**
+   ```bash
+   npm run dev
+   ```
+   - Backend: http://localhost:5000
+   - Frontend: http://localhost:3000
 
-  ```bash
-  npm run dev
-  ```
+## Project Structure
 
-- Production build and start (if applicable):
-
-  ```bash
-  npm start
-  ```
-
-Server listens on `PORT` defined in `.env` (default `5000`).
-
----
-
-## 📡 API Endpoints
-
-> Base URL: `/api/v1`
-
-| Method | Path                     | Description                    |
-|--------|--------------------------|--------------------------------|
-| GET    | `/health`                | Health check (public)          |
-| GET    | `/test`                  | Simple API test                |
-| POST   | `/auth/login`            | User login                     |
-| POST   | `/users`                 | Create user (admin only)       |
-| GET    | `/projects`              | List projects                  |
-| POST   | `/projects`              | Create project (manager/admin) |
-| ...    | *other routes*           | See source `routes` directory  |
-
-> A more complete specification can be found in `docs/api/api-documentation.md`.
-
----
-
-## ✅ Scripts
-
-```json
-"scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js",
-  "test": "jest --watchAll --verbose",
-  "test:ci": "jest --ci --coverage",
-  "lint": "eslint src/**/*.js",
-  "lint:fix": "eslint src/**/*.js --fix",
-  "format": "prettier --write \"src/**/*.js\""
-}
+```
+project-management-app/
+├── backend/          # Express API
+├── frontend/         # React application
+├── docs/             # Documentation
+└── scripts/          # Utility scripts
 ```
 
-Run tests:
+## Available Scripts
 
-```bash
-npm test
-```
+### Root
+- `npm run dev` - Start both frontend and backend
+- `npm run test` - Run all tests
+- `npm run lint` - Lint all code
 
-Lint and format the code before committing:
+### Backend
+- `npm run dev` - Start backend with nodemon
+- `npm test` - Run backend tests
 
-```bash
-npm run lint:fix
-npm run format
-```
+### Frontend
+- `npm start` - Start React development server
+- `npm test` - Run frontend tests
+- `npm run build` - Build for production
 
----
+## Documentation
 
-## 🧪 Testing
+- [Setup Guide](docs/guides/setup-guide.md)
+- [API Documentation](docs/api/api-documentation.md)
+- [Architecture](docs/architecture/system-design.md)
 
-Unit and integration tests live under `tests/`. The setup file loads
-environment variables and connects to an in‑memory MongoDB instance.
+## Team
 
-```bash
-npm run test:ci
-```
+- Fortune Mabona - Project Lead
 
----
-
-## 🤝 Contributing
-
-This project is part of a larger mono-repo; please work on the `backend/`
-directory. Make sure to create feature branches, run the linter, and add tests
-for new functionality.
-
----
-
-## 📄 License
+## License
 
 MIT
-
