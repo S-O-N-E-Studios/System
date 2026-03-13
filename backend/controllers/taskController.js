@@ -1,112 +1,155 @@
-// controllers/taskController.js
 const Task = require('../models/Task');
-const Project = require('../models/Project');
 
-// Helper to get task by either id or taskId
-const getTaskByIdHelper = async (id) => {
-  return await Task.findById(id)
-    .populate('assignee', 'firstName lastName email')
-    .populate('createdBy', 'firstName lastName')
-    .populate('project', 'name');
-};
+function formatTask(t) {
+  const obj = t.toObject ? t.toObject() : t;
+  return {
+    id: (obj._id || obj.id).toString(),
+    tenantId: obj.tenantId ? obj.tenantId.toString() : null,
+    projectId: obj.projectId ? obj.projectId.toString() : null,
+    sprintId: obj.sprintId ? obj.sprintId.toString() : null,
+    title: obj.title,
+    description: obj.description || null,
+    status: obj.status,
+    priority: obj.priority,
+    assigneeId: obj.assignee ? (typeof obj.assignee === 'object' ? obj.assignee._id.toString() : obj.assignee.toString()) : null,
+    assigneeName: obj.assignee && typeof obj.assignee === 'object'
+      ? `${obj.assignee.firstName || ''} ${obj.assignee.lastName || ''}`.trim()
+      : null,
+    assigneeAvatar: obj.assignee && typeof obj.assignee === 'object' ? obj.assignee.avatarUrl || null : null,
+    dueDate: obj.dueDate ? (obj.dueDate.toISOString ? obj.dueDate.toISOString() : obj.dueDate) : null,
+    createdAt: obj.createdAt ? (obj.createdAt.toISOString ? obj.createdAt.toISOString() : obj.createdAt) : null,
+    updatedAt: obj.updatedAt ? (obj.updatedAt.toISOString ? obj.updatedAt.toISOString() : obj.updatedAt) : null,
+  };
+}
 
-// @desc    Get all tasks for a project
-// @route   GET /api/projects/:projectId/tasks
+// GET /api/tasks
 exports.getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ project: req.params.projectId })
-      .populate('assignee', 'firstName lastName email');
-    res.json(tasks);
+    const tenantId = req.tenant ? req.tenant._id : null;
+    const { sprintId, page = 1, pageSize = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(pageSize);
+    const limit = parseInt(pageSize);
+
+    const filter = {};
+    if (tenantId) filter.tenantId = tenantId;
+    if (sprintId) filter.sprintId = sprintId;
+
+    const [tasks, total] = await Promise.all([
+      Task.find(filter)
+        .populate('assignee', 'firstName lastName avatarUrl')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Task.countDocuments(filter),
+    ]);
+
+    res.json({
+      data: tasks.map(formatTask),
+      total,
+      page: parseInt(page),
+      pageSize: limit,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
-    console.error(error);
+    console.error('Get tasks error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Create a task in a project
-// @route   POST /api/projects/:projectId/tasks
+// POST /api/tasks
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, priority, assignee, dueDate } = req.body;
-    const project = await Project.findById(req.params.projectId);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+    const tenantId = req.tenant ? req.tenant._id : null;
+    const { title, description, status, priority, assigneeId, projectId, sprintId, dueDate } = req.body;
 
     const task = await Task.create({
+      tenantId,
+      projectId: projectId || null,
+      sprintId: sprintId || null,
       title,
       description,
-      priority,
-      assignee,
-      dueDate,
-      project: req.params.projectId,
+      status: status || 'backlog',
+      priority: priority || 'medium',
+      assignee: assigneeId || null,
+      dueDate: dueDate || null,
       createdBy: req.user._id,
-      updatedBy: req.user._id
+      updatedBy: req.user._id,
     });
 
-    res.status(201).json(task);
+    const populated = await Task.findById(task._id)
+      .populate('assignee', 'firstName lastName avatarUrl');
+
+    res.status(201).json({ data: formatTask(populated) });
   } catch (error) {
-    console.error(error);
+    console.error('Create task error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Get single task by ID (works with both param names)
-// @route   GET /api/tasks/:id  OR /api/projects/:projectId/tasks/:taskId
-exports.getTaskById = async (req, res) => {
-  try {
-    const taskId = req.params.taskId || req.params.id;
-    const task = await getTaskByIdHelper(taskId);
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-    res.json(task);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// @desc    Update a task
-// @route   PUT /api/tasks/:id  OR /api/projects/:projectId/tasks/:taskId
+// PATCH /api/tasks/:id
 exports.updateTask = async (req, res) => {
   try {
-    const taskId = req.params.taskId || req.params.id;
-    let task = await Task.findById(taskId);
+    const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    const { title, description, status, priority, assignee, dueDate } = req.body;
-    if (title) task.title = title;
-    if (description) task.description = description;
-    if (status) task.status = status;
-    if (priority) task.priority = priority;
-    if (assignee) task.assignee = assignee;
-    if (dueDate) task.dueDate = dueDate;
+    const { title, description, status, priority, assigneeId, projectId, sprintId, dueDate } = req.body;
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (status !== undefined) task.status = status;
+    if (priority !== undefined) task.priority = priority;
+    if (assigneeId !== undefined) task.assignee = assigneeId || null;
+    if (projectId !== undefined) task.projectId = projectId;
+    if (sprintId !== undefined) task.sprintId = sprintId;
+    if (dueDate !== undefined) task.dueDate = dueDate;
     task.updatedBy = req.user._id;
 
     await task.save();
-    res.json(task);
+
+    const populated = await Task.findById(task._id)
+      .populate('assignee', 'firstName lastName avatarUrl');
+
+    res.json({ data: formatTask(populated) });
   } catch (error) {
-    console.error(error);
+    console.error('Update task error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Delete a task
-// @route   DELETE /api/tasks/:id  OR /api/projects/:projectId/tasks/:taskId
-exports.deleteTask = async (req, res) => {
+// PATCH /api/tasks/:id/status
+exports.updateTaskStatus = async (req, res) => {
   try {
-    const taskId = req.params.taskId || req.params.id;
-    const task = await Task.findById(taskId);
+    const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
-    await task.remove();
-    res.json({ message: 'Task removed' });
+
+    task.status = req.body.status;
+    task.updatedBy = req.user._id;
+    await task.save();
+
+    const populated = await Task.findById(task._id)
+      .populate('assignee', 'firstName lastName avatarUrl');
+
+    res.json({ data: formatTask(populated) });
   } catch (error) {
-    console.error(error);
+    console.error('Update task status error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /api/tasks/:id
+exports.deleteTask = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    await Task.findByIdAndDelete(req.params.id);
+    res.json({ data: null, message: 'Task removed' });
+  } catch (error) {
+    console.error('Delete task error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

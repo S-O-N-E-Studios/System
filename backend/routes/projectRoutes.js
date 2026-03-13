@@ -1,4 +1,3 @@
-// routes/projectRoutes.js
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -7,19 +6,26 @@ const {
   getProjects,
   getProjectById,
   updateProject,
-  deleteProject
+  deleteProject,
+  exportXlsx,
+  exportPdf,
+  getActivities,
 } = require('../controllers/projectController');
 
-// All routes after this middleware are protected
 router.use(protect);
+
+router.get('/export/xlsx', exportXlsx);
+router.get('/export/pdf', exportPdf);
 
 router.route('/')
   .get(getProjects)
-  .post(authorize('admin', 'project_manager'), createProject);
+  .post(authorize('SUPER_ADMIN', 'ORG_ADMIN', 'PROJECT_MANAGER'), createProject);
+
+router.get('/:projectId/activities', getActivities);
 
 router.route('/:id')
   .get(getProjectById)
-  .put(authorize('admin', 'project_manager'), updateProject)
-  .delete(authorize('admin'), deleteProject);
+  .patch(authorize('SUPER_ADMIN', 'ORG_ADMIN', 'PROJECT_MANAGER'), updateProject)
+  .delete(authorize('SUPER_ADMIN', 'ORG_ADMIN'), deleteProject);
 
 module.exports = router;

@@ -18,7 +18,8 @@
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
     "lint:frontend": "cd frontend && npm run lint",
-    "build:frontend": "cd frontend && npm run build"
+    "build:frontend": "cd frontend && npm run build",
+    "seed": "node scripts/seed-data.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

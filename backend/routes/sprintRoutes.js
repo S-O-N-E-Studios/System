@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const { getStats } = require('../controllers/dashboardController');
+const { getSprints, getActiveSprint } = require('../controllers/sprintController');
 
 router.use(protect);
 
-router.get('/stats', getStats);
+router.get('/active', getActiveSprint);
+router.get('/', getSprints);
 
 module.exports = router;

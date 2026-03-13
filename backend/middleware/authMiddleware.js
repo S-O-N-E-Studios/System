@@ -1,9 +1,7 @@
-// middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Protect routes – verify JWT token
-exports.protect = async (req, res, next) => {
+const protect = async (req, res, next) => {
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
@@ -17,19 +15,46 @@ exports.protect = async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'User not found' });
     }
+    if (req.user.status === 'suspended') {
+      return res.status(403).json({ message: 'Account has been suspended' });
+    }
     next();
   } catch (error) {
-    console.error(error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
     res.status(401).json({ message: 'Not authorized, token failed' });
   }
 };
 
-// Role-based access
-exports.authorize = (...roles) => {
+const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: `Role ${req.user.role} not allowed` });
+    if (req.user.role === 'SUPER_ADMIN') {
+      return next();
     }
-    next();
+
+    if (req.tenant) {
+      const membership = req.user.tenants.find(
+        (t) => t.tenant.toString() === req.tenant._id.toString()
+      );
+      if (membership && roles.includes(membership.role)) {
+        return next();
+      }
+    }
+
+    if (roles.includes(req.user.role)) {
+      return next();
+    }
+
+    return res.status(403).json({ message: `Role ${req.user.role} is not authorized` });
   };
 };
+
+const requireTenant = (req, res, next) => {
+  if (!req.tenant) {
+    return res.status(400).json({ message: 'X-Tenant-Slug header is required' });
+  }
+  next();
+};
+
+module.exports = { protect, authorize, requireTenant };
