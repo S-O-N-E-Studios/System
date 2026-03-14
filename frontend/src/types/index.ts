@@ -67,6 +67,7 @@ export interface Project {
   expenditureToDate: number;
   balance: number;
   status: ProjectStatus;
+  contractTypes?: ('professional' | 'geotechnical' | 'construction')[];
   gpsLatitude?: number;
   gpsLongitude?: number;
   geoTecEngineer?: string;
@@ -76,13 +77,21 @@ export interface Project {
   constructionStatus?: ConstructionStatus;
   startDate?: string;
   completionDate?: string;
+  appointmentDate?: string;
   percentComplete?: number;
   challenges?: string;
   recommendation?: string;
   totalEmployees?: number;
   roePercent?: number;
   projectManagerId?: string;
+  projectManagerName?: string;
   attachmentCount: number;
+  description?: string;
+  mtef?: {
+    year1Budget: number;
+    year2Budget: number;
+    year3Budget: number;
+  };
   createdAt: string;
   updatedAt: string;
 }

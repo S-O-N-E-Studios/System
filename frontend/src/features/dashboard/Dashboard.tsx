@@ -8,7 +8,8 @@ import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import { useDashboardStats } from '@/hooks/useDashboard';
-import { FolderKanban, DollarSign, TrendingUp, FileBarChart, Plus, Download } from 'lucide-react';
+import { FolderKanban, DollarSign, TrendingUp, FileBarChart, Plus, Download, Wallet } from 'lucide-react';
+import { projectsApi } from '@/api/projects';
 
 export default function Dashboard() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
@@ -50,7 +51,20 @@ export default function Dashboard() {
           <h1 className="text-h1">{firstName}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary">
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                const blob = await projectsApi.exportPdf();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'portfolio-report.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch { /* handled by interceptor */ }
+            }}
+          >
             <Download className="h-3.5 w-3.5" />
             Export Portfolio
           </Button>
@@ -64,7 +78,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-0 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-0 mb-10">
         <StatCard
           label="Total Projects"
           value={String(stats?.totalProjects ?? 0)}
@@ -83,6 +97,13 @@ export default function Dashboard() {
           value={formatRands(stats?.expenditureToDate ?? 0)}
           subline={`${stats?.expenditurePercent ?? 0}% of portfolio`}
           icon={<TrendingUp className="h-5 w-5" />}
+          isCurrency
+        />
+        <StatCard
+          label="MTEF Y1 Remaining"
+          value={formatRands(stats?.mtefYear1Remaining ?? 0)}
+          subline={`of ${formatRands(stats?.mtefYear1Total ?? 0)} allocated`}
+          icon={<Wallet className="h-5 w-5" />}
           isCurrency
         />
         <StatCard

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const sprintSchema = new mongoose.Schema({
+const activitySchema = new mongoose.Schema({
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
@@ -10,17 +10,14 @@ const sprintSchema = new mongoose.Schema({
   projectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
-  },
-  number: {
-    type: Number,
     required: true,
+    index: true,
   },
   name: {
     type: String,
     required: true,
     trim: true,
   },
-  weekRange: String,
   startDate: {
     type: Date,
     required: true,
@@ -31,24 +28,19 @@ const sprintSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'closed', 'planned'],
-    default: 'planned',
+    enum: ['on-track', 'delayed', 'pending', 'complete'],
+    default: 'pending',
   },
-  isActive: {
-    type: Boolean,
-    default: false,
-  },
-  storyPoints: { type: Number, default: 0 },
-  completedPoints: { type: Number, default: 0 },
+  scheduleDate: Date,
 }, {
   timestamps: true,
 });
 
-sprintSchema.set('toJSON', { virtuals: true });
-sprintSchema.set('toObject', { virtuals: true });
+activitySchema.set('toJSON', { virtuals: true });
+activitySchema.set('toObject', { virtuals: true });
 
-sprintSchema.virtual('id').get(function () {
+activitySchema.virtual('id').get(function () {
   return this._id.toHexString();
 });
 
-module.exports = mongoose.model('Sprint', sprintSchema);
+module.exports = mongoose.model('Activity', activitySchema);

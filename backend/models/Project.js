@@ -59,13 +59,25 @@ const projectSchema = new mongoose.Schema({
   totalEmployees: { type: Number, default: 0 },
   roePercent: { type: Number, default: 0 },
   projectManagerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  contractTypes: [{
+    type: String,
+    enum: ['professional', 'geotechnical', 'construction'],
+  }],
+  appointmentDate: Date,
+  mtef: {
+    year1Budget: { type: Number, default: 0 },
+    year2Budget: { type: Number, default: 0 },
+    year3Budget: { type: Number, default: 0 },
+  },
   attachmentCount: { type: Number, default: 0 },
   team: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     roleInProject: String,
     addedAt: { type: Date, default: Date.now },
   }],
+  teamMembers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   files: [{ type: mongoose.Schema.Types.ObjectId, ref: 'File' }],
+  isDeleted: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, {

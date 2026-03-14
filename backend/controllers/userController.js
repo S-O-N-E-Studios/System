@@ -28,6 +28,40 @@ function formatUser(u) {
   };
 }
 
+// GET /api/users/me
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('-password -inviteToken -inviteTokenExpiry')
+      .populate('tenants.tenant', 'slug name logo');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ data: formatUser(user) });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// PATCH /api/users/me
+exports.updateMe = async (req, res) => {
+  try {
+    const { firstName, lastName, avatarUrl } = req.body;
+    const user = await User.findById(req.user._id)
+      .populate('tenants.tenant', 'slug name logo');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+    await user.save();
+
+    res.json({ data: formatUser(user) });
+  } catch (error) {
+    console.error('Update me error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // GET /api/users
 exports.getUsers = async (req, res) => {
   try {

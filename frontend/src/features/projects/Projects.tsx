@@ -8,8 +8,9 @@ import EmptyState from '@/components/ui/EmptyState';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import { useProjects } from '@/hooks/useProjects';
 import type { ProjectTab } from '@/types';
-import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
+import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, X } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
+import { projectsApi } from '@/api/projects';
 
 type BadgeStatus = 'active' | 'review' | 'planning' | 'done' | 'danger' | 'accent';
 
@@ -35,8 +36,13 @@ export default function Projects() {
   const { activeTab, setActiveTab } = useProjectStore();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
 
-  const { data: projectsResponse, isLoading, error } = useProjects({ search: searchQuery || undefined });
+  const { data: projectsResponse, isLoading, error } = useProjects({
+    search: searchQuery || undefined,
+    status: statusFilter || undefined,
+  });
 
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -116,15 +122,59 @@ export default function Projects() {
             className="w-full bg-transparent border-0 border-b border-[var(--border)] pl-6 pr-4 py-1.5 font-body text-[0.82rem] font-light text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none transition-[border-color] duration-200"
           />
         </div>
-        <Button variant="secondary" className="!min-w-0 !px-4">
+        <Button variant="secondary" className="!min-w-0 !px-4" onClick={() => setShowFilters(!showFilters)}>
           <Filter className="h-3.5 w-3.5" />
           Filter
+          {statusFilter && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />}
         </Button>
-        <Button variant="secondary" className="!min-w-0 !px-4">
+        <Button
+          variant="secondary"
+          className="!min-w-0 !px-4"
+          onClick={async () => {
+            try {
+              const blob = await projectsApi.exportXlsx({ search: searchQuery || undefined, status: statusFilter || undefined });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'projects.xlsx';
+              a.click();
+              URL.revokeObjectURL(url);
+            } catch { /* handled by interceptor */ }
+          }}
+        >
           <Download className="h-3.5 w-3.5" />
           Export
         </Button>
       </div>
+
+      {showFilters && (
+        <div className="flex items-center gap-4 mb-6 p-4 bg-[var(--bg-card)] border border-[var(--border)]">
+          <div>
+            <label className="text-eyebrow block mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-transparent border border-[var(--border)] px-3 py-1.5 text-[0.78rem] text-[var(--text-secondary)] focus:border-[var(--accent)] focus:outline-none"
+            >
+              <option value="" className="bg-[var(--bg-card)]">All Statuses</option>
+              <option value="active" className="bg-[var(--bg-card)]">Active</option>
+              <option value="in_review" className="bg-[var(--bg-card)]">In Review</option>
+              <option value="not_started" className="bg-[var(--bg-card)]">Not Started</option>
+              <option value="complete" className="bg-[var(--bg-card)]">Complete</option>
+              <option value="overdue" className="bg-[var(--bg-card)]">Overdue</option>
+            </select>
+          </div>
+          {statusFilter && (
+            <button
+              onClick={() => setStatusFilter('')}
+              className="text-[0.7rem] text-[var(--text-muted)] hover:text-[var(--accent)] flex items-center gap-1 mt-5"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Professional Services Table */}
       {activeTab === 'ps' && (

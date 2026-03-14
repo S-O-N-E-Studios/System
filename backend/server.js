@@ -11,39 +11,48 @@ const app = express();
 
 connectDB();
 
-// Security & parsing
 app.use(helmet());
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
-// Rate limiting on auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 100,
   message: { message: 'Too many requests, please try again later' },
 });
 
-// Resolve tenant from X-Tenant-Slug header on all requests
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { message: 'Too many requests, please try again later' },
+});
+
 app.use(resolveTenant);
 
-// Routes
 app.use('/api/auth', authLimiter, require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/projects', require('./routes/projectRoutes'));
-app.use('/api/tasks', require('./routes/taskRoutes'));
-app.use('/api/sprints', require('./routes/sprintRoutes'));
-app.use('/api/files', require('./routes/fileRoutes'));
-app.use('/api/payments', require('./routes/paymentRoutes'));
-app.use('/api/dashboard', require('./routes/dashboardRoutes'));
-app.use('/api/admin/tenants', require('./routes/tenantRoutes'));
+app.use('/api/users', generalLimiter, require('./routes/userRoutes'));
+app.use('/api/projects', generalLimiter, require('./routes/projectRoutes'));
+app.use('/api/tasks', generalLimiter, require('./routes/taskRoutes'));
+app.use('/api/sprints', generalLimiter, require('./routes/sprintRoutes'));
+app.use('/api/files', generalLimiter, require('./routes/fileRoutes'));
+app.use('/api/payments', generalLimiter, require('./routes/paymentRoutes'));
+app.use('/api/dashboard', generalLimiter, require('./routes/dashboardRoutes'));
+app.use('/api/reports', generalLimiter, require('./routes/reportsRoutes'));
+app.use('/api/admin/tenants', generalLimiter, require('./routes/tenantRoutes'));
 
-// Health check
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+app.use((err, _req, res, _next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error' });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

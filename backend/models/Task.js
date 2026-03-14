@@ -32,6 +32,13 @@ const taskSchema = new mongoose.Schema({
   },
   assignee: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   dueDate: Date,
+  attachments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'File' }],
+  comments: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: String,
+    createdAt: { type: Date, default: Date.now },
+  }],
+  isDeleted: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, {

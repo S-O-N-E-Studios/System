@@ -1,38 +1,84 @@
 const Project = require('../models/Project');
+const Activity = require('../models/Activity');
+const Payment = require('../models/Payment');
+const PaymentForecast = require('../models/PaymentForecast');
 
-// GET /api/projects
+function getTenantId(req) {
+  return req.tenant ? req.tenant._id : null;
+}
+
+function formatProject(p) {
+  return {
+    id: (p._id || p.id).toString(),
+    tenantId: p.tenantId ? p.tenantId.toString() : null,
+    name: p.name,
+    referenceCode: p.referenceCode || '',
+    contractValue: p.contractValue || 0,
+    expenditureToDate: p.expenditureToDate || 0,
+    balance: (p.contractValue || 0) - (p.expenditureToDate || 0),
+    status: p.status,
+    contractTypes: p.contractTypes || [],
+    gpsLatitude: p.gpsLatitude || null,
+    gpsLongitude: p.gpsLongitude || null,
+    geoTecEngineer: p.geoTecEngineer || null,
+    geoTecReportStatus: p.geoTecReportStatus || null,
+    ddrStatus: p.ddrStatus || null,
+    contractor: p.contractor || null,
+    constructionStatus: p.constructionStatus || null,
+    startDate: p.startDate ? (p.startDate.toISOString ? p.startDate.toISOString() : p.startDate) : null,
+    completionDate: p.completionDate ? (p.completionDate.toISOString ? p.completionDate.toISOString() : p.completionDate) : null,
+    appointmentDate: p.appointmentDate ? (p.appointmentDate.toISOString ? p.appointmentDate.toISOString() : p.appointmentDate) : null,
+    percentComplete: p.percentComplete || 0,
+    challenges: p.challenges || null,
+    recommendation: p.recommendation || null,
+    totalEmployees: p.totalEmployees || 0,
+    roePercent: p.roePercent || 0,
+    projectManagerId: p.projectManagerId ? (typeof p.projectManagerId === 'object' ? p.projectManagerId._id?.toString() : p.projectManagerId.toString()) : null,
+    projectManagerName: p.projectManagerId && typeof p.projectManagerId === 'object'
+      ? `${p.projectManagerId.firstName || ''} ${p.projectManagerId.lastName || ''}`.trim() : null,
+    attachmentCount: p.attachmentCount || 0,
+    mtef: p.mtef || { year1Budget: 0, year2Budget: 0, year3Budget: 0 },
+    description: p.description || '',
+    createdAt: p.createdAt ? (p.createdAt.toISOString ? p.createdAt.toISOString() : p.createdAt) : null,
+    updatedAt: p.updatedAt ? (p.updatedAt.toISOString ? p.updatedAt.toISOString() : p.updatedAt) : null,
+  };
+}
+
 exports.getProjects = async (req, res) => {
   try {
-    const tenantId = req.tenant ? req.tenant._id : null;
-    const { page = 1, pageSize = 20, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(pageSize);
-    const limit = parseInt(pageSize);
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
 
-    const filter = {};
-    if (tenantId) filter.tenantId = tenantId;
+    const { page = 1, pageSize = 25, limit, status, search, sortBy = 'createdAt', sortOrder = 'desc', type } = req.query;
+    const perPage = parseInt(limit || pageSize);
+    const skip = (parseInt(page) - 1) * perPage;
+
+    const filter = { tenantId, isDeleted: { $ne: true } };
     if (status) filter.status = status;
+    if (type) filter.contractTypes = type;
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
         { referenceCode: { $regex: search, $options: 'i' } },
+        { contractor: { $regex: search, $options: 'i' } },
       ];
     }
 
     const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
     const [data, total] = await Promise.all([
-      Project.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Project.find(filter)
+        .populate('projectManagerId', 'firstName lastName email')
+        .sort(sort).skip(skip).limit(perPage).lean(),
       Project.countDocuments(filter),
     ]);
 
-    const projects = data.map(formatProject);
-
     res.json({
-      data: projects,
+      data: data.map(formatProject),
       total,
       page: parseInt(page),
-      pageSize: limit,
-      totalPages: Math.ceil(total / limit),
+      pageSize: perPage,
+      totalPages: Math.ceil(total / perPage),
     });
   } catch (error) {
     console.error('Get projects error:', error);
@@ -40,18 +86,17 @@ exports.getProjects = async (req, res) => {
   }
 };
 
-// GET /api/projects/:id
 exports.getProjectById = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id)
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const project = await Project.findOne({ _id: req.params.id, tenantId, isDeleted: { $ne: true } })
       .populate('projectManagerId', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName')
       .lean();
 
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
-
+    if (!project) return res.status(404).json({ message: 'Project not found' });
     res.json({ data: formatProject(project) });
   } catch (error) {
     console.error('Get project error:', error);
@@ -59,18 +104,18 @@ exports.getProjectById = async (req, res) => {
   }
 };
 
-// POST /api/projects
 exports.createProject = async (req, res) => {
   try {
-    const tenantId = req.tenant ? req.tenant._id : null;
-    const projectData = {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const project = await Project.create({
       ...req.body,
       tenantId,
       createdBy: req.user._id,
       updatedBy: req.user._id,
-    };
+    });
 
-    const project = await Project.create(projectData);
     res.status(201).json({ data: formatProject(project.toObject()) });
   } catch (error) {
     console.error('Create project error:', error);
@@ -78,16 +123,15 @@ exports.createProject = async (req, res) => {
   }
 };
 
-// PATCH /api/projects/:id
 exports.updateProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
 
-    const updates = { ...req.body, updatedBy: req.user._id };
-    Object.assign(project, updates);
+    const project = await Project.findOne({ _id: req.params.id, tenantId, isDeleted: { $ne: true } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    Object.assign(project, { ...req.body, updatedBy: req.user._id });
     await project.save();
 
     res.json({ data: formatProject(project.toObject()) });
@@ -97,14 +141,16 @@ exports.updateProject = async (req, res) => {
   }
 };
 
-// DELETE /api/projects/:id
 exports.deleteProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
-    await Project.findByIdAndDelete(req.params.id);
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const project = await Project.findOne({ _id: req.params.id, tenantId });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    project.isDeleted = true;
+    await project.save();
     res.json({ data: null, message: 'Project removed' });
   } catch (error) {
     console.error('Delete project error:', error);
@@ -112,15 +158,251 @@ exports.deleteProject = async (req, res) => {
   }
 };
 
-// GET /api/projects/export/xlsx
+exports.getBudgetSummary = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projects = await Project.find({ tenantId, isDeleted: { $ne: true } }).lean();
+    const totalContractValue = projects.reduce((s, p) => s + (p.contractValue || 0), 0);
+    const totalExpenditure = projects.reduce((s, p) => s + (p.expenditureToDate || 0), 0);
+    const totalMtefY1 = projects.reduce((s, p) => s + (p.mtef?.year1Budget || 0), 0);
+    const totalMtefY2 = projects.reduce((s, p) => s + (p.mtef?.year2Budget || 0), 0);
+    const totalMtefY3 = projects.reduce((s, p) => s + (p.mtef?.year3Budget || 0), 0);
+
+    res.json({
+      data: {
+        totalProjects: projects.length,
+        totalContractValue,
+        totalExpenditure,
+        totalBalance: totalContractValue - totalExpenditure,
+        mtef: { year1: totalMtefY1, year2: totalMtefY2, year3: totalMtefY3 },
+      },
+    });
+  } catch (error) {
+    console.error('Budget summary error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Activities CRUD ─────────────────────────────────────────────────────
+
+function formatActivity(a) {
+  const obj = a.toObject ? a.toObject() : a;
+  return {
+    id: (obj._id || obj.id).toString(),
+    tenantId: obj.tenantId ? obj.tenantId.toString() : null,
+    projectId: obj.projectId ? obj.projectId.toString() : null,
+    name: obj.name,
+    startDate: obj.startDate ? (obj.startDate.toISOString ? obj.startDate.toISOString() : obj.startDate) : null,
+    endDate: obj.endDate ? (obj.endDate.toISOString ? obj.endDate.toISOString() : obj.endDate) : null,
+    status: obj.status,
+    scheduleDate: obj.scheduleDate ? (obj.scheduleDate.toISOString ? obj.scheduleDate.toISOString() : obj.scheduleDate) : null,
+    createdAt: obj.createdAt ? (obj.createdAt.toISOString ? obj.createdAt.toISOString() : obj.createdAt) : null,
+  };
+}
+
+exports.getActivities = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projectId = req.params.projectId || req.params.id;
+    const project = await Project.findOne({ _id: projectId, tenantId, isDeleted: { $ne: true } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const activities = await Activity.find({ tenantId, projectId }).sort({ startDate: 1 });
+    res.json({ data: activities.map(formatActivity) });
+  } catch (error) {
+    console.error('Get activities error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.createActivity = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projectId = req.params.projectId || req.params.id;
+    const project = await Project.findOne({ _id: projectId, tenantId, isDeleted: { $ne: true } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const activity = await Activity.create({ ...req.body, tenantId, projectId });
+    res.status(201).json({ data: formatActivity(activity) });
+  } catch (error) {
+    console.error('Create activity error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.updateActivity = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const activity = await Activity.findOne({ _id: req.params.actId, tenantId });
+    if (!activity) return res.status(404).json({ message: 'Activity not found' });
+
+    Object.assign(activity, req.body);
+    await activity.save();
+    res.json({ data: formatActivity(activity) });
+  } catch (error) {
+    console.error('Update activity error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.deleteActivity = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const activity = await Activity.findOneAndDelete({ _id: req.params.actId, tenantId });
+    if (!activity) return res.status(404).json({ message: 'Activity not found' });
+
+    res.json({ data: null, message: 'Activity removed' });
+  } catch (error) {
+    console.error('Delete activity error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Payments CRUD ───────────────────────────────────────────────────────
+
+function formatPayment(p) {
+  const obj = p.toObject ? p.toObject() : p;
+  return {
+    id: (obj._id || obj.id).toString(),
+    tenantId: obj.tenantId ? obj.tenantId.toString() : null,
+    projectId: obj.projectId ? obj.projectId.toString() : null,
+    projectName: obj.projectName || null,
+    consultantName: obj.consultantName,
+    invoiceNumber: obj.invoiceNumber,
+    paymentDate: obj.paymentDate ? (obj.paymentDate.toISOString ? obj.paymentDate.toISOString() : obj.paymentDate) : null,
+    paymentAmount: obj.paymentAmount,
+    paymentStatus: obj.paymentStatus,
+    createdAt: obj.createdAt ? (obj.createdAt.toISOString ? obj.createdAt.toISOString() : obj.createdAt) : null,
+  };
+}
+
+exports.getProjectPayments = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projectId = req.params.id;
+    const project = await Project.findOne({ _id: projectId, tenantId, isDeleted: { $ne: true } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const payments = await Payment.find({ tenantId, projectId }).sort({ paymentDate: -1 });
+    res.json({ data: payments.map(formatPayment) });
+  } catch (error) {
+    console.error('Get project payments error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.createProjectPayment = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projectId = req.params.id;
+    const project = await Project.findOne({ _id: projectId, tenantId, isDeleted: { $ne: true } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const payment = await Payment.create({
+      ...req.body,
+      tenantId,
+      projectId,
+      projectName: project.name,
+    });
+
+    res.status(201).json({ data: formatPayment(payment) });
+  } catch (error) {
+    console.error('Create payment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.updateProjectPayment = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const payment = await Payment.findOne({ _id: req.params.payId, tenantId, projectId: req.params.id });
+    if (!payment) return res.status(404).json({ message: 'Payment not found' });
+
+    Object.assign(payment, req.body);
+    await payment.save();
+    res.json({ data: formatPayment(payment) });
+  } catch (error) {
+    console.error('Update payment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Payment Forecast ────────────────────────────────────────────────────
+
+exports.getPaymentForecast = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projectId = req.params.id;
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+
+    const forecasts = await PaymentForecast.find({ tenantId, projectId, year }).sort({ month: 1 });
+
+    const months = [];
+    for (let m = 1; m <= 12; m++) {
+      const entry = forecasts.find((f) => f.month === m);
+      months.push({
+        month: m,
+        year,
+        forecastAmount: entry ? entry.forecastAmount : 0,
+        actualAmount: entry ? entry.actualAmount : 0,
+      });
+    }
+
+    res.json({ data: months });
+  } catch (error) {
+    console.error('Get payment forecast error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.upsertPaymentForecast = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const projectId = req.params.id;
+    const { year, month, forecastAmount, actualAmount } = req.body;
+
+    const forecast = await PaymentForecast.findOneAndUpdate(
+      { tenantId, projectId, year, month },
+      { tenantId, projectId, year, month, forecastAmount, actualAmount },
+      { upsert: true, new: true }
+    );
+
+    res.json({ data: forecast });
+  } catch (error) {
+    console.error('Upsert forecast error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Exports ─────────────────────────────────────────────────────────────
+
 exports.exportXlsx = async (req, res) => {
   try {
     const ExcelJS = require('exceljs');
-    const tenantId = req.tenant ? req.tenant._id : null;
-    const filter = tenantId ? { tenantId } : {};
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
 
-    const projects = await Project.find(filter).lean();
-
+    const projects = await Project.find({ tenantId, isDeleted: { $ne: true } }).lean();
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Projects');
 
@@ -150,7 +432,6 @@ exports.exportXlsx = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=projects.xlsx');
-
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
@@ -159,16 +440,15 @@ exports.exportXlsx = async (req, res) => {
   }
 };
 
-// GET /api/projects/export/pdf
 exports.exportPdf = async (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
-    const tenantId = req.tenant ? req.tenant._id : null;
-    const filter = tenantId ? { tenantId } : {};
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
 
-    const projects = await Project.find(filter).lean();
-
+    const projects = await Project.find({ tenantId, isDeleted: { $ne: true } }).lean();
     const doc = new PDFDocument({ margin: 50 });
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=projects.pdf');
     doc.pipe(res);
@@ -196,76 +476,3 @@ exports.exportPdf = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
-// GET /api/projects/:projectId/activities
-exports.getActivities = async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.projectId).lean();
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
-
-    const activities = [];
-    if (project.startDate && project.completionDate) {
-      const totalDays = (new Date(project.completionDate) - new Date(project.startDate)) / (1000 * 60 * 60 * 24);
-      const phases = ['Site Preparation', 'Foundation', 'Structure', 'MEP Installation', 'Finishing', 'Handover'];
-
-      phases.forEach((name, i) => {
-        const start = new Date(project.startDate);
-        start.setDate(start.getDate() + Math.floor((totalDays / phases.length) * i));
-        const end = new Date(project.startDate);
-        end.setDate(end.getDate() + Math.floor((totalDays / phases.length) * (i + 1)));
-
-        const pct = project.percentComplete || 0;
-        const phaseThreshold = ((i + 1) / phases.length) * 100;
-        let status = 'on_track';
-        if (pct < phaseThreshold - 20) status = 'delayed';
-        else if (pct < phaseThreshold - 5) status = 'at_risk';
-
-        activities.push({
-          id: `${project._id}-phase-${i}`,
-          name,
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
-          status,
-        });
-      });
-    }
-
-    res.json({ data: activities });
-  } catch (error) {
-    console.error('Get activities error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-function formatProject(p) {
-  return {
-    id: (p._id || p.id).toString(),
-    tenantId: p.tenantId ? p.tenantId.toString() : null,
-    name: p.name,
-    referenceCode: p.referenceCode || '',
-    contractValue: p.contractValue || 0,
-    expenditureToDate: p.expenditureToDate || 0,
-    balance: (p.contractValue || 0) - (p.expenditureToDate || 0),
-    status: p.status,
-    gpsLatitude: p.gpsLatitude || null,
-    gpsLongitude: p.gpsLongitude || null,
-    geoTecEngineer: p.geoTecEngineer || null,
-    geoTecReportStatus: p.geoTecReportStatus || null,
-    ddrStatus: p.ddrStatus || null,
-    contractor: p.contractor || null,
-    constructionStatus: p.constructionStatus || null,
-    startDate: p.startDate ? p.startDate.toISOString ? p.startDate.toISOString() : p.startDate : null,
-    completionDate: p.completionDate ? p.completionDate.toISOString ? p.completionDate.toISOString() : p.completionDate : null,
-    percentComplete: p.percentComplete || 0,
-    challenges: p.challenges || null,
-    recommendation: p.recommendation || null,
-    totalEmployees: p.totalEmployees || 0,
-    roePercent: p.roePercent || 0,
-    projectManagerId: p.projectManagerId ? p.projectManagerId.toString() : null,
-    attachmentCount: p.attachmentCount || 0,
-    createdAt: p.createdAt ? (p.createdAt.toISOString ? p.createdAt.toISOString() : p.createdAt) : null,
-    updatedAt: p.updatedAt ? (p.updatedAt.toISOString ? p.updatedAt.toISOString() : p.updatedAt) : null,
-  };
-}

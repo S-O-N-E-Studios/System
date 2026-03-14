@@ -8,10 +8,11 @@ interface FileListParams {
   pageSize?: number;
 }
 
-export function useFiles(params?: FileListParams) {
+export function useFiles(params?: FileListParams | undefined) {
   return useQuery({
     queryKey: ['files', params],
-    queryFn: () => filesApi.list(params),
+    queryFn: () => filesApi.list(params!),
+    enabled: params !== undefined,
   });
 }
 

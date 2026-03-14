@@ -1,5 +1,8 @@
 const File = require('../models/File');
-const path = require('path');
+
+function getTenantId(req) {
+  return req.tenant ? req.tenant._id : null;
+}
 
 function formatFile(f) {
   const obj = f.toObject ? f.toObject() : f;
@@ -29,18 +32,19 @@ function inferCategory(mimeType) {
   return 'document';
 }
 
-// GET /api/files
 exports.getFiles = async (req, res) => {
   try {
-    const tenantId = req.tenant ? req.tenant._id : null;
-    const { projectId, category, page = 1, pageSize = 20 } = req.query;
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const { projectId, category, documentType, page = 1, pageSize = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(pageSize);
     const limit = parseInt(pageSize);
 
-    const filter = {};
-    if (tenantId) filter.tenantId = tenantId;
+    const filter = { tenantId };
     if (projectId) filter.projectId = projectId;
     if (category) filter.category = category;
+    if (documentType) filter.documentType = documentType;
 
     const [files, total] = await Promise.all([
       File.find(filter)
@@ -64,14 +68,13 @@ exports.getFiles = async (req, res) => {
   }
 };
 
-// POST /api/files/upload
 exports.uploadFile = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-    const tenantId = req.tenant ? req.tenant._id : null;
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
     const { projectId, documentType } = req.body;
 
     const file = await File.create({
@@ -98,13 +101,13 @@ exports.uploadFile = async (req, res) => {
   }
 };
 
-// DELETE /api/files/:id
 exports.deleteFile = async (req, res) => {
   try {
-    const file = await File.findById(req.params.id);
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const file = await File.findOne({ _id: req.params.id, tenantId });
+    if (!file) return res.status(404).json({ message: 'File not found' });
 
     const fs = require('fs');
     if (file.path && fs.existsSync(file.path)) {
@@ -119,13 +122,13 @@ exports.deleteFile = async (req, res) => {
   }
 };
 
-// GET /api/files/:id/download
 exports.downloadFile = async (req, res) => {
   try {
-    const file = await File.findById(req.params.id);
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const file = await File.findOne({ _id: req.params.id, tenantId });
+    if (!file) return res.status(404).json({ message: 'File not found' });
 
     if (file.path) {
       const fs = require('fs');

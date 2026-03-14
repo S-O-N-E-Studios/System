@@ -1,5 +1,9 @@
 const Payment = require('../models/Payment');
 
+function getTenantId(req) {
+  return req.tenant ? req.tenant._id : null;
+}
+
 function formatPayment(p) {
   const obj = p.toObject ? p.toObject() : p;
   return {
@@ -16,16 +20,16 @@ function formatPayment(p) {
   };
 }
 
-// GET /api/payments/history
 exports.getPaymentHistory = async (req, res) => {
   try {
-    const tenantId = req.tenant ? req.tenant._id : null;
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
     const { page = 1, pageSize = 20, status, projectId, dateFrom, dateTo } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(pageSize);
     const limit = parseInt(pageSize);
 
-    const filter = {};
-    if (tenantId) filter.tenantId = tenantId;
+    const filter = { tenantId };
     if (status) filter.paymentStatus = status;
     if (projectId) filter.projectId = projectId;
     if (dateFrom || dateTo) {
@@ -52,12 +56,40 @@ exports.getPaymentHistory = async (req, res) => {
   }
 };
 
-// GET /api/payments/forecast
+exports.createPayment = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const payment = await Payment.create({ ...req.body, tenantId });
+    res.status(201).json({ data: formatPayment(payment) });
+  } catch (error) {
+    console.error('Create payment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.updatePayment = async (req, res) => {
+  try {
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
+
+    const payment = await Payment.findOne({ _id: req.params.id, tenantId });
+    if (!payment) return res.status(404).json({ message: 'Payment not found' });
+
+    Object.assign(payment, req.body);
+    await payment.save();
+    res.json({ data: formatPayment(payment) });
+  } catch (error) {
+    console.error('Update payment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 exports.getPaymentForecast = async (req, res) => {
   try {
-    const tenantId = req.tenant ? req.tenant._id : null;
-    const filter = {};
-    if (tenantId) filter.tenantId = tenantId;
+    const tenantId = getTenantId(req);
+    if (!tenantId) return res.status(400).json({ message: 'Tenant required' });
 
     const now = new Date();
     const months = [];
@@ -71,7 +103,7 @@ exports.getPaymentForecast = async (req, res) => {
     }
 
     const payments = await Payment.find({
-      ...filter,
+      tenantId,
       paymentDate: { $gte: months[0].start, $lte: months[months.length - 1].end },
     }).lean();
 
@@ -88,11 +120,9 @@ exports.getPaymentForecast = async (req, res) => {
         actual.push({ month: m.month, amount: totalAmount });
       }
 
-      // Forecast: use actual data for past months, project forward for future
       if (m.start > now) {
         const avgMonthly = actual.length > 0
-          ? actual.reduce((s, a) => s + a.amount, 0) / actual.length
-          : 0;
+          ? actual.reduce((s, a) => s + a.amount, 0) / actual.length : 0;
         forecast.push({ month: m.month, amount: Math.round(avgMonthly * (0.9 + Math.random() * 0.2)) });
       } else {
         forecast.push({ month: m.month, amount: totalAmount });

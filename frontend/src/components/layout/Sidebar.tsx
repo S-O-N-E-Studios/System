@@ -10,7 +10,9 @@ import {
   User,
   X,
   Star,
+  LogOut,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import Avatar from '@/components/ui/Avatar';
@@ -24,8 +26,14 @@ interface NavItem {
 
 export default function Sidebar() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { sidebarMobileOpen, setSidebarMobileOpen } = useUiStore();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
+  };
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4 shrink-0" />, path: 'dashboard' },
@@ -147,24 +155,35 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* User Profile (bottom): avatar only when collapsed */}
         {user && (
-          <NavLink
-            to={`${basePath}/profile`}
-            className="flex items-center gap-3 px-6 py-4 border-t border-[var(--border)] hover:bg-[rgba(201,169,97,0.08)] transition-colors shrink-0 lg:justify-center lg:group-hover:justify-start lg:px-6"
-            onClick={() => setSidebarMobileOpen(false)}
-          >
-            <Avatar name={`${user.firstName} ${user.lastName}`} src={user.avatarUrl} size="lg" />
-            <div className="hidden lg:flex flex-col min-w-0 overflow-hidden w-0 lg:group-hover:w-auto lg:group-hover:flex whitespace-nowrap transition-[width] duration-300">
-              <span className="text-[0.78rem] font-body font-medium text-[var(--text-primary)] truncate">
-                {user.firstName} {user.lastName}
+          <div className="border-t border-[var(--border)] shrink-0">
+            <NavLink
+              to={`${basePath}/profile`}
+              className="flex items-center gap-3 px-6 py-3 hover:bg-[rgba(201,169,97,0.08)] transition-colors lg:justify-center lg:group-hover:justify-start lg:px-6"
+              onClick={() => setSidebarMobileOpen(false)}
+            >
+              <Avatar name={`${user.firstName} ${user.lastName}`} src={user.avatarUrl} size="lg" />
+              <div className="hidden lg:flex flex-col min-w-0 overflow-hidden w-0 lg:group-hover:w-auto lg:group-hover:flex whitespace-nowrap transition-[width] duration-300">
+                <span className="text-[0.78rem] font-body font-medium text-[var(--text-primary)] truncate">
+                  {user.firstName} {user.lastName}
+                </span>
+                <span className="text-[0.6rem] text-[var(--text-muted)] tracking-wider uppercase">
+                  {user.role.replace('_', ' ')}
+                </span>
+              </div>
+              <User className="h-4 w-4 ml-auto text-[var(--text-muted)] hidden lg:group-hover:block shrink-0" />
+            </NavLink>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-6 py-3 text-[0.75rem] text-[var(--text-muted)] hover:text-[var(--status-danger)] hover:bg-[rgba(239,68,68,0.08)] transition-all lg:justify-center lg:group-hover:justify-start lg:px-6"
+              data-testid="logout-button"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              <span className="hidden lg:inline overflow-hidden w-0 lg:group-hover:w-auto whitespace-nowrap transition-[width] duration-300">
+                Sign Out
               </span>
-              <span className="text-[0.6rem] text-[var(--text-muted)] tracking-wider uppercase">
-                {user.role.replace('_', ' ')}
-              </span>
-            </div>
-            <User className="h-4 w-4 ml-auto text-[var(--text-muted)] hidden lg:group-hover:block shrink-0" />
-          </NavLink>
+            </button>
+          </div>
         )}
       </aside>
     </>
