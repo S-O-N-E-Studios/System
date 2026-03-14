@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -136,7 +136,7 @@ export default function Kanban() {
   const [newTaskColumn, setNewTaskColumn] = useState<TaskStatus>('backlog');
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as TaskPriority });
 
-  const tasks = tasksResponse?.data ?? [];
+  const tasks = useMemo(() => tasksResponse?.data ?? [], [tasksResponse?.data]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Project, ApiResponse, PaginatedResponse, ProjectFormData, PaymentHistoryEntry, ScheduleActivity } from '@/types';
+import type { Project, ApiResponse, PaginatedResponse, PaymentHistoryEntry, ScheduleActivity } from '@/types';
 
 interface ProjectListParams {
   page?: number;
