@@ -18,7 +18,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@/animations/*": ["animations/*"]
     }
   },
   "include": ["src", "vite-env.d.ts"]

@@ -49,6 +49,7 @@ export default function Register() {
       adminEmail: '',
       adminPassword: '',
       adminPasswordConfirm: '',
+      agreeToTerms: false,
     },
   });
 
@@ -115,13 +116,25 @@ export default function Register() {
       addToast({ type: 'success', message: 'Organisation created successfully!' });
       navigate(`/${data.slug}/dashboard`);
     } catch (err: unknown) {
+      const ax = err as { response?: { data?: { message?: string }; status?: number } };
       const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Registration failed. Please try again.';
+        ax?.response?.data?.message ??
+        (ax?.response?.status === 404 || ax?.response?.status === 502
+          ? 'Server not reachable. Is the backend running on port 5000?'
+          : 'Registration failed. Please try again.');
       addToast({ type: 'error', message });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const onInvalid = () => {
+    addToast({
+      type: 'error',
+      message: errors.agreeToTerms
+        ? 'Please agree to the Terms of Service and Privacy Policy.'
+        : 'Please fix the errors below before continuing.',
+    });
   };
 
   // Password strength indicator
@@ -194,7 +207,7 @@ export default function Register() {
           })}
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
           {/* Step 1: Organisation */}
           <div className={step === 1 ? 'animate-fade-in' : 'hidden'}>
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8">
@@ -344,6 +357,12 @@ export default function Register() {
           <div className={step === 3 ? 'animate-fade-in' : 'hidden'}>
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8">
               <h3 className="text-h3 mb-6">Review & Confirm</h3>
+
+              {Object.keys(errors).length > 0 && (
+                <div className="mb-6 p-4 border border-[var(--status-review)] bg-[rgba(201,169,97,0.08)] text-[var(--text-primary)] text-[0.82rem]">
+                  Please fix the errors below. You must agree to the terms to continue.
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="flex flex-col gap-4">

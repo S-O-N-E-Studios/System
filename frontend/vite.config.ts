@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@/animations': path.resolve(__dirname, './animations'),
       '@': path.resolve(__dirname, './src'),
     },
   },
