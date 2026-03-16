@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
+import EmptyState from '@/components/ui/EmptyState';
 
 const mockTenants = [
   { id: '1', name: 'Limpopo Civil Engineering', slug: 'limpopo-civil', plan: 'Starter', users: 4, isActive: true },
@@ -19,6 +20,12 @@ export default function Tenants() {
       </div>
 
       <div className="bg-[var(--bg-card)] border border-[var(--border)]">
+        {mockTenants.length === 0 ? (
+          <EmptyState
+            title="No tenants yet."
+            description="Organisations will appear here once created."
+          />
+        ) : (
         <table className="w-full">
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -48,6 +55,7 @@ export default function Tenants() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );

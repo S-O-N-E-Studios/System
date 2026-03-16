@@ -2,6 +2,7 @@ import { useState } from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
+import EmptyState from '@/components/ui/EmptyState';
 import { Plus, GripVertical } from 'lucide-react';
 import type { TaskStatus, TaskPriority } from '@/types';
 
@@ -58,6 +59,14 @@ export default function Kanban() {
       </div>
 
       {/* Board */}
+      {tasks.length === 0 ? (
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg">
+          <EmptyState
+            title="No tasks on this board yet."
+            description="Add a task or switch to another sprint."
+          />
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
         {columns.map((col) => {
           const colTasks = tasks.filter((t) => t.status === col.key);
@@ -87,6 +96,9 @@ export default function Kanban() {
 
               {/* Cards */}
               <div className="flex flex-col gap-2">
+                {colTasks.length === 0 && (
+                  <p className="text-[0.7rem] text-[var(--text-muted)] py-4 text-center">No tasks</p>
+                )}
                 {colTasks.map((task) => (
                   <div
                     key={task.id}
@@ -134,6 +146,7 @@ export default function Kanban() {
           );
         })}
       </div>
+      )}
 
       <p className="text-[0.65rem] text-[var(--text-muted)] mt-8 text-center">
         Drag-and-drop with @dnd-kit will be wired in Sprint 5.

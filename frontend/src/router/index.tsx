@@ -1,18 +1,11 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { AuthGuard, TenantGuard, SuperAdminGuard } from './guards';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 // Skeleton fallback for lazy-loaded routes
 function PageSkeleton() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-      <div className="flex flex-col items-center gap-6">
-        <div className="h-8 w-64 skeleton" />
-        <div className="h-4 w-48 skeleton" />
-        <div className="h-4 w-32 skeleton" />
-      </div>
-    </div>
-  );
+  return <LoadingOverlay />;
 }
 
 function LazyRoute({ component: Component }: { component: React.LazyExoticComponent<() => JSX.Element | null> }) {

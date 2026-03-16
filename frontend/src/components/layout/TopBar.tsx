@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Sun, Moon, Bell, Menu } from 'lucide-react';
+import { Search, Bell, Menu } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useAuthStore } from '@/store/authStore';
@@ -8,7 +8,7 @@ import Avatar from '@/components/ui/Avatar';
 export default function TopBar() {
   const navigate = useNavigate();
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
-  const { theme, toggleTheme, setSidebarMobileOpen } = useUiStore();
+  const { setSidebarMobileOpen } = useUiStore();
   const { currentTenant } = useTenantStore();
   const { user } = useAuthStore();
 
@@ -19,7 +19,7 @@ export default function TopBar() {
         'bg-[var(--nav-backdrop)] backdrop-blur-[30px]',
         'border-b border-[var(--border)]',
         'flex items-center justify-between px-6',
-        'w-full lg:w-[calc(100%-290px)]',
+        'w-full lg:left-[72px] lg:w-[calc(100%-72px)]',
       ].join(' ')}
     >
       {/* Left: Hamburger (mobile) + Search */}
@@ -64,19 +64,6 @@ export default function TopBar() {
             {currentTenant.name}
           </button>
         )}
-
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors p-1"
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-        >
-          {theme === 'dark' ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
-        </button>
 
         {/* Notifications */}
         <button
