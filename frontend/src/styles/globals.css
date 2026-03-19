@@ -3,92 +3,113 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   S.O.N.E STUDIOS — Design Token System v3.0
-   Locked per approved Functional Prototype & UI Design Document.
-   WCAG 2.1 AA: standard text ≥4.5:1, large text/UI ≥3:1 (contrast-enhanced).
-   All CSS must reference these tokens — no hardcoded hex in components.
+   PROJECT 360 - Atlas White Design Token System v4.0
+   RAL 095 90 10 foundation. Warm sand, periwinkle blue, cream lineage.
+   WCAG 2.1 AA: standard text ≥4.5:1, large text/UI ≥3:1.
+   All CSS must reference these tokens - no hardcoded hex in components.
+   Semantic status colours are platform-locked - orgs cannot override.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Dark Theme (Default) ─────────────────────────────────────────────── */
+/* Light Theme (Default - Atlas White Foundation) */
 :root,
-[data-theme='dark'] {
-  --bg-primary: #080808;
-  --bg-secondary: #111111;
-  --bg-card: #181818;
-
-  --accent: #c9a961;
-  --accent-light: #e2c98a;
-  --accent-dim: #8b7355;
-  --accent-glow: rgba(201, 169, 97, 0.07);
-
-  /* High-contrast data accent layer (teal/blue) */
-  --teal-accent: #2dd4bf;
-  --teal-accent-dim: #0f766e;
-  --blue-accent: #60a5fa;
-
-  /* Contrast-enhanced: primary/secondary/muted meet WCAG 4.5:1 on bg-card and bg-primary */
-  --text-primary: #f5f5f5;
-  --text-secondary: #aaaaaa;
-  --text-muted: #5e5e5e;
-
-  --border: rgba(201, 169, 97, 0.2);
-  --border-strong: rgba(201, 169, 97, 0.35);
-
-  --status-active: #4ade80;
-  --status-review: #facc15;
-  --status-planning: #60a5fa;
-  --status-done: #a78bfa;
-  --status-danger: #f87171;
-
-  --nav-backdrop: rgba(10, 10, 10, 0.85);
-
-  --table-header-bg: #0d3d3d;
-  --table-subheader-bg: rgba(13, 61, 61, 0.35);
-}
-
-/* ─── Light Theme Overrides ────────────────────────────────────────────── */
 [data-theme='light'] {
-  --bg-primary: #fafafa;
-  --bg-secondary: #f5f5f0;
-  --bg-card: #ffffff;
+  --bg-primary: #ECE4CE;
+  --bg-surface: #FFFFFF;
+  --bg-surface-alt: #F5F0E8;
 
-  /* Warm cream base with higher-contrast accents */
-  --accent: #7c5c1e;
-  --accent-light: #a2731e;
-  --accent-dim: #6b5d4f;
-  --accent-glow: rgba(139, 115, 85, 0.07);
+  --accent-sand: #D7C697;
+  --accent-periwinkle: #97A8D7;
+  --accent-lavender: #CED6EC;
 
-  /* Teal/blue accents tuned for light mode contrast */
-  --teal-accent: #0f766e;
-  --teal-accent-dim: #115e59;
-  --blue-accent: #1d4ed8;
+  --status-success: #7A9B76;
+  --status-warning: #C4A45A;
+  --status-danger: #B07A6E;
 
-  /* WCAG 4.5:1 on light backgrounds */
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a4a4a;
-  --text-muted: #6b6b6b;
+  --text-primary: #2C2822;
+  --text-muted: #7A7260;
+  --text-financial: #3A3428;
 
-  --border: rgba(0, 0, 0, 0.12);
-  --border-strong: rgba(0, 0, 0, 0.18);
+  --border-default: #E8E0CE;
 
-  --nav-backdrop: rgba(254, 254, 254, 0.85);
+  --accent-sand-glow: rgba(215, 198, 151, 0.07);
+  --nav-backdrop: rgba(236, 228, 206, 0.85);
+  --table-header-bg: rgba(215, 198, 151, 0.25);
+  --table-row-alt: var(--bg-surface-alt);
+  --crosshatch-color: rgba(215, 198, 151, 0.03);
+  --selection-bg: rgba(215, 198, 151, 0.3);
 
-  --table-header-bg: #e8f0ef;
-  --table-subheader-bg: rgba(200, 220, 218, 0.35);
-
-  --status-active: #15803d;
-  --status-review: #b45309;
-  --status-planning: #1d4ed8;
-  --status-done: #6d28d9;
-  --status-danger: #b91c1c;
+  /* Backward-compatible aliases (migrate components to new names over time) */
+  --bg-secondary: var(--bg-surface-alt);
+  --bg-card: var(--bg-surface);
+  --accent: var(--accent-sand);
+  --accent-light: var(--accent-periwinkle);
+  --accent-dim: var(--accent-lavender);
+  --accent-glow: var(--accent-sand-glow);
+  --teal-accent: var(--accent-periwinkle);
+  --teal-accent-dim: var(--accent-periwinkle);
+  --blue-accent: var(--accent-periwinkle);
+  --text-secondary: var(--text-muted);
+  --border: var(--border-default);
+  --border-strong: var(--border-default);
+  --status-active: var(--status-success);
+  --status-review: var(--status-warning);
+  --status-planning: var(--accent-periwinkle);
+  --status-done: var(--accent-lavender);
+  --table-subheader-bg: rgba(215, 198, 151, 0.12);
 }
 
-/* ─── Global Theme Transition ──────────────────────────────────────────── */
+/* Dark Theme (Warm derivation - not cold) */
+[data-theme='dark'] {
+  --bg-primary: #1A1814;
+  --bg-surface: #26231C;
+  --bg-surface-alt: #2E2A22;
+
+  --accent-sand: #B8A87A;
+  --accent-periwinkle: #6B7FB8;
+  --accent-lavender: #8A97C4;
+
+  --status-success: #6A8B66;
+  --status-warning: #A88D4A;
+  --status-danger: #9A6A60;
+
+  --text-primary: #E8E0CE;
+  --text-muted: #9A9282;
+  --text-financial: #D4CAB4;
+
+  --border-default: #3A3428;
+
+  --accent-sand-glow: rgba(184, 168, 122, 0.07);
+  --nav-backdrop: rgba(26, 24, 20, 0.85);
+  --table-header-bg: rgba(184, 168, 122, 0.2);
+  --table-row-alt: var(--bg-surface-alt);
+  --crosshatch-color: rgba(184, 168, 122, 0.03);
+  --selection-bg: rgba(184, 168, 122, 0.3);
+
+  --bg-secondary: var(--bg-surface-alt);
+  --bg-card: var(--bg-surface);
+  --accent: var(--accent-sand);
+  --accent-light: var(--accent-periwinkle);
+  --accent-dim: var(--accent-lavender);
+  --accent-glow: var(--accent-sand-glow);
+  --teal-accent: var(--accent-periwinkle);
+  --teal-accent-dim: var(--accent-periwinkle);
+  --blue-accent: var(--accent-periwinkle);
+  --text-secondary: var(--text-muted);
+  --border: var(--border-default);
+  --border-strong: var(--border-default);
+  --status-active: var(--status-success);
+  --status-review: var(--status-warning);
+  --status-planning: var(--accent-periwinkle);
+  --status-done: var(--accent-lavender);
+  --table-subheader-bg: rgba(184, 168, 122, 0.1);
+}
+
+/* Theme Transition (300ms per Atlas spec) */
 body {
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 300ms ease, color 300ms ease;
 }
 
-/* ─── Reduced Motion ───────────────────────────────────────────────────── */
+/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -98,7 +119,7 @@ body {
   }
 }
 
-/* ─── Base Reset & Defaults ────────────────────────────────────────────── */
+/* Base Reset and Defaults */
 @layer base {
   * {
     box-sizing: border-box;
@@ -108,22 +129,21 @@ body {
   }
 
   html {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     background-color: var(--bg-primary);
-    color: var(--text-secondary);
-    font-family: 'Montserrat', sans-serif;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
-    font-weight: 300;
+    font-weight: 400;
     line-height: 1.6;
     min-height: 100vh;
   }
 
-  /* Geometric crosshatch texture on primary backgrounds */
   body::before {
     content: '';
     position: fixed;
@@ -135,15 +155,15 @@ body {
         45deg,
         transparent,
         transparent 10px,
-        rgba(201, 169, 97, 0.03) 10px,
-        rgba(201, 169, 97, 0.03) 11px
+        var(--crosshatch-color) 10px,
+        var(--crosshatch-color) 11px
       ),
       repeating-linear-gradient(
         -45deg,
         transparent,
         transparent 10px,
-        rgba(201, 169, 97, 0.03) 10px,
-        rgba(201, 169, 97, 0.03) 11px
+        var(--crosshatch-color) 10px,
+        var(--crosshatch-color) 11px
       );
   }
 
@@ -153,7 +173,6 @@ body {
     min-height: 100vh;
   }
 
-  /* Sharp corners — non-negotiable */
   button,
   input,
   select,
@@ -163,13 +182,11 @@ body {
     border-radius: 0 !important;
   }
 
-  /* Focus indicators — 3:1 minimum for UI components (WCAG 2.1) */
   :focus-visible {
-    outline: 2px solid var(--teal-accent);
+    outline: 2px solid var(--accent-periwinkle);
     outline-offset: 3px;
   }
 
-  /* Scrollbar: hidden by default on sidebar */
   .scrollbar-hidden {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -178,17 +195,17 @@ body {
     display: none;
   }
 
-  /* Selection colour */
   ::selection {
-    background-color: rgba(201, 169, 97, 0.3);
+    background-color: var(--selection-bg);
     color: var(--text-primary);
   }
 }
 
-/* ─── Typography Utility Classes ───────────────────────────────────────── */
+/* Typography Utility Classes */
 @layer components {
+  /* Playfair Display stands in for Canela (commercial - swap when licensed) */
   .text-h1 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: 3rem;
     font-weight: 300;
     letter-spacing: 0.5px;
@@ -196,7 +213,7 @@ body {
   }
 
   .text-h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: 2rem;
     font-weight: 400;
     letter-spacing: 0;
@@ -204,7 +221,7 @@ body {
   }
 
   .text-h3 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: 1.35rem;
     font-weight: 500;
     letter-spacing: 0.5px;
@@ -212,53 +229,59 @@ body {
   }
 
   .text-stat {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-sand);
   }
 
   .text-currency {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 1rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--text-financial);
+  }
+
+  .text-financial {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    color: var(--text-financial);
   }
 
   .text-eyebrow {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-sand);
   }
 
   .text-table-header {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-sand);
   }
 
   .text-table-cell {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.82rem;
-    font-weight: 300;
-    color: var(--text-secondary);
+    font-weight: 400;
+    color: var(--text-muted);
   }
 
   .text-body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
-    font-weight: 300;
-    color: var(--text-secondary);
+    font-weight: 400;
+    color: var(--text-muted);
   }
 
   .text-button {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 2px;
@@ -266,22 +289,22 @@ body {
   }
 
   .text-nav {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.78rem;
-    font-weight: 400;
-    letter-spacing: 0.5px;
-    color: var(--text-secondary);
-  }
-
-  .text-mono {
-    font-family: 'DM Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.78rem;
     font-weight: 400;
     letter-spacing: 0.5px;
     color: var(--text-muted);
   }
 
-  /* ─── Animation Keyframes ─────────────────────────────────────────────── */
+  .text-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  /* Animation Keyframes */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -302,17 +325,59 @@ body {
     }
   }
 
+  @keyframes gaugeIn {
+    from {
+      stroke-dashoffset: var(--gauge-circumference, 283);
+    }
+    to {
+      stroke-dashoffset: var(--gauge-target, 0);
+    }
+  }
+
+  @keyframes barGrow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
   .animate-fade-in {
     animation: fadeIn 1s ease forwards;
   }
 
-  /* ─── Skeleton Loader ─────────────────────────────────────────────────── */
+  .animate-gauge {
+    animation: gaugeIn 1.2s ease-out forwards;
+  }
+
+  .animate-bar {
+    transform-origin: left;
+    animation: barGrow 0.8s ease-out forwards;
+  }
+
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out forwards;
+  }
+
+  /* Skeleton Loader */
   .skeleton {
     background: linear-gradient(
       90deg,
-      var(--bg-secondary) 25%,
-      var(--accent-glow) 50%,
-      var(--bg-secondary) 75%
+      var(--bg-surface-alt) 25%,
+      var(--accent-sand-glow) 50%,
+      var(--bg-surface-alt) 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;

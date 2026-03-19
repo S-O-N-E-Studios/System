@@ -66,7 +66,7 @@ function buildDemoUser(email) {
 
 exports.login = (req, res) => {
   const { email } = req.body;
-  const user = buildDemoUser(email || 'demo@sone.engineering');
+  const user = buildDemoUser(email || 'demo@project360.com');
   const tokens = buildTokens();
 
   res.json({
@@ -103,7 +103,7 @@ exports.registerOrg = (req, res) => {
 exports.checkSlug = (req, res) => {
   const { slug } = req.params;
   // Very lightweight check: mark obviously "taken" slugs as unavailable.
-  const taken = ['demo', 'test', 'sone', 'sone-studios'];
+  const taken = ['demo', 'test', 'project360', 'project-360'];
 
   const available = !taken.includes(String(slug).toLowerCase());
 
@@ -151,7 +151,7 @@ exports.refreshToken = (req, res) => {
 exports.getMe = (req, res) => {
   // In a real implementation we would read the user from the access token.
   // For now, return a stable demo user so the UI can hydrate.
-  const user = buildDemoUser('demo@sone.engineering');
+  const user = buildDemoUser('demo@project360.com');
   res.json({
     data: user,
   });

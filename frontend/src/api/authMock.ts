@@ -62,6 +62,7 @@ export interface MockLoginRequest {
 export interface MockRegisterOrgRequest {
   orgName: string;
   slug: string;
+  orgType: 'provincial_gov' | 'private_firm';
   industryType: string;
   primaryContactName: string;
   primaryContactEmail: string;
@@ -92,7 +93,7 @@ export const authMock = {
 
   checkSlug: async (slug: string): Promise<{ available: boolean; suggestion?: string }> => {
     await delay(200);
-    const taken = ['demo', 'test', 'sone', 'sone-studios'];
+    const taken = ['demo', 'test', 'project360', 'project-360'];
     const available = !taken.includes(String(slug).toLowerCase());
     return { available, suggestion: available ? undefined : `${slug}-1` };
   },

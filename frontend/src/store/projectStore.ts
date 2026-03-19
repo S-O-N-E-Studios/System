@@ -21,7 +21,7 @@ const defaultFilters: TableFilter = {
 
 export const useProjectStore = create<ProjectState>((set) => ({
   activeProjectId: null,
-  activeTab: 'ps',
+  activeTab: 'overview',
   tableFilters: { ...defaultFilters },
 
   setActiveProject: (id) => set({ activeProjectId: id }),

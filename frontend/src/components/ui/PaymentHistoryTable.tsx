@@ -139,7 +139,7 @@ export default function PaymentHistoryTable({
                   </td>
                   {showProjectColumn && (
                     <td className="px-4 py-3 text-table-cell">
-                      {row.projectName ?? '—'}
+                      {row.projectName ?? 'N/A'}
                     </td>
                   )}
                   <td className="px-4 py-3">

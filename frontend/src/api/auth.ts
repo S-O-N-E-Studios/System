@@ -18,6 +18,7 @@ interface LoginResponse {
 interface RegisterOrgRequest {
   orgName: string;
   slug: string;
+  orgType: 'provincial_gov' | 'private_firm';
   industryType: string;
   primaryContactName: string;
   primaryContactEmail: string;

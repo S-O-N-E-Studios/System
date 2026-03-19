@@ -20,7 +20,7 @@ const queryClient = new QueryClient({
 });
 
 // Apply persisted theme on load
-const savedTheme = localStorage.getItem('sone-theme') ?? 'dark';
+const savedTheme = localStorage.getItem('p360-theme') ?? 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

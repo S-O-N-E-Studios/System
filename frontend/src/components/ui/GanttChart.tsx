@@ -177,7 +177,7 @@ export default function GanttChart({
                         left: `${leftPercent}%`,
                         width: `${widthPercent}%`,
                       }}
-                      title={`${a.name}: ${formatDate(a.startDate)} – ${formatDate(
+                      title={`${a.name}: ${formatDate(a.startDate)} to ${formatDate(
                         a.endDate
                       )}`}
                     />
@@ -221,7 +221,7 @@ export default function GanttChart({
               <div>
                 <p className="text-[0.85rem] text-[var(--text-primary)] mb-1">{a.name}</p>
                 <p className="text-[0.7rem] text-[var(--text-muted)]">
-                  {formatDate(a.startDate)} – {formatDate(a.endDate)}
+                  {formatDate(a.startDate)} to {formatDate(a.endDate)}
                 </p>
               </div>
               <span
