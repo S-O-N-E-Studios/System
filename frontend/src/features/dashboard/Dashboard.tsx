@@ -9,7 +9,12 @@ import { Download, MapPin } from 'lucide-react';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
-import { fetchDashboardSummary } from '@/api/dashboard';
+import {
+  fetchDashboardSummary,
+  type DepartmentBudgetSummary,
+  type RecentProjectSummary,
+  type OutstandingTaskSummary,
+} from '@/api/dashboard';
 
 function formatBudgetLabel(amount: number): string {
   if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1)}B`;
@@ -24,11 +29,9 @@ export default function Dashboard() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [departments, setDepartments] = useState<ReturnType<typeof Array.prototype.slice>>([]);
-  const [recentProjects, setRecentProjects] = useState<ReturnType<typeof Array.prototype.slice>>(
-    []
-  );
-  const [tasks, setTasks] = useState<ReturnType<typeof Array.prototype.slice>>([]);
+  const [departments, setDepartments] = useState<DepartmentBudgetSummary[]>([]);
+  const [recentProjects, setRecentProjects] = useState<RecentProjectSummary[]>([]);
+  const [tasks, setTasks] = useState<OutstandingTaskSummary[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -45,9 +48,8 @@ export default function Dashboard() {
         setDepartments(summary.departments);
         setRecentProjects(summary.recentProjects);
         setTasks(summary.outstandingTasks);
-      } catch (err) {
+      } catch {
         if (!isMounted) return;
-        // For now just capture a simple message; UI shows generic error
         setError('Failed to load dashboard data.');
       } finally {
         if (isMounted) {
@@ -68,7 +70,7 @@ export default function Dashboard() {
   const tenantName = currentTenant?.name ?? 'Mpumalanga Provincial Government';
 
   const maxBudget =
-    departments.length > 0 ? Math.max(...departments.map((d: any) => d.budget)) : 0;
+    departments.length > 0 ? Math.max(...departments.map((d) => d.budget)) : 0;
 
   if (isLoading) {
     return (
@@ -130,7 +132,7 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="flex items-end justify-between gap-4 h-[280px]">
-              {departments.map((dept: any, i: number) => {
+              {departments.map((dept, i) => {
                 const barHeight = maxBudget ? (dept.budget / maxBudget) * 100 : 0;
                 return (
                   <Link
@@ -211,7 +213,7 @@ export default function Dashboard() {
             />
           ) : (
             <div className="divide-y divide-[var(--border-default)]">
-              {recentProjects.map((p: any) => (
+              {recentProjects.map((p) => (
                 <Link
                   key={p.id}
                   to={`/${tenantSlug}/projects/${p.id}`}
@@ -253,7 +255,7 @@ export default function Dashboard() {
             />
           ) : (
             <div className="divide-y divide-[var(--border-default)]">
-              {tasks.map((t: any) => (
+              {tasks.map((t) => (
                 <div
                   key={t.id}
                   className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-sand-glow)] transition-colors"

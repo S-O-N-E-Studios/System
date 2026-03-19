@@ -39,7 +39,7 @@ export default function Grants() {
 
         setGrants(grantsData);
         setSummary(summaryData);
-      } catch (err) {
+      } catch {
         if (!isMounted) return;
         setError('Failed to load grants data.');
       } finally {

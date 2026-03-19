@@ -97,8 +97,7 @@ export default function IDPView() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // Mock: create placeholder download
-      console.warn('Export requires backend. Using mock.');
+      // Mock: create placeholder download when backend is not available
     }
   };
 

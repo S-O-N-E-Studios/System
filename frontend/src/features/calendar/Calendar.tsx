@@ -47,7 +47,7 @@ export default function Calendar() {
         });
         if (!isMounted) return;
         setEvents(loaded);
-      } catch (err) {
+      } catch {
         if (!isMounted) return;
         setError('Failed to load calendar events.');
       } finally {

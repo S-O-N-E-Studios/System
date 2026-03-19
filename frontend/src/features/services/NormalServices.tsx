@@ -129,7 +129,7 @@ export default function NormalServices() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      console.warn('Export requires backend.');
+      // Export requires backend when available
     }
   };
 
