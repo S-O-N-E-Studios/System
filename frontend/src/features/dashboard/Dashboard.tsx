@@ -22,6 +22,12 @@ function formatBudgetLabel(amount: number): string {
   return `${amount}`;
 }
 
+function projectStatusToBadge(
+  status: RecentProjectSummary['status']
+): 'active' | 'review' | 'planning' | 'done' {
+  return status === 'completed' ? 'done' : status;
+}
+
 export default function Dashboard() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
@@ -220,8 +226,12 @@ export default function Dashboard() {
                   className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-sand-glow)] transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <StatusBadge status={p.status}>
-                      {p.status === 'active' ? 'Active' : 'In Review'}
+                    <StatusBadge status={projectStatusToBadge(p.status)}>
+                      {p.status === 'active'
+                        ? 'Active'
+                        : p.status === 'completed'
+                          ? 'Completed'
+                          : 'In Review'}
                     </StatusBadge>
                     <div>
                       <span className="text-[0.82rem] text-[var(--text-primary)] group-hover:text-[var(--accent-sand)] transition-colors">
