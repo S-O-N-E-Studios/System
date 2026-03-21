@@ -158,7 +158,7 @@ export default function Dashboard() {
                     <div className="w-full max-w-[80px] relative" style={{ height: '200px' }}>
                       {/* Total budget bar */}
                       <div
-                        className="absolute bottom-0 left-0 right-0 bg-[var(--accent-sand)] group-hover:bg-[var(--accent-periwinkle)] transition-colors"
+                        className="absolute bottom-0 left-0 right-0 bg-[var(--chart-bar-base)] group-hover:brightness-[1.03] transition-colors"
                         style={{
                           height: `${barHeight}%`,
                           animation: `barGrow 0.8s ease-out ${i * 0.1}s both`,
@@ -167,7 +167,7 @@ export default function Dashboard() {
                       >
                         {/* Spent overlay */}
                         <div
-                          className="absolute bottom-0 left-0 right-0 bg-[var(--status-warning)] opacity-60"
+                          className="absolute bottom-0 left-0 right-0 bg-[var(--chart-bar-fill)] opacity-90"
                           style={{
                             height: dept.budget
                               ? `${(dept.spent / dept.budget) * 100}%`
@@ -178,7 +178,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Department label */}
-                    <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)] group-hover:text-[var(--accent-sand)] transition-colors text-center">
+                    <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)] group-hover:text-[var(--chart-bar-fill)] transition-colors text-center">
                       {dept.name}
                     </span>
                   </Link>
@@ -187,11 +187,11 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[var(--border-default)]">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[var(--accent-sand)]" />
+                <div className="w-3 h-3 bg-[var(--chart-bar-base)]" />
                 <span className="text-[0.62rem] text-[var(--text-muted)]">Total Budget</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[var(--status-warning)] opacity-60" />
+                <div className="w-3 h-3 bg-[var(--chart-bar-fill)] opacity-90" />
                 <span className="text-[0.62rem] text-[var(--text-muted)]">Expenditure to Date</span>
               </div>
             </div>

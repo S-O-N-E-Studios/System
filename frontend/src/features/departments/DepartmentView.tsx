@@ -86,7 +86,7 @@ export default function DepartmentView() {
                 </span>
                 <div className="w-full max-w-[90px] relative" style={{ height: '180px' }}>
                   <div
-                    className="absolute bottom-0 left-0 right-0 bg-[var(--accent-sand)]"
+                    className="absolute bottom-0 left-0 right-0 bg-[var(--chart-bar-base)]"
                     style={{
                       height: `${barHeight}%`,
                       animation: `barGrow 0.8s ease-out ${i * 0.12}s both`,
@@ -94,7 +94,7 @@ export default function DepartmentView() {
                     }}
                   >
                     <div
-                      className="absolute bottom-0 left-0 right-0 bg-[var(--status-warning)] opacity-60"
+                      className="absolute bottom-0 left-0 right-0 bg-[var(--chart-bar-fill)] opacity-90"
                       style={{ height: `${(prog.spent / prog.budget) * 100}%` }}
                     />
                   </div>

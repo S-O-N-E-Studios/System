@@ -52,7 +52,7 @@ function PaymentTooltip({
           Actual:{' '}
           <span
             className="text-currency"
-            style={{ color: 'var(--teal-accent)' }}
+            style={{ color: 'var(--chart-bar-series-b)' }}
           >
             {formatRands(actual.value)}
           </span>
@@ -112,14 +112,14 @@ export default function PaymentForecastChart({
               <Bar
                 dataKey="expected"
                 name="Expected Payments"
-                fill="var(--accent)"
+                fill="var(--chart-bar-series-a)"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={32}
               />
               <Bar
                 dataKey="actual"
                 name="Actual Payments"
-                fill="var(--teal-accent)"
+                fill="var(--chart-bar-series-b)"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={32}
               />

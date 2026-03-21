@@ -56,6 +56,15 @@
   --status-planning: var(--accent-periwinkle);
   --status-done: var(--accent-lavender);
   --table-subheader-bg: rgba(215, 198, 151, 0.12);
+
+  /* Charts: bar / activity timelines (blue family, Atlas periwinkle + lavender) */
+  --chart-bar-base: var(--accent-lavender);
+  --chart-bar-fill: var(--accent-periwinkle);
+  --chart-bar-fill-hover: #7B8EC9;
+  --chart-bar-series-a: var(--accent-periwinkle);
+  --chart-bar-series-b: #A8B5E0;
+  --chart-activity-bar: var(--accent-periwinkle);
+  --chart-activity-bar-hover: #7B8EC9;
 }
 
 /* Dark Theme (Warm derivation - not cold) */
@@ -102,6 +111,14 @@
   --status-planning: var(--accent-periwinkle);
   --status-done: var(--accent-lavender);
   --table-subheader-bg: rgba(184, 168, 122, 0.1);
+
+  --chart-bar-base: rgba(138, 151, 196, 0.35);
+  --chart-bar-fill: var(--accent-periwinkle);
+  --chart-bar-fill-hover: #8A9FD4;
+  --chart-bar-series-a: var(--accent-periwinkle);
+  --chart-bar-series-b: #9AAAD8;
+  --chart-activity-bar: var(--accent-periwinkle);
+  --chart-activity-bar-hover: #8A9FD4;
 }
 
 /* Theme Transition (300ms per Atlas spec) */

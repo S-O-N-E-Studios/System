@@ -189,7 +189,7 @@ function getEventBadgeBg(type: CalendarEventType): string {
     case 'project_complete':
       return 'var(--status-success)';
     case 'payment':
-      return 'var(--accent-sand)';
+      return 'var(--chart-bar-fill)';
     case 'deadline':
     case 'report_due':
       return 'var(--status-warning)';

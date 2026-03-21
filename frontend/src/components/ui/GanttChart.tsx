@@ -172,7 +172,7 @@ export default function GanttChart({
                     className="relative h-11 border-b border-[var(--border)]"
                   >
                     <div
-                      className="absolute top-1/2 -translate-y-1/2 h-4 rounded-none min-w-[4px] bg-[var(--accent)] hover:bg-[var(--accent-light)] transition-colors"
+                      className="absolute top-1/2 -translate-y-1/2 h-4 rounded-none min-w-[4px] bg-[var(--chart-activity-bar)] hover:bg-[var(--chart-activity-bar-hover)] transition-colors"
                       style={{
                         left: `${leftPercent}%`,
                         width: `${widthPercent}%`,
