@@ -67,39 +67,34 @@ export default function Login() {
   return (
     <div className="min-h-screen flex bg-[var(--bg-primary)]">
       {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg-secondary)] relative overflow-hidden items-center justify-center">
-        {/* Diagonal gold stripe */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg-surface-alt)] relative overflow-hidden items-center justify-center">
         <div
           className="absolute inset-0 opacity-10"
           style={{
             background:
-              'linear-gradient(135deg, transparent 30%, var(--accent) 30%, var(--accent) 32%, transparent 32%)',
+              'linear-gradient(135deg, transparent 30%, var(--accent-sand) 30%, var(--accent-sand) 32%, transparent 32%)',
           }}
         />
-        {/* Crosshatch texture */}
         <div
           className="absolute inset-0 opacity-5"
           style={{
             backgroundImage: [
-              'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(201,169,97,0.1) 10px, rgba(201,169,97,0.1) 11px)',
-              'repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(201,169,97,0.1) 10px, rgba(201,169,97,0.1) 11px)',
+              'repeating-linear-gradient(45deg, transparent, transparent 10px, var(--crosshatch-color) 10px, var(--crosshatch-color) 11px)',
+              'repeating-linear-gradient(-45deg, transparent, transparent 10px, var(--crosshatch-color) 10px, var(--crosshatch-color) 11px)',
             ].join(', '),
           }}
         />
 
         <div className="relative z-10 text-center px-12">
           <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="h-16 w-16 border-2 border-[var(--accent)] flex items-center justify-center">
-              <span className="font-display text-2xl font-semibold text-[var(--accent)]">S</span>
+            <div className="h-16 w-16 border-2 border-[var(--accent-sand)] flex items-center justify-center">
+              <span className="text-h1 text-[var(--accent-sand)]">P</span>
             </div>
           </div>
-          <h1 className="font-display text-4xl font-light tracking-[4px] text-[var(--text-primary)] uppercase mb-3">
-            S · O · N · E
+          <h1 className="text-h1 tracking-[4px] uppercase mb-3">
+            Project 360
           </h1>
-          <p className="font-display text-lg font-light tracking-[6px] text-[var(--accent-dim)] uppercase mb-8">
-            Studios
-          </p>
-          <p className="font-body text-sm font-light text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
+          <p className="text-body max-w-sm mx-auto leading-relaxed">
             Engineering Project Management Platform.
             <br />
             Precision. Authority. Confidence.
@@ -110,14 +105,10 @@ export default function Login() {
       {/* Right auth form */}
       <div className="flex-1 flex items-center justify-center px-6 lg:px-16">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
           <div className="lg:hidden text-center mb-12">
-            <h1 className="font-display text-2xl font-light tracking-[4px] text-[var(--text-primary)] uppercase">
-              S · O · N · E
+            <h1 className="text-h2 tracking-[4px] uppercase">
+              Project 360
             </h1>
-            <p className="text-[0.6rem] tracking-[4px] text-[var(--accent-dim)] uppercase mt-1">
-              Studios
-            </p>
           </div>
 
           <div className="mb-10">

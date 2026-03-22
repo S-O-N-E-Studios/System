@@ -1,21 +1,22 @@
 import { useState, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useProjectStore } from '@/store/projectStore';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
-import type { ProjectTab } from '@/types';
+import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
 
-const tabs: { key: ProjectTab; label: string }[] = [
+type ContractTab = 'ps' | 'geo' | 'cm';
+
+const tabs: { key: ContractTab; label: string }[] = [
   { key: 'ps', label: 'Professional Services' },
   { key: 'geo', label: 'Geo-Technical' },
   { key: 'cm', label: 'Construction Management' },
 ];
 
-// Placeholder data
+// Placeholder data (v6.0: added serviceCategory, localMunicipality)
 const mockProjects = [
   {
     id: '1', name: 'Polokwane Water Treatment Upgrade', ref: 'PRJ-2026-001',
@@ -25,6 +26,7 @@ const mockProjects = [
     challenges: 'Groundwater contamination at borehole BH-3', recommendation: 'Re-route foundation to avoid contaminated zone',
     contractor: 'BuildCorp SA', startDate: '15 Jan 2026', completionDate: '30 Nov 2026',
     percentComplete: 42, constructionStatus: 'on_track',
+    serviceCategory: 'water_sanitation' as ServiceCategory, localMunicipality: 'Emalahleni',
   },
   {
     id: '2', name: 'Mokopane Road Rehabilitation', ref: 'PRJ-2026-002',
@@ -34,6 +36,7 @@ const mockProjects = [
     challenges: 'Expansive clay subsoils along section km 4-7', recommendation: 'Lime stabilisation required',
     contractor: 'RoadWorks Inc', startDate: '01 Mar 2026', completionDate: '28 Feb 2027',
     percentComplete: 28, constructionStatus: 'at_risk',
+    serviceCategory: 'roads_stormwater' as ServiceCategory, localMunicipality: 'Steve Tshwete',
   },
   {
     id: '3', name: 'Tzaneen Bridge Construction', ref: 'PRJ-2026-003',
@@ -43,14 +46,16 @@ const mockProjects = [
     challenges: '', recommendation: '',
     contractor: '', startDate: '01 Jun 2026', completionDate: '31 Dec 2027',
     percentComplete: 5, constructionStatus: 'delayed',
+    serviceCategory: 'roads_stormwater' as ServiceCategory, localMunicipality: 'Victor Khanye',
   },
 ];
 
 export default function Projects() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
-  const { activeTab, setActiveTab } = useProjectStore();
+  const [activeTab, setActiveTab] = useState<ContractTab>('ps');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | ''>('');
 
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -58,10 +63,12 @@ export default function Projects() {
 
   const filteredProjects = useMemo(
     () =>
-      mockProjects.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      ),
-    [searchQuery]
+      mockProjects.filter((p) => {
+        const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
+        return matchesSearch && matchesService;
+      }),
+    [searchQuery, serviceCategoryFilter]
   );
 
   const showEmpty = filteredProjects.length === 0;
@@ -97,8 +104,8 @@ export default function Projects() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-4 mb-6 sticky top-16 z-10 bg-[var(--bg-primary)] py-2">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-4 mb-6 sticky top-16 z-10 bg-[var(--bg-primary)] py-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="text"
@@ -108,6 +115,16 @@ export default function Projects() {
             className="w-full bg-transparent border-0 border-b border-[var(--border)] pl-6 pr-4 py-1.5 font-body text-[0.82rem] font-light text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none transition-[border-color] duration-200"
           />
         </div>
+        <select
+          value={serviceCategoryFilter}
+          onChange={(e) => setServiceCategoryFilter(e.target.value as ServiceCategory | '')}
+          className="bg-transparent border border-[var(--border)] px-3 py-1.5 text-[0.82rem] text-[var(--text-primary)] min-w-[180px]"
+        >
+          <option value="">All service categories</option>
+          {(Object.keys(SERVICE_CATEGORY_LABELS) as ServiceCategory[]).map((k) => (
+            <option key={k} value={k}>{SERVICE_CATEGORY_LABELS[k]}</option>
+          ))}
+        </select>
         <Button variant="secondary" className="!min-w-0 !px-4">
           <Filter className="h-3.5 w-3.5" />
           Filter
@@ -130,7 +147,7 @@ export default function Projects() {
           <table className="w-full">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
-                {['Project Name', 'Ref', 'GPS', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
+                {['Project Name', 'Ref', 'Service Category', 'Local Municipality', 'GPS', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
                   <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -155,6 +172,12 @@ export default function Projects() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-mono">{p.ref}</td>
+                    <td className="px-4 py-3 text-[0.78rem] text-[var(--text-muted)]">
+                      {p.serviceCategory ? SERVICE_CATEGORY_LABELS[p.serviceCategory] : 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-[0.78rem] text-[var(--text-muted)]">
+                      {p.localMunicipality || 'N/A'}
+                    </td>
                     <td className="px-4 py-3">
                       <button className="text-mono !text-[var(--status-planning)] cursor-pointer hover:underline">
                         {p.gps}
@@ -193,7 +216,7 @@ export default function Projects() {
                   {/* Drill-down panel */}
                   {expandedRow === p.id && (
                     <tr key={`${p.id}-drill`}>
-                      <td colSpan={8} className="px-4 py-4 bg-[rgba(201,169,97,0.04)] border-t border-[var(--accent)]">
+                      <td colSpan={10} className="px-4 py-4 bg-[var(--accent-sand-glow)] border-t border-[var(--accent)]">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           {['Monthly Progress Report', 'Tender Document', 'Drawings', 'PDR'].map((doc) => (
                             <div key={doc} className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
@@ -251,8 +274,8 @@ export default function Projects() {
                     </StatusBadge>
                   </td>
                   <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
-                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.challenges || '—'}</td>
-                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.recommendation || '—'}</td>
+                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.challenges || 'N/A'}</td>
+                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.recommendation || 'N/A'}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={p.ddrStatus === 'complete' ? 'done' : p.ddrStatus === 'in_review' ? 'review' : 'planning'}>
                       {p.ddrStatus === 'complete' ? 'Complete' : p.ddrStatus === 'in_review' ? 'In Review' : 'Pending'}

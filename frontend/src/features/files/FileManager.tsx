@@ -129,7 +129,7 @@ export default function FileManager() {
         <h1 className="text-h1">Files</h1>
       </div>
 
-      {/* Upload zone — opens modal */}
+      {/* Upload zone: opens modal */}
       <button
         type="button"
         onClick={handleUploadZoneClick}
@@ -138,7 +138,7 @@ export default function FileManager() {
         <Upload className="h-8 w-8 text-[var(--accent-dim)]" />
         <p className="text-body">Drop files here or click to upload</p>
         <p className="text-[0.65rem] text-[var(--text-muted)]">
-          PDF, XLSX, DOCX, PNG, JPG — Max 50MB. Assign a document type in the upload dialog.
+          PDF, XLSX, DOCX, PNG, JPG; Max 50MB. Assign a document type in the upload dialog.
         </p>
       </button>
 

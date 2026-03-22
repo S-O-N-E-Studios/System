@@ -30,6 +30,7 @@ describe('authMock', () => {
     const regData = {
       orgName: 'Test Corp',
       slug: 'test-corp',
+      orgType: 'private_firm' as const,
       industryType: 'construction',
       primaryContactName: 'John',
       primaryContactEmail: 'john@test.com',
@@ -83,8 +84,8 @@ describe('authMock', () => {
       expect(result.available).toBe(false);
     });
 
-    it('returns unavailable for "sone"', async () => {
-      const result = await authMock.checkSlug('sone');
+    it('returns unavailable for "project360"', async () => {
+      const result = await authMock.checkSlug('project360');
       expect(result.available).toBe(false);
     });
 

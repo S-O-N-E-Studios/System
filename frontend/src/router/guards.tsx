@@ -56,15 +56,95 @@ export function TenantGuard() {
   const hasTenantAccess = user.tenants.some((t) => t.slug === tenantSlug);
   if (!hasTenantAccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-primary">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
         <div className="max-w-md text-center">
           <h1 className="text-h2 mb-4">Tenant Not Found</h1>
           <p className="text-body mb-6">
             You do not have access to this organisation, or it does not exist.
           </p>
-          <a href="/" className="text-button text-accent hover:text-accent-light">
+          <a href="/" className="text-button text-[var(--accent-sand)] hover:text-[var(--accent-periwinkle)]">
             Return to Login
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  return <Outlet />;
+}
+
+/**
+ * Blocks CLIENT_TEMP users from non-project routes (Dashboard, Kanban,
+ * Calendar, Grants, Settings, Reports, Files manager).
+ */
+export function PermanentUserGuard() {
+  const { user } = useAuthStore();
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const tenantAccess = user.tenants[0];
+  if (tenantAccess?.role === 'CLIENT_TEMP') {
+    const slug = tenantAccess.slug;
+    return <Navigate to={`/${slug}/projects`} replace />;
+  }
+
+  return <Outlet />;
+}
+
+/**
+ * For CLIENT_TEMP users on project routes: verifies the current project ID
+ * is in their allowed scope. Non-CLIENT_TEMP users pass through.
+ *
+ * The allowed projectIds are fetched via the client-access-check endpoint
+ * and cached in clientAccessStore. For the stub, we allow through and rely
+ * on server-side enforcement until the API is wired.
+ */
+export function ClientGuard() {
+  const { user } = useAuthStore();
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Non-CLIENT_TEMP users pass through
+  const tenantAccess = user.tenants[0];
+  if (tenantAccess?.role !== 'CLIENT_TEMP') {
+    return <Outlet />;
+  }
+
+  // TODO: Wire to GET /:tenantSlug/projects/:id/client-access-check
+  // For now, allow through and rely on server-side scope enforcement
+  return <Outlet />;
+}
+
+/**
+ * Verifies DEPT_ADMIN users can only access their own department's routes.
+ * Non-DEPT_ADMIN users pass through.
+ */
+export function DeptGuard() {
+  const { deptId } = useParams<{ deptId: string }>();
+  const { user } = useAuthStore();
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const tenantAccess = user.tenants.find((t) => t.slug === tenantSlug);
+  if (!tenantAccess) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (tenantAccess.role === 'DEPT_ADMIN' && tenantAccess.deptId !== deptId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
+        <div className="max-w-md text-center">
+          <h1 className="text-h2 mb-4">Access Denied</h1>
+          <p className="text-body mb-6">
+            You do not have access to this department.
+          </p>
         </div>
       </div>
     );
@@ -85,4 +165,3 @@ export function SuperAdminGuard() {
 
   return <Outlet />;
 }
-

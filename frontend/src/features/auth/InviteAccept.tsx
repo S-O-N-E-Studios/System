@@ -65,8 +65,8 @@ export default function InviteAccept() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] px-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <h1 className="font-display text-xl font-light tracking-[4px] text-[var(--text-primary)] uppercase mb-6">
-            S · O · N · E Studios
+          <h1 className="text-h2 tracking-[4px] uppercase mb-6">
+            Project 360
           </h1>
           <h2 className="text-h2 mb-2">Accept Invitation</h2>
           <p className="text-body">Set your password to activate your account.</p>

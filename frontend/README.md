@@ -1,6 +1,7 @@
-# S.O.N.E Studios — Frontend
+# Project 360 - Frontend
 
 Engineering project management platform built with React, TypeScript, and Vite.
+Atlas White Design System v4.0 - Multi-Tenant SaaS.
 
 ## Tech Stack
 
@@ -8,7 +9,7 @@ Engineering project management platform built with React, TypeScript, and Vite.
 |-------|-----------|
 | Framework | React 18 + TypeScript |
 | Build | Vite 7 |
-| Styling | Tailwind CSS |
+| Styling | Tailwind CSS + Atlas White CSS Tokens |
 | State | Zustand |
 | Forms | React Hook Form + Zod |
 | Routing | React Router 6 |
@@ -16,7 +17,17 @@ Engineering project management platform built with React, TypeScript, and Vite.
 | Charts | Recharts |
 | Animations | Lottie React |
 | Icons | Lucide React |
+| Drag-and-Drop | @dnd-kit/sortable |
 | Testing | Vitest + React Testing Library |
+
+## Design System
+
+Atlas White (RAL 095 90 10) - warm sand, periwinkle blue, cream lineage.
+
+- **Fonts**: Playfair Display (headings), Inter (body/UI), JetBrains Mono (financial/technical)
+- **border-radius**: 0 everywhere - sharp corners only
+- **Themes**: Light + Dark (warm undertones in both modes)
+- **Semantic colours**: Platform-locked (success=sage, warning=amber, danger=clay)
 
 ## Getting Started
 
@@ -53,41 +64,24 @@ The app runs at **http://localhost:3000** by default.
 
 ```
 frontend/
-├── animations/          # Lottie JSON animation files
-├── public/              # Static assets
-├── src/
-│   ├── api/             # API clients and mock layer
-│   ├── components/
-│   │   ├── layout/      # AppShell, Sidebar, TopBar
-│   │   └── ui/          # Reusable UI components
-│   ├── features/
-│   │   ├── auth/        # Login, Register, Profile
-│   │   ├── dashboard/   # Dashboard overview
-│   │   ├── files/       # File manager
-│   │   ├── kanban/      # Kanban task board
-│   │   ├── maps/        # Google Maps integration
-│   │   ├── projects/    # Project CRUD and detail views
-│   │   ├── reports/     # Payment history and forecasts
-│   │   ├── settings/    # User and org settings
-│   │   └── superadmin/  # Tenant management
-│   ├── router/          # Routes and auth guards
-│   ├── store/           # Zustand stores
-│   ├── types/           # TypeScript types and Zod schemas
-│   └── utils/           # Formatters and helpers
-└── vitest.config.ts
-```
-
-## Testing
-
-247 tests across 22 test files covering utilities, Zod schemas, Zustand stores, API mocks, and UI components.
-
-```bash
-npm run test
+- animations/          # Lottie JSON animation files
+- public/              # Static assets
+- src/
+  - api/             # API clients and mock layer
+  - components/
+    - layout/        # AppShell, Sidebar, TopBar
+    - ui/            # Reusable UI components
+  - features/        # App screens
+  - router/          # Routes and guards
+  - store/           # Zustand stores
+  - types/           # TypeScript types and Zod schemas
+  - utils/           # Formatters and helpers
+- vitest.config.ts
 ```
 
 ## Developers
 
-- **Musa**
-- **Fortune**
+- **Musa** - Frontend
+- **Fortune** - Product Owner
 - **Peter**
 - **Sthembiso**

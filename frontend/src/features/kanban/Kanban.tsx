@@ -48,8 +48,8 @@ export default function Kanban() {
         <h1 className="text-h1">Kanban Board</h1>
         <div className="flex items-center gap-3">
           <select className="bg-transparent border border-[var(--border)] px-3 py-2 text-[0.78rem] font-body text-[var(--text-secondary)] focus:border-[var(--accent)] focus:outline-none">
-            <option className="bg-[var(--bg-card)]">Sprint 4 — 23 Mar – 3 Apr</option>
-            <option className="bg-[var(--bg-card)]">Sprint 3 — 9 – 20 Mar</option>
+            <option className="bg-[var(--bg-card)]">Sprint 4: 23 Mar to 3 Apr</option>
+            <option className="bg-[var(--bg-card)]">Sprint 3: 9 to 20 Mar</option>
           </select>
           <Button variant="primary">
             <Plus className="h-3.5 w-3.5" />

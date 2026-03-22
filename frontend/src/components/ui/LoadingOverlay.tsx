@@ -12,7 +12,7 @@ export default function LoadingOverlay({ fullscreen = true }: LoadingOverlayProp
 
   return (
     <div className={containerClasses}>
-      <div className="rounded-full border border-[var(--accent)] bg-[var(--bg-card)]/95 shadow-[0_0_60px_rgba(201,169,97,0.35)] p-6 md:p-8 flex items-center justify-center">
+      <div className="rounded-full border border-[var(--accent)] bg-[var(--bg-card)]/95 shadow-[0_0_60px_var(--accent-sand-glow)] p-6 md:p-8 flex items-center justify-center">
         <LottieAnimation
           animationData={sandyLoading}
           className="w-32 h-32 md:w-44 md:h-44"

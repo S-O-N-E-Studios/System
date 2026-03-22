@@ -172,12 +172,12 @@ export default function GanttChart({
                     className="relative h-11 border-b border-[var(--border)]"
                   >
                     <div
-                      className="absolute top-1/2 -translate-y-1/2 h-4 rounded-none min-w-[4px] bg-[var(--accent)] hover:bg-[var(--accent-light)] transition-colors"
+                      className="absolute top-1/2 -translate-y-1/2 h-4 rounded-none min-w-[4px] bg-[var(--chart-activity-bar)] hover:bg-[var(--chart-activity-bar-hover)] transition-colors"
                       style={{
                         left: `${leftPercent}%`,
                         width: `${widthPercent}%`,
                       }}
-                      title={`${a.name}: ${formatDate(a.startDate)} – ${formatDate(
+                      title={`${a.name}: ${formatDate(a.startDate)} to ${formatDate(
                         a.endDate
                       )}`}
                     />
@@ -221,7 +221,7 @@ export default function GanttChart({
               <div>
                 <p className="text-[0.85rem] text-[var(--text-primary)] mb-1">{a.name}</p>
                 <p className="text-[0.7rem] text-[var(--text-muted)]">
-                  {formatDate(a.startDate)} – {formatDate(a.endDate)}
+                  {formatDate(a.startDate)} to {formatDate(a.endDate)}
                 </p>
               </div>
               <span
