@@ -103,7 +103,7 @@ exports.registerOrg = (req, res) => {
 exports.checkSlug = (req, res) => {
   const { slug } = req.params;
   // Very lightweight check: mark obviously "taken" slugs as unavailable.
-  const taken = ['demo', 'test', 'project360', 'project-360'];
+  const taken = ['demo', 'test', 'project360', 'project-360', 'sa-project-360-iq'];
 
   const available = !taken.includes(String(slug).toLowerCase());
 

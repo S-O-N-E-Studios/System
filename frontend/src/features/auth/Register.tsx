@@ -162,8 +162,8 @@ export default function Register() {
         {/* Header */}
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
-            <h1 className="text-h2 tracking-[4px] uppercase">
-              Project 360
+            <h1 className="text-h2 tracking-[2px] uppercase">
+              SA Project 360 IQ
             </h1>
           </Link>
           <h2 className="text-h2 mb-2">Register Your Organisation</h2>

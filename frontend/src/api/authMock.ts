@@ -93,7 +93,7 @@ export const authMock = {
 
   checkSlug: async (slug: string): Promise<{ available: boolean; suggestion?: string }> => {
     await delay(200);
-    const taken = ['demo', 'test', 'project360', 'project-360'];
+    const taken = ['demo', 'test', 'project360', 'project-360', 'sa-project-360-iq'];
     const available = !taken.includes(String(slug).toLowerCase());
     return { available, suggestion: available ? undefined : `${slug}-1` };
   },

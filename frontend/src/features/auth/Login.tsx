@@ -88,11 +88,11 @@ export default function Login() {
         <div className="relative z-10 text-center px-12">
           <div className="flex items-center justify-center gap-4 mb-8">
             <div className="h-16 w-16 border-2 border-[var(--accent-sand)] flex items-center justify-center">
-              <span className="text-h1 text-[var(--accent-sand)]">P</span>
+              <span className="text-h2 text-[var(--accent-sand)] leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>IQ</span>
             </div>
           </div>
-          <h1 className="text-h1 tracking-[4px] uppercase mb-3">
-            Project 360
+          <h1 className="text-h1 tracking-[3px] uppercase mb-3">
+            SA Project 360 IQ
           </h1>
           <p className="text-body max-w-sm mx-auto leading-relaxed">
             Engineering Project Management Platform.
@@ -106,8 +106,8 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center px-6 lg:px-16">
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-12">
-            <h1 className="text-h2 tracking-[4px] uppercase">
-              Project 360
+            <h1 className="text-h2 tracking-[2px] uppercase">
+              SA Project 360 IQ
             </h1>
           </div>
 

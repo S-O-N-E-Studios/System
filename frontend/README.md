@@ -1,4 +1,4 @@
-# Project 360 - Frontend
+# SA Project 360 IQ — Frontend
 
 Engineering project management platform built with React, TypeScript, and Vite.
 Atlas White Design System v4.0 - Multi-Tenant SaaS.

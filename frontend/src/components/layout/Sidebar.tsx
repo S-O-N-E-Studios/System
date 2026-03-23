@@ -92,11 +92,11 @@ export default function Sidebar() {
         <div className="flex items-center justify-between shrink-0 lg:justify-center lg:px-0 lg:group-hover:justify-between px-6 py-6 border-b border-[var(--border-default)] min-h-[72px]">
           <div className="flex items-center gap-3 lg:gap-0 lg:group-hover:gap-3">
             <div className="h-8 w-8 border border-[var(--accent-sand)] flex items-center justify-center shrink-0">
-              <span className="text-sm font-semibold text-[var(--accent-sand)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>P</span>
+              <span className="text-sm font-semibold text-[var(--accent-sand)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>IQ</span>
             </div>
-            <div className="hidden lg:block overflow-hidden w-0 lg:group-hover:w-auto whitespace-nowrap transition-[width] duration-300">
-              <h1 className="text-sm font-medium tracking-[2px] text-[var(--text-primary)] uppercase pl-3" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                Project 360
+            <div className="hidden lg:block overflow-hidden w-0 lg:group-hover:w-auto max-w-[200px] transition-[width] duration-300">
+              <h1 className="text-[0.65rem] font-medium tracking-[1px] text-[var(--text-primary)] uppercase pl-3 leading-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                SA Project 360 IQ
               </h1>
             </div>
           </div>

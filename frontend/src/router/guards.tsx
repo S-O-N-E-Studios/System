@@ -3,6 +3,16 @@ import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useEffect } from 'react';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import type { TenantSummary } from '@/types';
+
+/** Role for the tenant in the current URL (not tenants[0]). */
+function tenantAccessForSlug(
+  tenants: TenantSummary[],
+  tenantSlug: string | undefined
+): TenantSummary | undefined {
+  if (!tenantSlug) return undefined;
+  return tenants.find((t) => t.slug === tenantSlug);
+}
 
 /**
  * Requires authentication. Redirects to login if unauthenticated.
@@ -78,16 +88,16 @@ export function TenantGuard() {
  * Calendar, Grants, Settings, Reports, Files manager).
  */
 export function PermanentUserGuard() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
 
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  const tenantAccess = user.tenants[0];
-  if (tenantAccess?.role === 'CLIENT_TEMP') {
-    const slug = tenantAccess.slug;
-    return <Navigate to={`/${slug}/projects`} replace />;
+  const tenantAccess = tenantAccessForSlug(user.tenants, tenantSlug);
+  if (tenantAccess?.role === 'CLIENT_TEMP' && tenantSlug) {
+    return <Navigate to={`/${tenantSlug}/projects`} replace />;
   }
 
   return <Outlet />;
@@ -102,14 +112,14 @@ export function PermanentUserGuard() {
  * on server-side enforcement until the API is wired.
  */
 export function ClientGuard() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
 
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  // Non-CLIENT_TEMP users pass through
-  const tenantAccess = user.tenants[0];
+  const tenantAccess = tenantAccessForSlug(user.tenants, tenantSlug);
   if (tenantAccess?.role !== 'CLIENT_TEMP') {
     return <Outlet />;
   }
@@ -132,7 +142,7 @@ export function DeptGuard() {
     return <Navigate to="/" replace />;
   }
 
-  const tenantAccess = user.tenants.find((t) => t.slug === tenantSlug);
+  const tenantAccess = tenantAccessForSlug(user.tenants, tenantSlug);
   if (!tenantAccess) {
     return <Navigate to="/" replace />;
   }

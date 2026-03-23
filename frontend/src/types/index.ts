@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Core Domain Types - Project 360 Engineering PM Platform v6.0
+   Core Domain Types - SA Project 360 IQ Engineering PM Platform v6.0
    Atlas White Design System · Multi-Tenant SaaS
    ═══════════════════════════════════════════════════════════════════════════ */
 
