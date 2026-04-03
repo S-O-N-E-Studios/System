@@ -3,10 +3,37 @@ import AtlasMap from '@/components/ui/AtlasMap';
 import { useMemo, useState } from 'react';
 
 const mockProjects = [
-  { id: '1', name: 'Polokwane Water Treatment', status: 'active' as const, value: 'R 45,000,000', lat: -23.907, lng: 29.456, hasGps: true },
-  { id: '2', name: 'Mokopane Road Rehabilitation', status: 'review' as const, value: 'R 32,000,000', lat: -24.199, lng: 27.900, hasGps: true },
-  { id: '3', name: 'Tzaneen Bridge Construction', status: 'planning' as const, value: 'R 78,000,000', lat: -23.842, lng: 30.364, hasGps: true },
-  { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, value: 'R 22,000,000', hasGps: false },
+  {
+    id: '1',
+    name: 'Polokwane Water Treatment',
+    status: 'active' as const,
+    value: 'R 45,000,000',
+    lat: -23.907,
+    lng: 29.456,
+    hasGps: true,
+    fullAddress: 'Sims Park, Polokwane, Limpopo, South Africa',
+  },
+  {
+    id: '2',
+    name: 'Mokopane Road Rehabilitation',
+    status: 'review' as const,
+    value: 'R 32,000,000',
+    lat: -24.199,
+    lng: 27.9,
+    hasGps: true,
+    fullAddress: 'Main Road (R501), Mokopane, Limpopo, South Africa',
+  },
+  {
+    id: '3',
+    name: 'Tzaneen Bridge Construction',
+    status: 'planning' as const,
+    value: 'R 78,000,000',
+    lat: -23.842,
+    lng: 30.364,
+    hasGps: true,
+    fullAddress: 'R71 Bridge Section, Tzaneen, Limpopo, South Africa',
+  },
+  { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, value: 'R 22,000,000', hasGps: false, fullAddress: 'Musina, Limpopo, South Africa' },
 ];
 
 export default function MapsView() {
@@ -34,6 +61,8 @@ export default function MapsView() {
       ? { lat: selected.lat, lng: selected.lng }
       : undefined;
 
+  const zoom = selected?.hasGps ? 14 : 7;
+
   return (
     <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-20 -mb-12">
       <div className="flex h-screen">
@@ -54,6 +83,7 @@ export default function MapsView() {
               <button
                 key={p.id}
                 onClick={() => setSelectedProjectId(p.id)}
+                onMouseEnter={() => setSelectedProjectId(p.id)}
                 className="w-full text-left px-4 py-3 hover:bg-[var(--accent-glow)] transition-colors"
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
@@ -75,14 +105,37 @@ export default function MapsView() {
 
         {/* Map area */}
         <div className="flex-1 bg-[var(--bg-primary)] flex items-center justify-center pt-16">
-          <div className="w-full h-full px-6 lg:px-0">
+          <div className="w-full h-full px-6 lg:px-0 relative">
             <AtlasMap
               markers={markers}
               center={center}
-              zoom={7}
+              zoom={zoom}
               height="calc(100vh - 140px)"
               onMarkerClick={(m) => setSelectedProjectId(m.id)}
             />
+
+            {selected && (
+              <div className="absolute z-30 top-4 left-4 w-[340px] bg-[var(--bg-surface)] border border-[var(--border-default)] p-5 shadow-lg">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <h3 className="text-h3 text-[1rem] mb-2 truncate">{selected.name}</h3>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <StatusBadge status={selected.status}>
+                        {selected.status === 'active' ? 'Active' : selected.status === 'review' ? 'In Review' : 'Planning'}
+                      </StatusBadge>
+                      <span className="text-currency text-[0.92rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {selected.value}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[var(--border)]">
+                  <p className="text-[0.7rem] text-[var(--text-muted)] uppercase tracking-wider mb-1">Project Location</p>
+                  <p className="text-[0.82rem] text-[var(--text-primary)] leading-relaxed">{selected.fullAddress}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

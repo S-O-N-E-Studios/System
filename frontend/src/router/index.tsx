@@ -118,7 +118,11 @@ export const router = createBrowserRouter([
                   { index: true, element: <LazyRoute component={ProjectDetail} /> },
                 ],
               },
-              { path: 'projects/:id/edit', element: <LazyRoute component={ProjectForm} /> },
+              {
+                path: 'projects/:id/edit',
+                element: <ClientGuard />,
+                children: [{ index: true, element: <LazyRoute component={ProjectForm} /> }],
+              },
 
               { path: 'profile', element: <LazyRoute component={Profile} /> },
             ],

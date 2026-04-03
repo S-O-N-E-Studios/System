@@ -1,13 +1,23 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useTenantStore } from '@/store/tenantStore';
 import { useUiStore } from '@/store/uiStore';
+import { useAuthStore } from '@/store/authStore';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Avatar from '@/components/ui/Avatar';
 import { Sun, Moon } from 'lucide-react';
+import {
+  applyCustomAccentColors,
+  CUSTOM_ACCENT_PERIWINKLE_KEY,
+  CUSTOM_ACCENT_SAND_KEY,
+} from '@/utils/customAccentColors';
 
-const settingsTabs = ['General', 'Users', 'Notifications', 'Appearance', 'Billing'] as const;
+const DEFAULT_PERIWINKLE = '#5B6FD4';
+const DEFAULT_SAND = '#C9B87A';
+
+const settingsTabs = ['General', 'Users', 'Notifications', 'Appearance'] as const;
 type SettingsTab = typeof settingsTabs[number];
 
 const mockUsers = [
@@ -19,8 +29,34 @@ const mockUsers = [
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('General');
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { currentTenant } = useTenantStore();
   const { theme, toggleTheme } = useUiStore();
+  const { user } = useAuthStore();
+  const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const canCustomizePalette = tenantRole === 'ORG_ADMIN' || tenantRole === 'SUPER_ADMIN';
+
+  const [accentPeriwinkle, setAccentPeriwinkle] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_PERIWINKLE;
+    return localStorage.getItem(CUSTOM_ACCENT_PERIWINKLE_KEY) ?? DEFAULT_PERIWINKLE;
+  });
+  const [accentSand, setAccentSand] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_SAND;
+    return localStorage.getItem(CUSTOM_ACCENT_SAND_KEY) ?? DEFAULT_SAND;
+  });
+
+  const applyAndPersist = (next: { periwinkleHex: string; sandHex: string }) => {
+    if (typeof window === 'undefined') return;
+    applyCustomAccentColors(next);
+    localStorage.setItem(CUSTOM_ACCENT_PERIWINKLE_KEY, next.periwinkleHex);
+    localStorage.setItem(CUSTOM_ACCENT_SAND_KEY, next.sandHex);
+  };
+
+  const resetAccents = () => {
+    setAccentPeriwinkle(DEFAULT_PERIWINKLE);
+    setAccentSand(DEFAULT_SAND);
+    applyAndPersist({ periwinkleHex: DEFAULT_PERIWINKLE, sandHex: DEFAULT_SAND });
+  };
 
   return (
     <div className="animate-fade-in">
@@ -72,8 +108,8 @@ export default function Settings() {
                 <h3 className="text-h3">Team Members</h3>
                 <Button variant="primary">Invite User</Button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div>
+                <table className="w-full table-fixed">
                   <thead>
                     <tr style={{ background: 'var(--table-header-bg)' }}>
                       {['Name', 'Email', 'Role', 'Status', 'Actions'].map((h) => (
@@ -145,32 +181,67 @@ export default function Settings() {
                   </span>
                 </button>
               </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-6 pb-4 border-b border-[var(--border)]">
+                  <div>
+                    <p className="text-body font-medium text-[var(--text-primary)]">Primary Accent</p>
+                    <p className="text-[0.7rem] text-[var(--text-muted)]">Used for active states and highlights</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="color"
+                      value={accentPeriwinkle}
+                      aria-label="Primary accent color"
+                      disabled={!canCustomizePalette}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setAccentPeriwinkle(next);
+                        applyAndPersist({ periwinkleHex: next, sandHex: accentSand });
+                      }}
+                      className="h-10 w-10 border border-[var(--border-default)] rounded-sm bg-transparent p-0 cursor-pointer"
+                    />
+                    <span className="text-[0.78rem] text-[var(--text-muted)] font-mono">{accentPeriwinkle.toUpperCase()}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start justify-between gap-6 pb-4 border-b border-[var(--border)]">
+                  <div>
+                    <p className="text-body font-medium text-[var(--text-primary)]">Secondary Accent</p>
+                    <p className="text-[0.7rem] text-[var(--text-muted)]">Used for financial figures and borders</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="color"
+                      value={accentSand}
+                      aria-label="Secondary accent color"
+                      disabled={!canCustomizePalette}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setAccentSand(next);
+                        applyAndPersist({ periwinkleHex: accentPeriwinkle, sandHex: next });
+                      }}
+                      className="h-10 w-10 border border-[var(--border-default)] rounded-sm bg-transparent p-0 cursor-pointer"
+                    />
+                    <span className="text-[0.78rem] text-[var(--text-muted)] font-mono">{accentSand.toUpperCase()}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end">
+                  {canCustomizePalette ? (
+                    <Button variant="ghost" onClick={resetAccents}>
+                      Reset to Atlas Electric
+                    </Button>
+                  ) : (
+                    <p className="text-[0.72rem] text-[var(--text-muted)]">
+                      Theme colors can only be changed by Org Admins.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Billing */}
-          {activeTab === 'Billing' && (
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
-              <h3 className="text-h3">Billing</h3>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-baseline justify-between py-2 border-b border-[var(--border)]">
-                  <span className="text-[0.7rem] text-[var(--text-muted)]">Current Plan</span>
-                  <StatusBadge status="accent">Starter</StatusBadge>
-                </div>
-                <div className="flex items-baseline justify-between py-2 border-b border-[var(--border)]">
-                  <span className="text-[0.7rem] text-[var(--text-muted)]">Seats</span>
-                  <span className="text-[0.82rem] text-[var(--text-primary)]">4 / 10</span>
-                </div>
-                <div className="flex items-baseline justify-between py-2 border-b border-[var(--border)]">
-                  <span className="text-[0.7rem] text-[var(--text-muted)]">Next Billing Date</span>
-                  <span className="text-[0.82rem] text-[var(--text-primary)]">1 April 2026</span>
-                </div>
-              </div>
-              <p className="text-[0.7rem] text-[var(--text-muted)]">
-                Payment integration will be available in a future release.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

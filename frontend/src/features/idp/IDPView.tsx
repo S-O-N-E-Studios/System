@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import IDPTable from '@/components/ui/IDPTable';
 import { idpApi } from '@/api/idp';
 import type { IDPProjectRow } from '@/types';
+import { exportPdf, exportXlsx } from '@/utils/clientExports';
 
 /* Mock data for frontend-only development */
 const MOCK_IDP_PROJECTS: IDPProjectRow[] = [
@@ -97,7 +98,51 @@ export default function IDPView() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // Mock: create placeholder download when backend is not available
+      type Row = {
+        idpProjectNo: string;
+        name: string;
+        localMunicipality: string;
+        location: string;
+        serviceCategory: string;
+        status: string;
+        currentStage: number;
+        mtefYear1: number;
+        mtefYear2: number;
+        mtefYear3: number;
+      };
+
+      const rows: Row[] = projects.map((p) => ({
+        idpProjectNo: p.idpProjectNo ?? 'N/A',
+        name: p.name ?? 'N/A',
+        localMunicipality: p.localMunicipality ?? 'N/A',
+        location: p.location ?? 'N/A',
+        serviceCategory: p.serviceCategory ?? 'N/A',
+        status: p.status ?? 'N/A',
+        currentStage: p.currentStage ?? 0,
+        mtefYear1: p.mtefYear1 ?? 0,
+        mtefYear2: p.mtefYear2 ?? 0,
+        mtefYear3: p.mtefYear3 ?? 0,
+      }));
+
+      const columns: { key: keyof Row; header: string }[] = [
+        { key: 'idpProjectNo', header: 'IDP No' },
+        { key: 'name', header: 'Project Name' },
+        { key: 'localMunicipality', header: 'Local Municipality' },
+        { key: 'location', header: 'Location' },
+        { key: 'serviceCategory', header: 'Service Category' },
+        { key: 'currentStage', header: 'Current Stage' },
+        { key: 'status', header: 'Status' },
+        { key: 'mtefYear1', header: 'MTEF Year 1' },
+        { key: 'mtefYear2', header: 'MTEF Year 2' },
+        { key: 'mtefYear3', header: 'MTEF Year 3' },
+      ];
+
+      const filename = `IDP-Export.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
+      if (format === 'xlsx') {
+        exportXlsx<Row>({ filename, sheetName: 'IDP', columns, rows });
+      } else {
+        exportPdf<Row>({ filename, title: 'IDP Export', columns, rows });
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 
 import { MapPin } from 'lucide-react';
 
@@ -6,36 +6,14 @@ import { useJsApiLoader, GoogleMap } from '@react-google-maps/api';
 
 import type { FeatureCollection } from 'geojson';
 import type { LeafletMouseEvent } from 'leaflet';
-import { MapContainer, TileLayer, GeoJSON as LeafletGeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON as LeafletGeoJSON, useMap } from 'react-leaflet';
 
 import type { AtlasMapProvider, MapLatLng } from './AtlasMap';
 
 const DEFAULT_CENTER: MapLatLng = { lat: -25.4753, lng: 30.9694 };
 
-// Minimal placeholder GeoJSON (rectangular polygon) so the component is functional
+// Minimal placeholder GeoJSON so the component is functional
 // until the backend/DevOps provides the official Province -> Department boundaries.
-function createCirclePolygonCoordinates(args: {
-  centerLng: number;
-  centerLat: number;
-  radiusLng: number;
-  radiusLat: number;
-  points?: number;
-}): Array<[number, number]> {
-  const pts = args.points ?? 36;
-  const coords: Array<[number, number]> = [];
-
-  for (let i = 0; i < pts; i++) {
-    const theta = (i / pts) * Math.PI * 2;
-    const lng = args.centerLng + args.radiusLng * Math.cos(theta);
-    const lat = args.centerLat + args.radiusLat * Math.sin(theta);
-    coords.push([lng, lat]);
-  }
-
-  // Close the ring (GeoJSON Polygon requires first == last).
-  if (coords.length > 0) coords.push(coords[0]);
-  return coords;
-}
-
 const DEFAULT_GEOJSON: FeatureCollection = {
   type: 'FeatureCollection',
   features: [
@@ -46,14 +24,12 @@ const DEFAULT_GEOJSON: FeatureCollection = {
         type: 'Polygon',
         coordinates: [
           [
-            // Circle-shaped placeholder (fixes “big square” look on dashboard).
-            ...createCirclePolygonCoordinates({
-              centerLng: (29.7 + 31.2) / 2, // 30.45
-              centerLat: (-26.3 + -24.4) / 2, // -25.35
-              radiusLng: (31.2 - 29.7) / 2, // 0.75
-              radiusLat: (-24.4 - -26.3) / 2, // 0.95
-              points: 36,
-            }),
+            // Intentional square placeholder shape.
+            [29.85, -26.05],
+            [31.15, -26.05],
+            [31.15, -24.65],
+            [29.85, -24.65],
+            [29.85, -26.05],
           ],
         ],
       },
@@ -84,6 +60,31 @@ export default function ProvinceGeoJsonMap({
   height = '100%',
   onRegionClick,
 }: ProvinceGeoJsonMapProps) {
+  const leafletContainerRef = useRef<HTMLDivElement | null>(null);
+
+  function LeafletInvalidateOnResize({
+    containerRef,
+  }: {
+    containerRef: RefObject<HTMLDivElement | null>;
+  }) {
+    const map = useMap();
+
+    useEffect(() => {
+      map.invalidateSize?.();
+    }, [map]);
+
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el || typeof ResizeObserver === 'undefined') return;
+
+      const ro = new ResizeObserver(() => map.invalidateSize?.());
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, [containerRef, map]);
+
+    return null;
+  }
+
   const resolvedProvider: AtlasMapProvider = useMemo(() => {
     if (provider) return provider;
     const envProvider = (import.meta.env.VITE_MAP_PROVIDER as AtlasMapProvider | undefined) ?? undefined;
@@ -100,16 +101,28 @@ export default function ProvinceGeoJsonMap({
     libraries: ['maps'],
   });
 
+  const [theme, setTheme] = useState(() =>
+    typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') ?? 'dark' : 'dark'
+  );
   const fillColor = readCssVar('--accent-periwinkle', 'transparent');
   const strokeColor = readCssVar('--accent-sand', 'transparent');
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.getAttribute('data-theme') ?? 'dark');
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   const commonStyle = useMemo(
     () => ({
       fillColor,
-      fillOpacity: 0.35,
+      fillOpacity: 0.24,
       strokeColor,
       strokeOpacity: 0.9,
-      strokeWeight: 1,
+      strokeWeight: 1.5,
     }),
     [fillColor, strokeColor]
   );
@@ -155,6 +168,15 @@ export default function ProvinceGeoJsonMap({
     };
   }, [shouldUseGoogle, isLoaded, loadError, geoJson, commonStyle, onRegionClick]);
 
+  // Leaflet sizing is handled by LeafletInvalidateOnResize to avoid react-leaflet typing edge cases.
+  useEffect(() => {
+    void shouldUseGoogle;
+    void geoJson;
+    void commonStyle;
+    void center;
+    void zoom;
+  }, [shouldUseGoogle, geoJson, commonStyle, center, zoom]);
+
   if (shouldUseGoogle) {
     if (!isLoaded || loadError) {
       return (
@@ -185,7 +207,7 @@ export default function ProvinceGeoJsonMap({
 
   // OSM / Leaflet mode
   return (
-    <div style={{ width: '100%', height }}>
+    <div ref={leafletContainerRef} style={{ width: '100%', height }}>
       <MapContainer
         center={center}
         zoom={zoom}
@@ -193,9 +215,15 @@ export default function ProvinceGeoJsonMap({
         scrollWheelZoom={false}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={
+            theme === 'light'
+              ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+              : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+          }
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
+
+        <LeafletInvalidateOnResize containerRef={leafletContainerRef} />
 
         <LeafletGeoJSON
           data={geoJson}

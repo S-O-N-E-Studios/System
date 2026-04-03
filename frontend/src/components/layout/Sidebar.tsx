@@ -17,54 +17,57 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
+import { useProjectStore } from '@/store/projectStore';
 import Avatar from '@/components/ui/Avatar';
+import { useCan } from '@/rbac/useCan';
+import type { Permission } from '@/rbac/permissions';
 
 interface NavItem {
   label: string;
   icon: React.ReactNode;
   path: string;
-  roles?: string[];
-  hideForClientTemp?: boolean;
+  permission?: Permission;
 }
 
 export default function Sidebar() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
   const { sidebarMobileOpen, setSidebarMobileOpen } = useUiStore();
+  const can = useCan();
 
   const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
   const isClientTemp = tenantRole === 'CLIENT_TEMP';
+  const pinnedProjects = useProjectStore((s) => (tenantSlug ? s.getPinnedProjects(tenantSlug) : []));
 
   const navItems: NavItem[] = [
-    { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4 shrink-0" />, path: 'dashboard', hideForClientTemp: true },
-    { label: 'Projects', icon: <FolderKanban className="h-4 w-4 shrink-0" />, path: 'projects' },
-    { label: 'IDP View', icon: <FileSpreadsheet className="h-4 w-4 shrink-0" />, path: 'idp', hideForClientTemp: true },
-    { label: 'Normal Services', icon: <Layers className="h-4 w-4 shrink-0" />, path: 'services', hideForClientTemp: true },
+    { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4 shrink-0" />, path: 'dashboard', permission: 'view_dashboard' },
+    { label: 'Projects', icon: <FolderKanban className="h-4 w-4 shrink-0" />, path: 'projects', permission: 'view_projects' },
+    { label: 'IDP View', icon: <FileSpreadsheet className="h-4 w-4 shrink-0" />, path: 'idp', permission: 'view_idp' },
+    { label: 'Normal Services', icon: <Layers className="h-4 w-4 shrink-0" />, path: 'services', permission: 'view_services' },
     {
       label: 'Kanban Board',
       icon: <Columns3 className="h-4 w-4 shrink-0" />,
       path: 'kanban',
-      roles: ['PROJECT_MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN'],
-      hideForClientTemp: true,
+      permission: 'view_kanban',
     },
-    { label: 'Calendar', icon: <CalendarDays className="h-4 w-4 shrink-0" />, path: 'calendar', hideForClientTemp: true },
-    { label: 'Grants', icon: <Landmark className="h-4 w-4 shrink-0" />, path: 'grants', hideForClientTemp: true },
-    { label: 'Reports', icon: <FileBarChart className="h-4 w-4 shrink-0" />, path: 'reports', hideForClientTemp: true },
-    { label: 'Maps', icon: <MapPin className="h-4 w-4 shrink-0" />, path: 'maps', hideForClientTemp: true },
-    { label: 'Files', icon: <FolderOpen className="h-4 w-4 shrink-0" />, path: 'files', hideForClientTemp: true },
+    { label: 'Calendar', icon: <CalendarDays className="h-4 w-4 shrink-0" />, path: 'calendar', permission: 'view_calendar' },
+    { label: 'Grants', icon: <Landmark className="h-4 w-4 shrink-0" />, path: 'grants', permission: 'view_grants' },
+    { label: 'Reports', icon: <FileBarChart className="h-4 w-4 shrink-0" />, path: 'reports', permission: 'view_reports' },
+    { label: 'Maps', icon: <MapPin className="h-4 w-4 shrink-0" />, path: 'maps', permission: 'view_maps' },
+    { label: 'Files', icon: <FolderOpen className="h-4 w-4 shrink-0" />, path: 'files', permission: 'view_files' },
     {
       label: 'Settings',
       icon: <Settings className="h-4 w-4 shrink-0" />,
       path: 'settings',
-      roles: ['ORG_ADMIN', 'SUPER_ADMIN'],
-      hideForClientTemp: true,
+      permission: 'view_settings',
     },
   ];
 
   const filteredNav = navItems.filter((item) => {
-    if (isClientTemp && item.hideForClientTemp) return false;
-    if (item.roles && tenantRole && !item.roles.includes(tenantRole)) return false;
-    return true;
+    if (!item.permission) return true;
+    // If auth isn't ready yet, don't hide everything.
+    if (!user) return true;
+    return can(item.permission);
   });
 
   const basePath = `/${tenantSlug}`;
@@ -96,7 +99,7 @@ export default function Sidebar() {
               <span className="text-sm font-semibold text-[var(--accent-sand)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>IQ</span>
             </div>
             <div className="hidden lg:block overflow-hidden w-0 lg:group-hover:w-auto max-w-[200px] transition-[width] duration-300">
-              <h1 className="text-[0.65rem] font-medium tracking-[1px] text-[var(--text-primary)] uppercase pl-3 leading-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+              <h1 className="text-eyebrow pl-4 leading-tight">
                 Project 360
               </h1>
             </div>
@@ -147,12 +150,40 @@ export default function Sidebar() {
                 Favourites
               </p>
               <p className="text-eyebrow px-3 mb-4 lg:hidden">Favourites</p>
-              <div className="px-3 py-2 text-[0.7rem] text-[var(--text-muted)] flex items-center gap-2 lg:justify-center lg:group-hover:justify-start">
-                <Star className="h-3 w-3 shrink-0" />
-                <span className="hidden lg:inline overflow-hidden w-0 lg:group-hover:w-auto whitespace-nowrap">
-                  Pin projects here
-                </span>
-              </div>
+              {pinnedProjects.length === 0 ? (
+                <div className="px-3 py-2 text-[0.7rem] text-[var(--text-muted)] flex items-center gap-2 lg:justify-center lg:group-hover:justify-start">
+                  <Star className="h-3 w-3 shrink-0" />
+                  <span className="hidden lg:inline overflow-hidden w-0 lg:group-hover:w-auto whitespace-nowrap">
+                    Pin projects here
+                  </span>
+                </div>
+              ) : (
+                <ul className="px-3 py-1 flex flex-col gap-1">
+                  {pinnedProjects.map((p) => (
+                    <li key={p.id}>
+                      <NavLink
+                        to={`${basePath}/projects/${p.id}`}
+                        onClick={() => setSidebarMobileOpen(false)}
+                        className={({ isActive }: { isActive: boolean }) =>
+                          [
+                            'flex items-center gap-3 px-3 py-2 min-h-[36px]',
+                            'text-nav transition-all duration-300',
+                            'lg:justify-center lg:group-hover:justify-start',
+                            isActive
+                              ? 'border-l-2 border-[var(--accent-sand)] text-[var(--accent-sand)] bg-[var(--accent-sand-glow)]'
+                              : 'border-l-2 border-transparent hover:border-[var(--accent-sand)] hover:text-[var(--accent-sand)] hover:bg-[var(--accent-sand-glow)]',
+                          ].join(' ')
+                        }
+                      >
+                        <Star className="h-3 w-3 shrink-0 text-[var(--accent-sand)] fill-[var(--accent-sand)]" />
+                        <span className="hidden lg:inline overflow-hidden w-0 lg:group-hover:w-auto whitespace-nowrap">
+                          {p.name}
+                        </span>
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </nav>

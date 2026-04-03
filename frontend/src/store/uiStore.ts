@@ -38,7 +38,14 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   setTheme: (theme) => {
     localStorage.setItem('p360-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+
+      document.title = 'PROJECT 360';
+      const faviconHref = theme === 'light' ? '/favicon-light.svg' : '/favicon-dark.svg';
+      const faviconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (faviconLink) faviconLink.href = faviconHref;
+    }
     set({ theme });
   },
 

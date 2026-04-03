@@ -44,6 +44,7 @@ interface FileCard {
   date: string;
   project: string;
   mimeType: string;
+  blobUrl?: string;
 }
 
 const mockFiles: FileCard[] = [
@@ -83,11 +84,12 @@ function getFileExtension(name: string): string {
 }
 
 export default function FileManager() {
-  const { openModal, closeModal } = useUiStore();
+  const { openModal, closeModal, addToast } = useUiStore();
   const [activeTab, setActiveTab] = useState<'all' | DocumentType>('all');
   const [extensionFilter, setExtensionFilter] = useState('');
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('payment_certificate');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<FileCard[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,10 +102,10 @@ export default function FileManager() {
     return () => clearTimeout(t);
   }, [uploadSuccess, closeModal]);
 
+  const allFiles = [...uploadedFiles, ...mockFiles];
+
   const byTab =
-    activeTab === 'all'
-      ? mockFiles
-      : mockFiles.filter((f) => f.documentType === activeTab);
+    activeTab === 'all' ? allFiles : allFiles.filter((f) => f.documentType === activeTab);
 
   const displayedFiles =
     !extensionFilter
@@ -118,9 +120,45 @@ export default function FileManager() {
   };
 
   const handleUploadSubmit = () => {
-    // Mock: in real app would POST files + selectedDocumentType
+    if (selectedFiles.length === 0) return;
+
+    const dateStr = new Date().toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    const projectName = 'R573 Road Rehabilitation';
+
+    const newEntries: FileCard[] = selectedFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      documentType: selectedDocumentType,
+      size: file.size,
+      date: dateStr,
+      project: projectName,
+      mimeType: file.type || 'application/octet-stream',
+      blobUrl: URL.createObjectURL(file),
+    }));
+
+    setUploadedFiles((prev) => [...newEntries, ...prev]);
     setSelectedFiles([]);
     setUploadSuccess(true);
+  };
+
+  const handleDownload = (file: FileCard) => {
+    if (!file.blobUrl) {
+      addToast({
+        type: 'error',
+        message: 'Download is not available for mock files yet.',
+      });
+      return;
+    }
+
+    const a = document.createElement('a');
+    a.href = file.blobUrl;
+    a.download = file.name;
+    a.click();
   };
 
   return (
@@ -144,14 +182,14 @@ export default function FileManager() {
 
       {/* Document-type tabs + secondary extension filter */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="flex items-center gap-0 border-b border-[var(--border)] overflow-x-auto flex-1">
+        <div className="flex flex-wrap items-center gap-0 border-b border-[var(--border)] flex-1">
           {DOCUMENT_TYPE_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
               className={[
-                'text-button px-4 py-3 whitespace-nowrap transition-all duration-300',
+                'text-button px-4 py-3 transition-all duration-300',
                 activeTab === tab.key
                   ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
@@ -214,7 +252,13 @@ export default function FileManager() {
                   </div>
                 </div>
                 <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" className="!text-[0.55rem]">Download</Button>
+                  <Button
+                    variant="ghost"
+                    className="!text-[0.55rem]"
+                    onClick={() => handleDownload(file)}
+                  >
+                    Download
+                  </Button>
                 </div>
               </div>
             );

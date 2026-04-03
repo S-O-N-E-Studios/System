@@ -3,10 +3,11 @@ import ServiceCategoryCard from '@/components/ui/ServiceCategoryCard';
 import Button from '@/components/ui/Button';
 import { servicesApi } from '@/api/services';
 import { Download } from 'lucide-react';
-import {
-  type ServiceCategorySummary,
-  type ServiceCategory,
-  type Project,
+import { exportPdf, exportXlsx } from '@/utils/clientExports';
+import type {
+  ServiceCategorySummary,
+  ServiceCategory,
+  Project,
 } from '@/types';
 
 const CATEGORIES: ServiceCategory[] = [
@@ -129,7 +130,42 @@ export default function NormalServices() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // Export requires backend when available
+      // Backend may be stubbed for MVP: generate a client-side export from the mock summaries.
+      type Row = {
+        category: ServiceCategory;
+        projectName: string;
+        localMunicipality: string;
+        budget: number;
+        stage: string;
+        status: Project['status'];
+      };
+
+      const rows: Row[] = summaries.flatMap((s) =>
+        s.projects.map((p) => ({
+          category: s.category,
+          projectName: p.name,
+          localMunicipality: p.localMunicipality ?? 'N/A',
+          budget: p.contractValue,
+          stage: p.currentStage != null ? `Stage ${p.currentStage}` : 'N/A',
+          status: p.status,
+        })),
+      );
+
+      const columns: { key: keyof Row; header: string }[] = [
+        { key: 'category', header: 'Service Category' },
+        { key: 'projectName', header: 'Project' },
+        { key: 'localMunicipality', header: 'Local Municipality' },
+        { key: 'budget', header: 'Budget' },
+        { key: 'stage', header: 'Stage' },
+        { key: 'status', header: 'Status' },
+      ];
+
+      const filename = `Normal-Services.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
+      if (format === 'xlsx') {
+        exportXlsx<Row>({ filename, sheetName: 'Normal Services', columns, rows });
+      } else {
+        exportPdf<Row>({ filename, title: 'Normal Services Export', columns, rows });
+      }
     }
   };
 

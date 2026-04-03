@@ -13,112 +13,140 @@
 /* Light Theme (Default - Atlas White Foundation) */
 :root,
 [data-theme='light'] {
-  --bg-primary: #ECE4CE;
+  --bg-primary: #F2EDE3;
   --bg-surface: #FFFFFF;
-  --bg-surface-alt: #F5F0E8;
+  --bg-surface-alt: #EDE8DD;
 
-  --accent-sand: #D7C697;
-  --accent-periwinkle: #97A8D7;
-  --accent-lavender: #CED6EC;
+  --accent-sand: #C9B87A;
+  --accent-periwinkle: #5B6FD4;
+  --accent-lavender: #B8C3EE;
 
-  --status-success: #7A9B76;
-  --status-warning: #C4A45A;
-  --status-danger: #B07A6E;
+  --status-success: #4A8C6E;
+  --status-warning: #C09040;
+  --status-danger: #A85C52;
 
-  --text-primary: #2C2822;
-  --text-muted: #7A7260;
-  --text-financial: #3A3428;
+  --text-primary: #1E1B16;
+  --text-muted: #8A8274;
+  --text-financial: #C9B87A;
 
-  --border-default: #E8E0CE;
+  --border-default: rgba(91, 111, 212, 0.15);
+  --border-strong: rgba(91, 111, 212, 0.3);
 
-  --accent-sand-glow: rgba(215, 198, 151, 0.07);
-  --nav-backdrop: rgba(236, 228, 206, 0.85);
-  --table-header-bg: rgba(215, 198, 151, 0.25);
+  --accent-sand-glow: rgba(201, 184, 122, 0.08);
+  --nav-backdrop: rgba(242, 237, 227, 0.85);
+  --table-header-bg: rgba(91, 111, 212, 0.1);
   --table-row-alt: var(--bg-surface-alt);
-  --crosshatch-color: rgba(215, 198, 151, 0.03);
-  --selection-bg: rgba(215, 198, 151, 0.3);
+  --crosshatch-color: rgba(91, 111, 212, 0.04);
+  --selection-bg: rgba(91, 111, 212, 0.3);
+
+  /* StatusBadge backgrounds/borders (theme-aware) */
+  --badge-active-bg: rgba(74, 140, 110, 0.08);
+  --badge-active-border: rgba(74, 140, 110, 0.3);
+  --badge-review-bg: rgba(192, 144, 64, 0.08);
+  --badge-review-border: rgba(192, 144, 64, 0.3);
+  --badge-planning-bg: rgba(91, 111, 212, 0.08);
+  --badge-planning-border: rgba(91, 111, 212, 0.3);
+  --badge-done-bg: rgba(184, 195, 238, 0.08);
+  --badge-done-border: rgba(184, 195, 238, 0.3);
+  --badge-danger-bg: rgba(168, 92, 82, 0.08);
+  --badge-danger-border: rgba(168, 92, 82, 0.3);
+  --badge-accent-bg: rgba(201, 184, 122, 0.08);
+  --badge-accent-border: rgba(201, 184, 122, 0.3);
 
   /* Backward-compatible aliases (migrate components to new names over time) */
   --bg-secondary: var(--bg-surface-alt);
   --bg-card: var(--bg-surface);
-  --accent: var(--accent-sand);
-  --accent-light: var(--accent-periwinkle);
-  --accent-dim: var(--accent-lavender);
-  --accent-glow: var(--accent-sand-glow);
+  --accent: var(--accent-periwinkle);
+  --accent-light: #E8ECFB;
+  --accent-dim: #8493DE;
+  --accent-glow: rgba(91, 111, 212, 0.22);
   --teal-accent: var(--accent-periwinkle);
-  --teal-accent-dim: var(--accent-periwinkle);
+  --teal-accent-dim: #8493DE;
   --blue-accent: var(--accent-periwinkle);
   --text-secondary: var(--text-muted);
   --border: var(--border-default);
-  --border-strong: var(--border-default);
   --status-active: var(--status-success);
   --status-review: var(--status-warning);
   --status-planning: var(--accent-periwinkle);
   --status-done: var(--accent-lavender);
-  --table-subheader-bg: rgba(215, 198, 151, 0.12);
+  --table-subheader-bg: rgba(91, 111, 212, 0.12);
 
   /* Charts: bar / activity timelines (blue family, Atlas periwinkle + lavender) */
-  --chart-bar-base: var(--accent-lavender);
+  --chart-bar-base: rgba(91, 111, 212, 0.3);
   --chart-bar-fill: var(--accent-periwinkle);
-  --chart-bar-fill-hover: #7B8EC9;
+  --chart-bar-fill-hover: #3A4DBF;
   --chart-bar-series-a: var(--accent-periwinkle);
-  --chart-bar-series-b: #A8B5E0;
+  --chart-bar-series-b: var(--accent-lavender);
   --chart-activity-bar: var(--accent-periwinkle);
-  --chart-activity-bar-hover: #7B8EC9;
+  --chart-activity-bar-hover: #8493DE;
 }
 
 /* Dark Theme (Warm derivation - not cold) */
 [data-theme='dark'] {
-  --bg-primary: #1A1814;
-  --bg-surface: #26231C;
-  --bg-surface-alt: #2E2A22;
+  --bg-primary: #141210;
+  --bg-surface: #1E1A14;
+  --bg-surface-alt: #252118;
 
-  --accent-sand: #B8A87A;
-  --accent-periwinkle: #6B7FB8;
-  --accent-lavender: #8A97C4;
+  --accent-sand: #D4C080;
+  --accent-periwinkle: #7B8FE8;
+  --accent-lavender: #8493DE;
 
-  --status-success: #6A8B66;
-  --status-warning: #A88D4A;
-  --status-danger: #9A6A60;
+  --status-success: #5EAD88;
+  --status-warning: #D4A840;
+  --status-danger: #C47068;
 
-  --text-primary: #E8E0CE;
-  --text-muted: #9A9282;
-  --text-financial: #D4CAB4;
+  --text-primary: #EDE8DD;
+  --text-muted: #6E6860;
+  --text-financial: #D4C080;
 
-  --border-default: #3A3428;
+  --border-default: rgba(123, 143, 232, 0.2);
+  --border-strong: rgba(123, 143, 232, 0.4);
 
-  --accent-sand-glow: rgba(184, 168, 122, 0.07);
-  --nav-backdrop: rgba(26, 24, 20, 0.85);
-  --table-header-bg: rgba(184, 168, 122, 0.2);
+  --accent-sand-glow: rgba(212, 192, 128, 0.1);
+  --nav-backdrop: rgba(20, 18, 16, 0.85);
+  --table-header-bg: rgba(123, 143, 232, 0.2);
   --table-row-alt: var(--bg-surface-alt);
-  --crosshatch-color: rgba(184, 168, 122, 0.03);
-  --selection-bg: rgba(184, 168, 122, 0.3);
+  --crosshatch-color: rgba(123, 143, 232, 0.04);
+  --selection-bg: rgba(123, 143, 232, 0.3);
+
+  /* StatusBadge backgrounds/borders (theme-aware) */
+  --badge-active-bg: rgba(94, 173, 136, 0.08);
+  --badge-active-border: rgba(94, 173, 136, 0.3);
+  --badge-review-bg: rgba(212, 168, 64, 0.08);
+  --badge-review-border: rgba(212, 168, 64, 0.3);
+  --badge-planning-bg: rgba(123, 143, 232, 0.08);
+  --badge-planning-border: rgba(123, 143, 232, 0.3);
+  --badge-done-bg: rgba(132, 147, 222, 0.08);
+  --badge-done-border: rgba(132, 147, 222, 0.3);
+  --badge-danger-bg: rgba(196, 112, 104, 0.08);
+  --badge-danger-border: rgba(196, 112, 104, 0.3);
+  --badge-accent-bg: rgba(212, 192, 128, 0.08);
+  --badge-accent-border: rgba(212, 192, 128, 0.3);
 
   --bg-secondary: var(--bg-surface-alt);
   --bg-card: var(--bg-surface);
-  --accent: var(--accent-sand);
-  --accent-light: var(--accent-periwinkle);
-  --accent-dim: var(--accent-lavender);
-  --accent-glow: var(--accent-sand-glow);
+  --accent: var(--accent-periwinkle);
+  --accent-light: rgba(123, 143, 232, 0.12);
+  --accent-dim: #9AAAF0;
+  --accent-glow: rgba(123, 143, 232, 0.2);
   --teal-accent: var(--accent-periwinkle);
-  --teal-accent-dim: var(--accent-periwinkle);
+  --teal-accent-dim: #9AAAF0;
   --blue-accent: var(--accent-periwinkle);
   --text-secondary: var(--text-muted);
   --border: var(--border-default);
-  --border-strong: var(--border-default);
   --status-active: var(--status-success);
   --status-review: var(--status-warning);
   --status-planning: var(--accent-periwinkle);
   --status-done: var(--accent-lavender);
-  --table-subheader-bg: rgba(184, 168, 122, 0.1);
+  --table-subheader-bg: rgba(123, 143, 232, 0.12);
 
-  --chart-bar-base: rgba(138, 151, 196, 0.35);
+  --chart-bar-base: rgba(123, 143, 232, 0.35);
   --chart-bar-fill: var(--accent-periwinkle);
-  --chart-bar-fill-hover: #8A9FD4;
+  --chart-bar-fill-hover: #A8B6F5;
   --chart-bar-series-a: var(--accent-periwinkle);
-  --chart-bar-series-b: #9AAAD8;
+  --chart-bar-series-b: var(--accent-lavender);
   --chart-activity-bar: var(--accent-periwinkle);
-  --chart-activity-bar-hover: #8A9FD4;
+  --chart-activity-bar-hover: #9AAAF0;
 }
 
 /* Theme Transition (300ms per Atlas spec) */

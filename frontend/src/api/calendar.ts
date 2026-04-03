@@ -7,7 +7,7 @@ export interface CalendarEventsResponse {
 }
 
 export async function fetchCalendarEvents(params?: {
-  view?: 'month' | 'week' | 'list';
+  view?: 'month' | 'week' | 'day';
   date?: string;
   eventType?: CalendarEventType | null;
 }): Promise<CalendarEventsResponse> {

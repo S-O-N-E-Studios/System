@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { CalendarEvent, CalendarEventType } from '@/types';
 
-type CalendarView = 'month' | 'week' | 'list';
+type CalendarView = 'month' | 'week' | 'day';
 
 interface CalendarState {
   events: CalendarEvent[];

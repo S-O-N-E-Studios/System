@@ -17,19 +17,19 @@ export default function StageTimeline({
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
       <h3 className="text-h3 mb-6">Project Stage</h3>
-      <div className="flex items-center gap-0 overflow-x-auto pb-2">
+      <div className="flex items-start gap-0 overflow-x-auto pb-2">
         {stages.map((stage, index) => {
           const isCompleted = completedStages.includes(stage) || stage < currentStage;
           const isCurrent = stage === currentStage;
           const isFuture = stage > currentStage;
 
           return (
-            <div key={stage} className="flex items-center flex-1 min-w-0">
+            <div key={stage} className="flex items-center min-w-fit">
               <button
                 type="button"
                 onClick={() => onStageClick?.(stage)}
                 className={[
-                  'flex flex-col items-center gap-2 px-2 py-3 min-w-[80px] max-w-[120px] transition-all duration-200',
+                  'flex flex-col items-center gap-2 px-2 py-3 min-w-[96px] max-w-[140px] transition-all duration-200',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-periwinkle)]',
                   isCompleted &&
                     'text-[var(--status-success)] hover:bg-[var(--accent-sand-glow)]',
@@ -80,7 +80,7 @@ export default function StageTimeline({
               {index < stages.length - 1 && (
                 <div
                   className={[
-                    'flex-1 h-0.5 min-w-[8px] mx-0',
+                    'h-0.5 w-8 min-w-[32px] mx-0',
                     isCompleted ? 'bg-[var(--status-success)]' : 'bg-[var(--border-default)]',
                   ].join(' ')}
                 />
