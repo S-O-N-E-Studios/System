@@ -58,12 +58,12 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshToken = useAuthStore.getState().refreshToken;
-        if (!refreshToken) throw new Error('No refresh token');
+        const refreshUrl = `${import.meta.env.VITE_API_BASE_URL || '/api'}/auth/refresh`;
 
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL || '/api'}/auth/refresh`,
-          { refreshToken }
-        );
+        // Real backend: refresh token stored in httpOnly cookie, so the body can be omitted.
+        const { data } = refreshToken
+          ? await axios.post(refreshUrl, { refreshToken })
+          : await axios.post(refreshUrl);
 
         useAuthStore.getState().refreshTokens({
           accessToken: data.accessToken,

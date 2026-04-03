@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
@@ -7,6 +7,9 @@ import EmptyState from '@/components/ui/EmptyState';
 import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
+import { useAuthStore } from '@/store/authStore';
+import { useClientAccessStore } from '@/store/clientAccessStore';
+import { fetchClientAccessGrants } from '@/api/clientAccess';
 
 type ContractTab = 'ps' | 'geo' | 'cm';
 
@@ -57,6 +60,48 @@ export default function Projects() {
   const [searchQuery, setSearchQuery] = useState('');
   const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | ''>('');
 
+  const { user } = useAuthStore();
+  const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const isClientTemp = tenantRole === 'CLIENT_TEMP';
+
+  const { expiresAt, allowedProjectIds, setAllowedProjectIds, setExpiresAt, clearClientTempScope } =
+    useClientAccessStore();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateClientTempScope() {
+      if (!tenantSlug || !isClientTemp) return;
+      if (expiresAt && allowedProjectIds.length > 0) return;
+
+      clearClientTempScope();
+
+      try {
+        const res = await fetchClientAccessGrants({ tenantSlug, status: 'active' });
+        if (cancelled) return;
+        setAllowedProjectIds(res.allowedProjectIds);
+        setExpiresAt(res.expiresAt);
+      } catch {
+        if (cancelled) return;
+        // If backend blocks the request, keep banner scoped off.
+      }
+    }
+
+    void hydrateClientTempScope();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    tenantSlug,
+    isClientTemp,
+    expiresAt,
+    allowedProjectIds.length,
+    setAllowedProjectIds,
+    setExpiresAt,
+    clearClientTempScope,
+  ]);
+
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
   };
@@ -66,9 +111,10 @@ export default function Projects() {
       mockProjects.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
         const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
-        return matchesSearch && matchesService;
+        const matchesClientScope = !isClientTemp || allowedProjectIds.includes(p.id);
+        return matchesSearch && matchesService && matchesClientScope;
       }),
-    [searchQuery, serviceCategoryFilter]
+    [searchQuery, serviceCategoryFilter, isClientTemp, allowedProjectIds]
   );
 
   const showEmpty = filteredProjects.length === 0;
@@ -77,12 +123,14 @@ export default function Projects() {
     <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <h1 className="text-h1">Projects</h1>
-        <Link to={`/${tenantSlug}/projects/new`}>
-          <Button variant="primary">
-            <Plus className="h-3.5 w-3.5" />
-            New Project
-          </Button>
-        </Link>
+        {!isClientTemp && (
+          <Link to={`/${tenantSlug}/projects/new`}>
+            <Button variant="primary">
+              <Plus className="h-3.5 w-3.5" />
+              New Project
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Tab row */}
@@ -183,21 +231,29 @@ export default function Projects() {
                         {p.gps}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
+                    <td className="px-4 py-3 text-currency">
+                      {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => toggleDrillDown(p.id)}
                         className="flex items-center gap-1 text-currency cursor-pointer"
                       >
-                        {formatRands(p.expenditure)}
+                        {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
                         {expandedRow === p.id
                           ? <ChevronUp className="h-3 w-3 text-[var(--accent)]" />
                           : <ChevronDown className="h-3 w-3 text-[var(--accent)]" />
                         }
                       </button>
                     </td>
-                    <td className={`px-4 py-3 text-currency ${p.balance >= 0 ? '!text-[var(--status-active)]' : '!text-[var(--status-danger)]'}`}>
-                      {formatRands(p.balance)}
+                    <td
+                      className={`px-4 py-3 text-currency ${
+                        !isClientTemp && p.balance >= 0 ? '!text-[var(--status-active)]' : ''
+                      } ${
+                        !isClientTemp && p.balance < 0 ? '!text-[var(--status-danger)]' : ''
+                      }`}
+                    >
+                      {isClientTemp ? '—— Restricted' : formatRands(p.balance)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={p.status}>
@@ -267,13 +323,17 @@ export default function Projects() {
                   <td className="px-4 py-3 text-table-cell">
                     {p.geoTecEngineer || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
+                    <td className="px-4 py-3 text-currency">
+                      {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
+                    </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={p.geoTecReport === 'submitted' ? 'active' : p.geoTecReport === 'in_review' ? 'review' : 'planning'}>
                       {p.geoTecReport === 'submitted' ? 'Submitted' : p.geoTecReport === 'in_review' ? 'In Review' : 'Pending'}
                     </StatusBadge>
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
+                  <td className="px-4 py-3 text-currency">
+                    {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
+                  </td>
                   <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.challenges || 'N/A'}</td>
                   <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.recommendation || 'N/A'}</td>
                   <td className="px-4 py-3">
@@ -320,10 +380,14 @@ export default function Projects() {
                   <td className="px-4 py-3 text-table-cell">
                     {p.contractor || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
+                  <td className="px-4 py-3 text-currency">
+                    {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
+                  </td>
                   <td className="px-4 py-3 text-table-cell text-[var(--text-muted)]">{p.startDate}</td>
                   <td className="px-4 py-3 text-table-cell">{p.completionDate}</td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
+                  <td className="px-4 py-3 text-currency">
+                    {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
+                  </td>
                   <td className="px-4 py-3 w-[160px]">
                     <ProgressBar value={p.percentComplete} height={4} />
                   </td>

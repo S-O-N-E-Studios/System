@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import Button from './Button';
 import { STAGE_NAMES, type ProjectStage, type StageDocumentRequirement } from '@/types';
@@ -11,7 +11,7 @@ interface StageDocumentDrawerProps {
   gatePassed: boolean;
   onClose: () => void;
   onAdvanceStage?: () => void;
-  onUploadDocument?: (doc: { documentName: string; category: string }) => void;
+  onUploadDocument?: (doc: { documentName: string; category: string; file: File }) => Promise<void> | void;
   isAdvancing?: boolean;
 }
 
@@ -26,6 +26,13 @@ export default function StageDocumentDrawer({
 }: StageDocumentDrawerProps) {
   const [isOpen] = useState(true);
   const requirements = STAGE_DOCUMENT_REQUIREMENTS[stage];
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingUploadDoc, setPendingUploadDoc] = useState<{
+    documentName: string;
+    category: string;
+  } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Map requirements to document status (from API or mock)
   const docStatus = requirements.map((req) => {
@@ -42,8 +49,37 @@ export default function StageDocumentDrawer({
   });
 
   const missingCount = docStatus.filter((d) => !d.uploaded).length;
+  const missingDocsText = docStatus
+    .filter((d) => !d.uploaded)
+    .map((d) => `${d.documentName} (${d.category})`)
+    .join(', ');
 
   if (!isOpen) return null;
+
+  const startUpload = (doc: { documentName: string; category: string }) => {
+    if (!onUploadDocument) return;
+    setPendingUploadDoc(doc);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!pendingUploadDoc || !onUploadDocument) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      await onUploadDocument({
+        documentName: pendingUploadDoc.documentName,
+        category: pendingUploadDoc.category,
+        file,
+      });
+      setPendingUploadDoc(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <>
@@ -121,11 +157,12 @@ export default function StageDocumentDrawer({
                     variant="secondary"
                     className="!min-w-0 !px-3 !py-1.5 text-[0.7rem] shrink-0"
                     onClick={() =>
-                      onUploadDocument({
+                      startUpload({
                         documentName: doc.documentName,
                         category: doc.category,
                       })
                     }
+                    disabled={isUploading}
                   >
                     <Upload className="h-3 w-3" />
                     Upload
@@ -153,7 +190,9 @@ export default function StageDocumentDrawer({
                   className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border-default)] text-[0.68rem] text-[var(--text-muted)] whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-10"
                   role="tooltip"
                 >
-                  Upload all required documents to advance
+                  {missingDocsText
+                    ? `Missing: ${missingDocsText}`
+                    : 'Upload all required documents to advance'}
                 </div>
               )}
             </div>
@@ -173,6 +212,16 @@ export default function StageDocumentDrawer({
           </div>
         )}
       </div>
+
+      {/* Hidden file picker for stage document uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="sr-only"
+        onChange={handleFileChange}
+        aria-label="Upload stage document"
+        accept=".pdf,.xlsx,.docx,.csv,.dwg,.png,.jpg,.jpeg"
+      />
     </>
   );
 }

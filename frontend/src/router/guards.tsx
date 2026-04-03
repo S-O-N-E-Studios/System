@@ -1,9 +1,11 @@
 import { Navigate, Outlet, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import type { TenantSummary } from '@/types';
+import { clientAccessCheck } from '@/api/clientAccess';
+import { useClientAccessStore } from '@/store/clientAccessStore';
 
 /** Role for the tenant in the current URL (not tenants[0]). */
 function tenantAccessForSlug(
@@ -90,6 +92,7 @@ export function TenantGuard() {
 export function PermanentUserGuard() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
+  const { allowedProjectIds } = useClientAccessStore();
 
   if (!user) {
     return <Navigate to="/" replace />;
@@ -97,7 +100,17 @@ export function PermanentUserGuard() {
 
   const tenantAccess = tenantAccessForSlug(user.tenants, tenantSlug);
   if (tenantAccess?.role === 'CLIENT_TEMP' && tenantSlug) {
-    return <Navigate to={`/${tenantSlug}/projects`} replace />;
+    const firstProjectId = allowedProjectIds[0];
+    return (
+      <Navigate
+        to={
+          firstProjectId
+            ? `/${tenantSlug}/projects/${firstProjectId}`
+            : `/${tenantSlug}/projects`
+        }
+        replace
+      />
+    );
   }
 
   return <Outlet />;
@@ -112,20 +125,88 @@ export function PermanentUserGuard() {
  * on server-side enforcement until the API is wired.
  */
 export function ClientGuard() {
-  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const { tenantSlug, id } = useParams<{ tenantSlug: string; id?: string }>();
   const { user } = useAuthStore();
+  const { setExpiresAt, setAllowedProjectIds, clearClientTempScope } =
+    useClientAccessStore();
+
+  const [isChecking, setIsChecking] = useState(false);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
+  const tenantAccess = user ? tenantAccessForSlug(user.tenants, tenantSlug) : undefined;
+  const isClientTemp = tenantAccess?.role === 'CLIENT_TEMP';
+
+  useEffect(() => {
+    if (!user || !isClientTemp || !tenantSlug || !id) {
+      return;
+    }
+
+    const safeTenantSlug = tenantSlug as string;
+    const safeProjectId = id as string;
+
+    let cancelled = false;
+
+    async function run() {
+      setIsChecking(true);
+      setHasAccess(null);
+      clearClientTempScope();
+
+      try {
+        const { allowedProjectIds, expiresAt } = await clientAccessCheck({
+          tenantSlug: safeTenantSlug,
+          projectId: safeProjectId,
+        });
+
+        if (cancelled) return;
+
+        setExpiresAt(expiresAt);
+        setAllowedProjectIds(allowedProjectIds);
+        setHasAccess(allowedProjectIds.includes(safeProjectId));
+      } catch {
+        if (cancelled) return;
+        setHasAccess(false);
+        setAllowedProjectIds([]);
+      } finally {
+        if (cancelled) return;
+        setIsChecking(false);
+      }
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user,
+    isClientTemp,
+    tenantSlug,
+    id,
+    clearClientTempScope,
+    setAllowedProjectIds,
+    setExpiresAt,
+  ]);
 
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  const tenantAccess = tenantAccessForSlug(user.tenants, tenantSlug);
   if (tenantAccess?.role !== 'CLIENT_TEMP') {
     return <Outlet />;
   }
 
-  // TODO: Wire to GET /:tenantSlug/projects/:id/client-access-check
-  // For now, allow through and rely on server-side scope enforcement
+  // Client temp users cannot create projects.
+  if (!id || !tenantSlug) {
+    return <Navigate to={`/${tenantSlug ?? ''}/projects`} replace />;
+  }
+
+  if (isChecking || hasAccess == null) {
+    return <LoadingOverlay />;
+  }
+
+  if (!hasAccess) {
+    return <Navigate to={`/${tenantSlug}/projects`} replace />;
+  }
+
   return <Outlet />;
 }
 

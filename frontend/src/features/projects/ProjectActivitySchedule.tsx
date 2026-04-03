@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
-import type { ScheduleActivity } from '@/types';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import type { ScheduleActivity, SupportingImage } from '@/types';
 import { formatDate } from '@/utils/formatters';
 import GanttChart from '@/components/ui/GanttChart';
+import ActivityImageUploader from '@/components/ui/ActivityImageUploader';
 import { Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { useUiStore } from '@/store/uiStore';
+import { uploadActivityImage, removeActivityImage } from '@/api/activityImages';
 
 const MOCK_ACTIVITIES: (ScheduleActivity & { expectedFunds: number; actualFunds: number })[] = [
   { id: '1', name: 'Excavation', startDate: '2026-01-15', endDate: '2026-03-15', status: 'on_track', expectedFunds: 100, actualFunds: 95 },
   { id: '2', name: 'Steel', startDate: '2026-02-01', endDate: '2026-04-30', status: 'on_track', expectedFunds: 100, actualFunds: 100 },
   { id: '3', name: 'Concrete', startDate: '2026-03-01', endDate: '2026-06-30', status: 'at_risk', expectedFunds: 100, actualFunds: 85 },
   { id: '4', name: 'Road Base', startDate: '2026-05-01', endDate: '2026-08-31', status: 'on_track', expectedFunds: 100, actualFunds: 0 },
-  { id: '5', name: 'Surfacing', startDate: '2026-07-01', endDate: '2026-10-31', status: 'on_track', expectedFunds: 100, actualFunds: 0 },
+  { id: '5', name: 'Surfacing', startDate: '2026-07-01', endDate: '2026-10-31', status: 'complete', expectedFunds: 100, actualFunds: 0 },
   { id: '6', name: 'Handover', startDate: '2026-10-01', endDate: '2026-11-30', status: 'on_track', expectedFunds: 100, actualFunds: 0 },
 ];
 
@@ -46,7 +51,24 @@ function useCountdown(targetDate: string) {
 export default function ProjectActivitySchedule() {
   const activities = MOCK_ACTIVITIES;
   const project = MOCK_PROJECT;
+  const { tenantSlug, id: projectId } = useParams<{ tenantSlug: string; id: string }>();
+  const { user } = useAuthStore();
+  const { addToast } = useUiStore();
   const countdown = useCountdown(project.completionDate);
+
+  const tenantRole =
+    user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const isClientTemp = tenantRole === 'CLIENT_TEMP';
+
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const selectedActivity = useMemo(
+    () => activities.find((a) => a.id === selectedActivityId) ?? null,
+    [activities, selectedActivityId]
+  );
+
+  const [imagesByActivityId, setImagesByActivityId] = useState<Record<string, SupportingImage[]>>(
+    () => ({})
+  );
 
   return (
     <div className="space-y-6">
@@ -92,7 +114,76 @@ export default function ProjectActivitySchedule() {
         activities={activities}
         startMonth={new Date(project.startDate)}
         endMonth={new Date(project.completionDate)}
+        onActivityClick={(activityId) => setSelectedActivityId(activityId)}
       />
+
+      {selectedActivityId && selectedActivity && (
+        <ActivityImageUploader
+          activityId={selectedActivityId}
+          activityName={selectedActivity.name}
+          isComplete={selectedActivity.status === 'complete'}
+          images={imagesByActivityId[selectedActivityId] ?? []}
+          onUpload={
+            isClientTemp
+              ? undefined
+              : async (activityId, file, caption) => {
+                  if (!tenantSlug || !projectId) return;
+                  try {
+                    await uploadActivityImage({
+                      tenantSlug,
+                      projectId,
+                      activityId,
+                      file,
+                      caption,
+                    });
+                    const newImage: SupportingImage = {
+                      fileId: crypto.randomUUID(),
+                      uploadedBy: user?.email ?? 'unknown',
+                      uploadedAt: new Date().toISOString(),
+                      caption,
+                    };
+                    setImagesByActivityId((prev) => ({
+                      ...prev,
+                      [activityId]: [...(prev[activityId] ?? []), newImage],
+                    }));
+                  } catch {
+                    addToast({
+                      type: 'error',
+                      message: 'Image upload failed. Please try again.',
+                    });
+                    throw new Error('upload failed');
+                  }
+                }
+          }
+          onRemove={
+            isClientTemp
+              ? undefined
+              : async (activityId, imageId) => {
+                  if (!tenantSlug || !projectId) return;
+                  try {
+                    await removeActivityImage({
+                      tenantSlug,
+                      projectId,
+                      activityId,
+                      imageId,
+                    });
+                    setImagesByActivityId((prev) => ({
+                      ...prev,
+                      [activityId]: (prev[activityId] ?? []).filter(
+                        (img) => img.fileId !== imageId
+                      ),
+                    }));
+                  } catch {
+                    addToast({
+                      type: 'error',
+                      message: 'Image removal failed. Please try again.',
+                    });
+                    throw new Error('remove failed');
+                  }
+                }
+          }
+        />
+      )}
 
       {/* Expected vs Actual Funds table */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)]">
@@ -127,16 +218,18 @@ export default function ProjectActivitySchedule() {
                     className="px-4 py-3 text-right text-[0.82rem]"
                     style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)' }}
                   >
-                    {act.expectedFunds}
+                    {isClientTemp ? '—— Restricted' : act.expectedFunds}
                   </td>
                   <td
                     className="px-4 py-3 text-right text-[0.82rem]"
                     style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-financial)' }}
                   >
-                    {act.actualFunds || 'N/A'}
+                    {isClientTemp ? '—— Restricted' : act.actualFunds || 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {act.actualFunds > 0 ? (
+                    {isClientTemp ? (
+                      <span className="text-[0.78rem] text-[var(--text-muted)]">—— Restricted</span>
+                    ) : act.actualFunds > 0 ? (
                       <span
                         className="inline-flex items-center gap-1 text-[0.78rem]"
                         style={{

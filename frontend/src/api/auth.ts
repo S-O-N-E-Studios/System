@@ -61,6 +61,14 @@ export const authApi = {
     return res.data.data;
   },
 
+  clientActivate: async (token: string, data: { password: string }): Promise<LoginResponse> => {
+    if (useMockAuth) return authMock.clientActivate(token, data.password);
+    const res = await apiClient.post<ApiResponse<LoginResponse>>(`/auth/client-activate/${token}`, {
+      password: data.password,
+    });
+    return res.data.data;
+  },
+
   changePassword: async (data: {
     currentPassword: string;
     newPassword: string;
@@ -69,9 +77,15 @@ export const authApi = {
     await apiClient.post('/auth/change-password', data);
   },
 
-  refreshToken: async (refreshToken: string): Promise<AuthTokens> => {
+  refreshToken: async (refreshToken?: string): Promise<AuthTokens> => {
     if (useMockAuth) return authMock.refreshToken();
-    const res = await apiClient.post<ApiResponse<AuthTokens>>('/auth/refresh', { refreshToken });
+    if (refreshToken) {
+      const res = await apiClient.post<ApiResponse<AuthTokens>>('/auth/refresh', { refreshToken });
+      return res.data.data;
+    }
+
+    // Real backend should read refresh token from httpOnly cookie.
+    const res = await apiClient.post<ApiResponse<AuthTokens>>('/auth/refresh');
     return res.data.data;
   },
 

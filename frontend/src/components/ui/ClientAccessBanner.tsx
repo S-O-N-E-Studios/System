@@ -27,7 +27,7 @@ export default function ClientAccessBanner({ expiresAt }: ClientAccessBannerProp
       if (diff <= 0) {
         clearInterval(interval);
         logout();
-        navigate('/');
+        navigate('/access-expired');
       }
     }, 1_000);
 

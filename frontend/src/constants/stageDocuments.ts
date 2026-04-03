@@ -39,6 +39,7 @@ export const STAGE_DOCUMENT_REQUIREMENTS: Record<ProjectStage, StageDocumentSpec
     { documentName: 'Monthly Progress Reports', category: 'progress-report', recurring: true },
     { documentName: 'Monthly Safety Reports', category: 'safety-report', recurring: true },
     { documentName: 'Payment Certificates', category: 'payment-certificate', recurring: true },
+    { documentName: 'Activity Supporting Images', category: 'activity-image' },
     { documentName: 'Final Accounts', category: 'final-account' },
     { documentName: 'Practical Completion Certificates', category: 'practical-completion' },
     { documentName: 'Completion Certificates', category: 'completion-certificate' },

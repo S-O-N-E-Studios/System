@@ -5,10 +5,11 @@ import { useTenantStore } from '@/store/tenantStore';
 import { getGreeting } from '@/utils/formatters';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { Download, MapPin } from 'lucide-react';
+import { Download } from 'lucide-react';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
+import ProvinceGeoJsonMap from '@/components/ui/ProvinceGeoJsonMap';
 import {
   fetchDashboardSummary,
   type DepartmentBudgetSummary,
@@ -114,16 +115,8 @@ export default function Dashboard() {
       {/* Province map + tenant name */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-8 mb-8">
         <h2 className="text-h2 mb-6">{tenantName}</h2>
-        <div className="aspect-[2/1] bg-[var(--bg-surface-alt)] border border-dashed border-[var(--border-default)] flex items-center justify-center">
-          <div className="text-center">
-            <MapPin className="h-10 w-10 text-[var(--accent-periwinkle)] mx-auto mb-3" />
-            <p className="text-h3 mb-1">Province Map</p>
-            <p className="text-[0.72rem] text-[var(--text-muted)]">
-              Interactive province map with department regions.
-              <br />
-              GeoJSON data source required (Open Item #6).
-            </p>
-          </div>
+        <div className="aspect-[2/1] bg-[var(--bg-surface-alt)] border border-dashed border-[var(--border-default)] overflow-hidden">
+          <ProvinceGeoJsonMap height="100%" zoom={7} onRegionClick={() => {}} />
         </div>
       </div>
 

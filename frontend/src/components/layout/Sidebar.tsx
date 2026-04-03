@@ -32,7 +32,8 @@ export default function Sidebar() {
   const { user } = useAuthStore();
   const { sidebarMobileOpen, setSidebarMobileOpen } = useUiStore();
 
-  const isClientTemp = user?.tenants[0]?.role === 'CLIENT_TEMP';
+  const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const isClientTemp = tenantRole === 'CLIENT_TEMP';
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4 shrink-0" />, path: 'dashboard', hideForClientTemp: true },
@@ -62,7 +63,7 @@ export default function Sidebar() {
 
   const filteredNav = navItems.filter((item) => {
     if (isClientTemp && item.hideForClientTemp) return false;
-    if (item.roles && user && !item.roles.includes(user.role)) return false;
+    if (item.roles && tenantRole && !item.roles.includes(tenantRole)) return false;
     return true;
   });
 
@@ -96,7 +97,7 @@ export default function Sidebar() {
             </div>
             <div className="hidden lg:block overflow-hidden w-0 lg:group-hover:w-auto max-w-[200px] transition-[width] duration-300">
               <h1 className="text-[0.65rem] font-medium tracking-[1px] text-[var(--text-primary)] uppercase pl-3 leading-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                SA Project 360 IQ
+                Project 360
               </h1>
             </div>
           </div>
@@ -168,7 +169,7 @@ export default function Sidebar() {
                 {user.firstName} {user.lastName}
               </span>
               <span className="text-[0.6rem] text-[var(--text-muted)] tracking-wider uppercase">
-                {user.role.replace(/_/g, ' ')}
+                {(tenantRole ?? user.role).replace(/_/g, ' ')}
               </span>
             </div>
             <User className="h-4 w-4 ml-auto text-[var(--text-muted)] hidden lg:group-hover:block shrink-0" />

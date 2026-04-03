@@ -27,6 +27,7 @@ const Login = lazy(() => import('@/features/auth/Login'));
 const Register = lazy(() => import('@/features/auth/Register'));
 const InviteAccept = lazy(() => import('@/features/auth/InviteAccept'));
 const ClientActivate = lazy(() => import('@/features/auth/ClientActivate'));
+const AccessExpired = lazy(() => import('@/features/auth/AccessExpired'));
 
 // Lazy Imports - App Shell and Screens
 const AppShell = lazy(() => import('@/components/layout/AppShell'));
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
   { path: '/register', element: <LazyRoute component={Register} /> },
   { path: '/invite/:token', element: <LazyRoute component={InviteAccept} /> },
   { path: '/client-access/:token', element: <LazyRoute component={ClientActivate} /> },
+  { path: '/access-expired', element: <LazyRoute component={AccessExpired} /> },
 
   // Authenticated routes
   {
@@ -104,7 +106,11 @@ export const router = createBrowserRouter([
 
               // Project routes (CLIENT_TEMP scoped via ClientGuard)
               { path: 'projects', element: <LazyRoute component={Projects} /> },
-              { path: 'projects/new', element: <LazyRoute component={ProjectForm} /> },
+              {
+                path: 'projects/new',
+                element: <ClientGuard />,
+                children: [{ index: true, element: <LazyRoute component={ProjectForm} /> }],
+              },
               {
                 path: 'projects/:id',
                 element: <ClientGuard />,

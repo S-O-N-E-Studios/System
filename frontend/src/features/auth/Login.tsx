@@ -92,7 +92,7 @@ export default function Login() {
             </div>
           </div>
           <h1 className="text-h1 tracking-[3px] uppercase mb-3">
-            SA Project 360 IQ
+            Project 360
           </h1>
           <p className="text-body max-w-sm mx-auto leading-relaxed">
             Engineering Project Management Platform.
@@ -107,7 +107,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-12">
             <h1 className="text-h2 tracking-[2px] uppercase">
-              SA Project 360 IQ
+              Project 360
             </h1>
           </div>
 

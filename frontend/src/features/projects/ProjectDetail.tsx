@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
@@ -11,7 +11,15 @@ import { ArrowLeft, Edit, FileText, Clock, Check, X } from 'lucide-react';
 import ProjectLocationMap from '@/components/ui/ProjectLocationMap';
 import ProjectActivitySchedule from './ProjectActivitySchedule';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
-import type { ProjectStage, StageDocumentRequirement } from '@/types';
+import { STAGE_NAMES } from '@/types';
+import type { ProjectFile, ProjectStage } from '@/types';
+import { useAuthStore } from '@/store/authStore';
+import {
+  advanceProjectStage,
+  fetchProjectStageStatus,
+  type StageMissingDoc,
+} from '@/api/projectStage';
+import { filesApi } from '@/api/files';
 
 const detailTabs = [
   'Overview',
@@ -25,15 +33,6 @@ const detailTabs = [
 
 /* Mock stage gate status (v6.0) */
 const MOCK_CURRENT_STAGE: ProjectStage = 4;
-const MOCK_STAGE_DOCUMENTS: StageDocumentRequirement[] = (() => {
-  const reqs = STAGE_DOCUMENT_REQUIREMENTS[4];
-  return reqs.map((r, i) => ({
-    documentName: r.documentName,
-    category: r.category,
-    uploaded: i < 2, // First 2 uploaded, rest missing
-    fileName: i < 2 ? `${r.documentName.replace(/\s/g, '-')}.pdf` : undefined,
-  }));
-})();
 
 /* Mock multi-year payment forecast */
 const MOCK_PAYMENT_PLAN = [
@@ -122,8 +121,124 @@ export default function ProjectDetail() {
   const [activeTab, setActiveTab] = useState<typeof detailTabs[number]>('Overview');
   const [stageDrawerOpen, setStageDrawerOpen] = useState<ProjectStage | null>(null);
   const countdown = useCountdown('2026-11-30');
-  const currentStage = MOCK_CURRENT_STAGE;
-  const completedStages = [1, 2, 3] as ProjectStage[];
+  const [currentStage, setCurrentStage] = useState<ProjectStage>(MOCK_CURRENT_STAGE);
+  const [stageMissingDocs, setStageMissingDocs] = useState<StageMissingDoc[]>([]);
+  const [isStageLoading, setIsStageLoading] = useState(false);
+  const [isStageStatusLoaded, setIsStageStatusLoaded] = useState(false);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+
+  const { user } = useAuthStore();
+  const tenantRole =
+    user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const isClientTemp = tenantRole === 'CLIENT_TEMP';
+
+  const visibleDocs = isClientTemp
+    ? MOCK_DOCS.filter((doc) => doc.category !== 'payment-certificate' && doc.category !== 'proof-of-payment')
+    : MOCK_DOCS;
+
+  const [filesByStage, setFilesByStage] = useState<Record<ProjectStage, ProjectFile[]>>({
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
+    6: [],
+  });
+  const [isFilesLoading, setIsFilesLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStageStatus() {
+      if (!tenantSlug || !id) return;
+      setIsStageLoading(true);
+      try {
+        const status = await fetchProjectStageStatus({
+          tenantSlug,
+          projectId: id,
+        });
+
+        if (cancelled) return;
+
+        setCurrentStage(status.currentStage);
+        setStageMissingDocs(status.missing);
+        setIsStageStatusLoaded(true);
+      } catch {
+        // Keep currentStage defaults if backend is not wired yet.
+        if (cancelled) return;
+        setStageMissingDocs([]);
+        setIsStageStatusLoaded(false);
+      } finally {
+        if (cancelled) return;
+        setIsStageLoading(false);
+      }
+    }
+
+    void loadStageStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug, id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFiles() {
+      if (!tenantSlug || !id) return;
+
+      // Fetch when user opens the Files tab or opens a stage drawer.
+      const shouldFetchAllStages = activeTab === 'Files';
+      const targetStages: ProjectStage[] = shouldFetchAllStages
+        ? ([1, 2, 3, 4, 5, 6] as ProjectStage[])
+        : stageDrawerOpen != null
+          ? [stageDrawerOpen]
+          : [];
+
+      if (targetStages.length === 0) return;
+
+      setIsFilesLoading(true);
+      try {
+        const next: Partial<Record<ProjectStage, ProjectFile[]>> = {};
+        await Promise.all(
+          targetStages.map(async (stage) => {
+            const res = await filesApi.list({
+              tenantSlug,
+              projectId: id,
+              stage,
+              clientVisible: isClientTemp ? true : undefined,
+              page: 1,
+              pageSize: 200,
+            });
+
+            if (cancelled) return;
+            next[stage] = res.data;
+          })
+        );
+
+        if (cancelled) return;
+        setFilesByStage((prev) => ({
+          ...prev,
+          ...next,
+        }));
+      } catch {
+        // Backend may be stubbed early in dev; keep UI functional.
+      } finally {
+        if (cancelled) return;
+        setIsFilesLoading(false);
+      }
+    }
+
+    void loadFiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, stageDrawerOpen, tenantSlug, id, isClientTemp]);
+
+  const completedStages: ProjectStage[] = [];
+
+  if (!tenantSlug || !id) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="animate-fade-in">
@@ -144,12 +259,14 @@ export default function ProjectDetail() {
           <StatusBadge status="active">Active</StatusBadge>
         </div>
         <div className="flex items-center gap-3">
-          <Link to={`/${tenantSlug}/projects/${id}/edit`}>
-            <Button variant="secondary">
-              <Edit className="h-3.5 w-3.5" />
-              Edit
-            </Button>
-          </Link>
+          {!isClientTemp && (
+            <Link to={`/${tenantSlug}/projects/${id}/edit`}>
+              <Button variant="secondary">
+                <Edit className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -177,9 +294,18 @@ export default function ProjectDetail() {
           {/* KPI row + Countdown */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-0">
             {[
-              { label: 'Contract Value', value: formatRands(45_000_000) },
-              { label: 'Expenditure', value: formatRands(15_200_000) },
-              { label: 'Balance', value: formatRands(29_800_000) },
+              {
+                label: 'Contract Value',
+                value: isClientTemp ? '—— Restricted' : formatRands(45_000_000),
+              },
+              {
+                label: 'Expenditure',
+                value: isClientTemp ? '—— Restricted' : formatRands(15_200_000),
+              },
+              {
+                label: 'Balance',
+                value: isClientTemp ? '—— Restricted' : formatRands(29_800_000),
+              },
               { label: '% Complete', value: '38%' },
             ].map((kpi) => (
               <div key={kpi.label} className="p-5 border border-[var(--border-default)] bg-[var(--bg-surface)]">
@@ -213,17 +339,124 @@ export default function ProjectDetail() {
               stage={stageDrawerOpen}
               projectId={id ?? ''}
               documents={
-                stageDrawerOpen === 4
-                  ? MOCK_STAGE_DOCUMENTS
-                  : STAGE_DOCUMENT_REQUIREMENTS[stageDrawerOpen].map((r) => ({
-                      documentName: r.documentName,
-                      category: r.category,
-                      uploaded: stageDrawerOpen < currentStage,
-                    }))
+                STAGE_DOCUMENT_REQUIREMENTS[stageDrawerOpen].map((r) => {
+                  const isPastStage = stageDrawerOpen < currentStage;
+                  const isCurrentStage = stageDrawerOpen === currentStage;
+                  const isMissing =
+                    isCurrentStage &&
+                    stageMissingDocs.some(
+                      (m) => m.documentName === r.documentName && m.category === r.category,
+                    );
+
+                  const stageFiles = filesByStage[stageDrawerOpen] ?? [];
+                  const matchingFiles = stageFiles.filter((f) => f.category === r.category);
+                  const firstFileName =
+                    matchingFiles[0]?.originalName ?? matchingFiles[0]?.filename ?? undefined;
+
+                  return {
+                    documentName: r.documentName,
+                    category: r.category,
+                    uploaded: isPastStage || (isCurrentStage && !isMissing),
+                    fileName:
+                      isPastStage || (isCurrentStage && !isMissing) ? firstFileName : undefined,
+                  };
+                })
               }
-              gatePassed={false}
+              gatePassed={
+                stageDrawerOpen < currentStage ||
+                (stageDrawerOpen === currentStage &&
+                  !isStageLoading &&
+                  isStageStatusLoaded &&
+                  stageMissingDocs.length === 0)
+              }
               onClose={() => setStageDrawerOpen(null)}
-              onAdvanceStage={() => setStageDrawerOpen(null)}
+              onUploadDocument={
+                isClientTemp
+                  ? undefined
+                  : async ({ documentName, category, file }) => {
+                      void documentName;
+                      if (!tenantSlug || !id) return;
+                      const stage = stageDrawerOpen;
+                      if (!stage) return;
+
+                      await filesApi.uploadStageDocument({
+                        tenantSlug,
+                        projectId: id,
+                        stage,
+                        category,
+                        file,
+                      });
+
+                      // Reload stage gate status after upload.
+                      try {
+                        const status = await fetchProjectStageStatus({
+                          tenantSlug,
+                          projectId: id,
+                        });
+                        setCurrentStage(status.currentStage);
+                        setStageMissingDocs(status.missing);
+                        setIsStageStatusLoaded(true);
+                      } catch {
+                        // Ignore; gate UI will refresh on the next stage-status load.
+                      }
+
+                      // Reload files for this stage so drawer shows uploaded file names.
+                      try {
+                        const res = await filesApi.list({
+                          tenantSlug,
+                          projectId: id,
+                          stage,
+                          clientVisible: undefined,
+                          page: 1,
+                          pageSize: 200,
+                        });
+                        setFilesByStage((prev) => ({
+                          ...prev,
+                          [stage]: res.data,
+                        }));
+                      } catch {
+                        // Ignore; drawer still reflects gate status via stage-status endpoint.
+                      }
+                    }
+              }
+              onAdvanceStage={
+                isClientTemp
+                  ? undefined
+                  : stageDrawerOpen === currentStage
+                    ? () => {
+                        void (async () => {
+                          setIsAdvancing(true);
+
+                          let succeeded = false;
+                          try {
+                            await advanceProjectStage({
+                              tenantSlug,
+                              projectId: id,
+                            });
+                            succeeded = true;
+                          } catch {
+                            succeeded = false;
+                          }
+
+                          try {
+                            const status = await fetchProjectStageStatus({
+                              tenantSlug,
+                              projectId: id,
+                            });
+                            setCurrentStage(status.currentStage);
+                            setStageMissingDocs(status.missing);
+                          } catch {
+                            // If stage-status cannot be reloaded, keep current UI state.
+                            setIsStageStatusLoaded(false);
+                          } finally {
+                            setIsAdvancing(false);
+                            if (succeeded) setStageDrawerOpen(null);
+                          }
+                        })();
+                      }
+                    : undefined
+              }
+              isAdvancing={isAdvancing}
             />
           )}
 
@@ -254,19 +487,19 @@ export default function ProjectDetail() {
                         >
                           <td className="px-4 py-3 text-[0.85rem] font-medium text-[var(--text-primary)]">{row.year}</td>
                           <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            {row.q1 ? formatRands(row.q1) : 'N/A'}
+                            {isClientTemp ? '—— Restricted' : row.q1 ? formatRands(row.q1) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            {row.q2 ? formatRands(row.q2) : 'N/A'}
+                            {isClientTemp ? '—— Restricted' : row.q2 ? formatRands(row.q2) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            {row.q3 ? formatRands(row.q3) : 'N/A'}
+                            {isClientTemp ? '—— Restricted' : row.q3 ? formatRands(row.q3) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            {row.q4 ? formatRands(row.q4) : 'N/A'}
+                            {isClientTemp ? '—— Restricted' : row.q4 ? formatRands(row.q4) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-right text-financial text-[0.9rem] font-semibold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            {formatRands(total)}
+                            {isClientTemp ? '—— Restricted' : formatRands(total)}
                           </td>
                         </tr>
                       );
@@ -287,7 +520,7 @@ export default function ProjectDetail() {
             <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
               <h3 className="text-h3 mb-4">Project Documents</h3>
               <div className="flex flex-col gap-0">
-                {MOCK_DOCS.map((doc) => (
+                {visibleDocs.map((doc) => (
                   <div
                     key={doc.id}
                     className="flex items-center justify-between py-3 border-b border-[var(--border-default)] last:border-0 hover:bg-[var(--accent-sand-glow)] transition-colors px-2 -mx-2 cursor-pointer"
@@ -305,11 +538,13 @@ export default function ProjectDetail() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t border-[var(--border-default)]">
-                <p className="text-[0.68rem] text-[var(--status-danger)] font-medium">
-                  Proof of payment not yet uploaded; required for project completion
-                </p>
-              </div>
+              {!isClientTemp && (
+                <div className="mt-4 pt-4 border-t border-[var(--border-default)]">
+                  <p className="text-[0.68rem] text-[var(--status-danger)] font-medium">
+                    Proof of payment not yet uploaded; required for project completion
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -356,28 +591,151 @@ export default function ProjectDetail() {
         <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-8">
           <h3 className="text-h3 mb-4">Project Files</h3>
           <p className="text-body mb-6">
-            9 file categories: payment certificates, tenders, drawings, digital surveys,
-            geotechnical reports, environmental reports, proof of payment, activity images, and other.
+            Stage-organised documents. Admin/PM can toggle which uploaded files are marked as client-visible.
           </p>
-          <div className="flex flex-col gap-0">
-            {MOCK_DOCS.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between py-3 border-b border-[var(--border-default)] last:border-0"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-[var(--accent-periwinkle)]" />
-                  <div>
-                    <p className="text-[0.82rem] text-[var(--text-primary)]">{doc.name}</p>
-                    <p className="text-[0.62rem] text-[var(--text-muted)] uppercase tracking-wider">
-                      {doc.category.replace(/-/g, ' ')}
-                    </p>
+
+          {isFilesLoading ? (
+            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
+              <div className="skeleton h-5 w-56 mb-4" />
+              <div className="skeleton h-4 w-full mb-2" />
+              <div className="skeleton h-4 w-full mb-2" />
+              <div className="skeleton h-4 w-2/3" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {([1, 2, 3, 4, 5, 6] as ProjectStage[]).map((stage) => {
+                const stageFiles = filesByStage[stage] ?? [];
+
+                const stageReqs = STAGE_DOCUMENT_REQUIREMENTS[stage];
+
+                return (
+                  <div key={stage} className="border border-[var(--border-default)] bg-[var(--bg-surface)]">
+                    <div className="px-6 py-4 border-b border-[var(--border-default)]">
+                      <h4 className="text-h3 text-[0.98rem]">
+                        Stage {stage}: {STAGE_NAMES[stage]}
+                      </h4>
+                    </div>
+
+                    <div className="p-6">
+                      {isClientTemp ? (
+                        <>
+                          {stageFiles.length === 0 ? (
+                            <p className="text-body text-[var(--text-muted)]">
+                              No client-visible files available for this stage.
+                            </p>
+                          ) : (
+                            <div className="space-y-4">
+                              {stageFiles.map((file) => (
+                                <div
+                                  key={file.id}
+                                  className="flex items-start justify-between gap-4 py-3 border-b border-[var(--border-default)] last:border-0"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="text-[0.85rem] font-medium text-[var(--text-primary)] truncate">
+                                      {file.originalName || file.filename || 'Untitled file'}
+                                    </p>
+                                    <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">
+                                      {String(file.category).replace(/-/g, ' ')}
+                                    </p>
+                                  </div>
+                                  <span className="text-[0.62rem] text-[var(--text-muted)]">
+                                    {new Date(file.createdAt).toLocaleDateString('en-GB')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-4">
+                          {stageReqs.map((req) => {
+                            const matchingFiles = stageFiles.filter((f) => f.category === req.category);
+                            const isProofOfPayment = req.category === 'proof-of-payment';
+
+                            return (
+                              <div
+                                key={`${stage}-${req.category}`}
+                                className="py-3 border-b border-[var(--border-default)] last:border-0"
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <p className="text-[0.85rem] font-medium text-[var(--text-primary)]">
+                                      {req.documentName}
+                                    </p>
+                                    <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">
+                                      {req.category.replace(/-/g, ' ')}
+                                    </p>
+                                  </div>
+
+                                  <div className="text-right shrink-0">
+                                    {matchingFiles.length > 0 ? (
+                                      <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold text-[var(--status-success)]">
+                                        <Check className="h-3.5 w-3.5" />
+                                        Uploaded
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold text-[var(--status-danger)]">
+                                        <X className="h-3.5 w-3.5" />
+                                        Missing
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {matchingFiles.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    {matchingFiles.map((file) => (
+                                      <div key={file.id} className="flex items-center justify-between gap-4">
+                                        <div className="min-w-0">
+                                          <p className="text-[0.78rem] text-[var(--text-primary)] truncate">
+                                            {file.originalName || file.filename || 'Untitled file'}
+                                          </p>
+                                          <p className="text-[0.6rem] text-[var(--text-muted)]">
+                                            Uploaded {new Date(file.createdAt).toLocaleDateString('en-GB')}
+                                          </p>
+                                        </div>
+                                        <label className="flex items-center gap-2 shrink-0">
+                                          <input
+                                            type="checkbox"
+                                            checked={file.clientVisible}
+                                            disabled={isProofOfPayment}
+                                            onChange={async (e) => {
+                                              try {
+                                                await filesApi.setVisibility({
+                                                  tenantSlug,
+                                                  fileId: file.id,
+                                                  clientVisible: e.target.checked,
+                                                });
+                                                setFilesByStage((prev) => ({
+                                                  ...prev,
+                                                  [stage]: prev[stage].map((f) =>
+                                                    f.id === file.id ? { ...f, clientVisible: e.target.checked } : f
+                                                  ),
+                                                }));
+                                              } catch {
+                                                // Ignore; UI will refresh next fetch.
+                                              }
+                                            }}
+                                          />
+                                          <span className="text-[0.7rem] text-[var(--text-muted)]">
+                                            Client Visible
+                                          </span>
+                                        </label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <span className="text-[0.62rem] text-[var(--text-muted)]">{doc.uploadedAt}</span>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -482,9 +840,18 @@ export default function ProjectDetail() {
         <div className="space-y-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: 'Contract Value', value: formatRands(45_000_000) },
-              { label: 'Paid to Date', value: formatRands(15_200_000) },
-              { label: 'Remaining', value: formatRands(29_800_000) },
+              {
+                label: 'Contract Value',
+                value: isClientTemp ? '—— Restricted' : formatRands(45_000_000),
+              },
+              {
+                label: 'Paid to Date',
+                value: isClientTemp ? '—— Restricted' : formatRands(15_200_000),
+              },
+              {
+                label: 'Remaining',
+                value: isClientTemp ? '—— Restricted' : formatRands(29_800_000),
+              },
             ].map((kpi) => (
               <div key={kpi.label} className="p-5 border border-[var(--border-default)] bg-[var(--bg-surface)]">
                 <p className="text-eyebrow mb-2">{kpi.label}</p>
@@ -494,12 +861,19 @@ export default function ProjectDetail() {
               </div>
             ))}
           </div>
-          <PaymentForecastChart
-            forecastData={MOCK_FORECAST_MONTHLY}
-            actualData={MOCK_ACTUAL_MONTHLY}
-            title="Expected vs Actual Payments"
-            height={320}
-          />
+          {isClientTemp ? (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+              <h3 className="text-h3 mb-2">Expected vs Actual Payments</h3>
+              <p className="text-body text-[var(--text-muted)]">—— Restricted</p>
+            </div>
+          ) : (
+            <PaymentForecastChart
+              forecastData={MOCK_FORECAST_MONTHLY}
+              actualData={MOCK_ACTUAL_MONTHLY}
+              title="Expected vs Actual Payments"
+              height={320}
+            />
+          )}
         </div>
       )}
 
@@ -528,13 +902,13 @@ export default function ProjectDetail() {
                   >
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{row.name}</td>
                     <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {formatRands(row.total)}
+                      {isClientTemp ? '—— Restricted' : formatRands(row.total)}
                     </td>
                     <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {formatRands(row.disbursed)}
+                      {isClientTemp ? '—— Restricted' : formatRands(row.disbursed)}
                     </td>
                     <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {formatRands(row.remaining)}
+                      {isClientTemp ? '—— Restricted' : formatRands(row.remaining)}
                     </td>
                   </tr>
                 ))}

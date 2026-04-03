@@ -163,7 +163,7 @@ export default function Register() {
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
             <h1 className="text-h2 tracking-[2px] uppercase">
-              SA Project 360 IQ
+              Project 360
             </h1>
           </Link>
           <h2 className="text-h2 mb-2">Register Your Organisation</h2>

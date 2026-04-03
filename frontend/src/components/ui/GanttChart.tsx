@@ -13,6 +13,7 @@ const STATUS_COLOR_TOKEN: Record<ScheduleActivityStatus, string> = {
   on_track: 'var(--status-active)',
   at_risk: 'var(--status-review)',
   delayed: 'var(--status-danger)',
+  complete: 'var(--status-success)',
 };
 
 function getMonthKey(date: Date): string {

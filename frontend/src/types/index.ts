@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Core Domain Types - SA Project 360 IQ Engineering PM Platform v6.0
+   Core Domain Types - Project 360 Engineering PM Platform v6.0
    Atlas White Design System · Multi-Tenant SaaS
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -77,7 +77,8 @@ export interface User {
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  // For real backend: refresh token may be stored in httpOnly cookie, so it can be omitted.
+  refreshToken?: string;
 }
 
 // Org Theme (per-tenant overrides)
@@ -225,7 +226,7 @@ export interface Activity {
 }
 
 /** @deprecated Use Activity instead */
-export type ScheduleActivityStatus = 'on_track' | 'at_risk' | 'delayed';
+export type ScheduleActivityStatus = 'on_track' | 'at_risk' | 'delayed' | 'complete';
 /** @deprecated Use Activity instead */
 export interface ScheduleActivity {
   id: string;
@@ -291,6 +292,7 @@ export interface ProjectFile {
   id: string;
   tenantId: string;
   projectId?: string;
+  stage?: ProjectStage | null;
   originalName: string;
   filename?: string;
   storagePath?: string;

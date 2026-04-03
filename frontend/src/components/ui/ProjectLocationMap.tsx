@@ -1,9 +1,7 @@
-import { useMemo } from 'react';
-import { useJsApiLoader, GoogleMap, Marker } from '@react-google-maps/api';
 import { MapPin } from 'lucide-react';
+import AtlasMap from './AtlasMap';
 
 const DEFAULT_CENTER = { lat: -25.4753, lng: 30.9694 };
-const MAP_CONTAINER_STYLE = { width: '100%', height: '100%', minHeight: '224px' };
 
 interface ProjectLocationMapProps {
   address?: string;
@@ -50,55 +48,27 @@ export default function ProjectLocationMap({
   lng,
   gpsFormatted,
 }: ProjectLocationMapProps) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const center = useMemo(() => {
-    if (lat != null && lng != null) return { lat, lng };
-    return DEFAULT_CENTER;
-  }, [lat, lng]);
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: apiKey || '',
-    id: 'project-location-map',
-  });
-
-  const showMap = Boolean(apiKey) && isLoaded && !loadError;
+  const center = lat != null && lng != null ? { lat, lng } : DEFAULT_CENTER;
+  const showMap = lat != null && lng != null;
 
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-5">
       <h3 className="text-h3 mb-3">Location</h3>
       <div className="h-56 mb-3 overflow-hidden">
         {showMap ? (
-          <GoogleMap
-            mapContainerStyle={MAP_CONTAINER_STYLE}
+          <AtlasMap
+            markers={[
+              { id: 'project-location', lat, lng, label: address ?? gpsFormatted ?? 'Project' },
+            ]}
             center={center}
             zoom={14}
-            options={{
-              disableDefaultUI: false,
-              zoomControl: true,
-              mapTypeControl: false,
-              streetViewControl: false,
-              fullscreenControl: true,
-              styles: [
-                {
-                  featureType: 'water',
-                  elementType: 'geometry.fill',
-                  stylers: [{ color: '#97A8D7' }],
-                },
-                {
-                  featureType: 'landscape',
-                  elementType: 'geometry.fill',
-                  stylers: [{ color: '#ECE4CE' }],
-                },
-              ],
-            }}
-          >
-            {(lat != null && lng != null) && <Marker position={center} />}
-          </GoogleMap>
+            height="224px"
+          />
         ) : (
           <MapPlaceholder
             address={address}
             gpsFormatted={gpsFormatted}
-            hint={!apiKey ? 'Set VITE_GOOGLE_MAPS_API_KEY to show map' : undefined}
+            hint={'Set GPS coordinates to show an interactive map'}
           />
         )}
       </div>

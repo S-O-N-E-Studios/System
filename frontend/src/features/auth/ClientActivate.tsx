@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { clientActivateSchema, type ClientActivateFormData } from '@/types';
+import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import FormInput from '@/components/ui/FormInput';
@@ -11,7 +12,7 @@ import Button from '@/components/ui/Button';
 export default function ClientActivate() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  useAuthStore();
+  const { login } = useAuthStore();
   const { addToast } = useUiStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,10 +28,13 @@ export default function ClientActivate() {
     if (!token) return;
     setIsSubmitting(true);
     try {
-      // TODO: Wire to POST /auth/client-activate/:token
-      void data;
+      const result = await authApi.clientActivate(token, { password: data.password });
+      login(result.user, result.tokens);
       addToast({ type: 'success', message: 'Account activated successfully!' });
-      navigate('/');
+
+      const tenants = result.user.tenants;
+      if (tenants.length > 0) navigate(`/${tenants[0].slug}/projects`);
+      else navigate('/');
     } catch {
       addToast({ type: 'error', message: 'Activation failed. The link may have expired.' });
     } finally {
