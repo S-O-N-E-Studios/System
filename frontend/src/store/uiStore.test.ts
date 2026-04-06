@@ -38,7 +38,7 @@ describe('uiStore', () => {
       useUiStore.getState().setTheme('light');
 
       expect(useUiStore.getState().theme).toBe('light');
-      expect(setItemSpy).toHaveBeenCalledWith('sone-theme', 'light');
+      expect(setItemSpy).toHaveBeenCalledWith('p360-theme', 'light');
       expect(setAttrSpy).toHaveBeenCalledWith('data-theme', 'light');
 
       setItemSpy.mockRestore();

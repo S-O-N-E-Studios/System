@@ -12,7 +12,7 @@ export default function AppShell() {
       <div className="flex flex-col min-h-screen lg:ml-[72px]">
         <TopBar />
 
-        <main className="flex-1 pt-20 px-6 pb-12 lg:px-[5rem] overflow-y-auto">
+        <main className="flex-1 pt-24 px-6 pb-12 lg:px-[5rem] overflow-y-auto">
           <Outlet />
         </main>
       </div>

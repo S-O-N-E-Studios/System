@@ -24,7 +24,7 @@ export default function EmptyState({
         'flex flex-col items-center justify-center gap-3 py-10 text-center ' + className
       }
     >
-      <div className="rounded-full border border-[var(--accent)] bg-[var(--bg-card)]/95 shadow-[0_0_36px_rgba(201,169,97,0.3)] p-4 flex items-center justify-center">
+      <div className="rounded-full border border-[var(--accent)] bg-[var(--bg-card)]/95 shadow-[0_0_36px_var(--accent-sand-glow)] p-4 flex items-center justify-center">
         <LottieAnimation
           animationData={noDataAnimation}
           className={animationClassName}

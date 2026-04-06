@@ -26,7 +26,7 @@ export default function TenantDetail() {
 
         <div className="flex flex-col gap-3">
           {[
-            { label: 'Tenant ID', value: id ?? '—' },
+            { label: 'Tenant ID', value: id ?? 'N/A' },
             { label: 'Slug', value: 'limpopo-civil' },
             { label: 'Plan', value: 'Starter' },
             { label: 'Users', value: '4' },

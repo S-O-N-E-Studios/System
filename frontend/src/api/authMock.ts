@@ -54,6 +54,25 @@ function mockDemoUser(email: string): User {
   };
 }
 
+function mockClientTempUser(email: string): User {
+  return {
+    id: 'mock-client-temp-user',
+    email,
+    firstName: 'Client',
+    lastName: 'User',
+    role: 'CLIENT_TEMP',
+    temporaryAccessId: `temp-access-${Date.now().toString(36)}`,
+    tenants: [
+      {
+        id: 't1',
+        slug: 'limpopo-civil',
+        name: 'Limpopo Civil Engineering',
+        role: 'CLIENT_TEMP',
+      },
+    ],
+  };
+}
+
 export interface MockLoginRequest {
   email: string;
   password: string;
@@ -62,6 +81,7 @@ export interface MockLoginRequest {
 export interface MockRegisterOrgRequest {
   orgName: string;
   slug: string;
+  orgType: 'provincial_gov' | 'private_firm';
   industryType: string;
   primaryContactName: string;
   primaryContactEmail: string;
@@ -92,7 +112,7 @@ export const authMock = {
 
   checkSlug: async (slug: string): Promise<{ available: boolean; suggestion?: string }> => {
     await delay(200);
-    const taken = ['demo', 'test', 'sone', 'sone-studios'];
+    const taken = ['demo', 'test', 'project360', 'project-360', 'sa-project-360-iq'];
     const available = !taken.includes(String(slug).toLowerCase());
     return { available, suggestion: available ? undefined : `${slug}-1` };
   },
@@ -103,6 +123,15 @@ export const authMock = {
     void password;
     await delay(400);
     const user = mockDemoUser('invite@example.com');
+    return { user, tokens: mockTokens() };
+  },
+
+  clientActivate: async (token: string, password: string): Promise<{ user: User; tokens: AuthTokens }> => {
+    // Parameters are intentionally unused in the mock but referenced to satisfy lint rules.
+    void token;
+    void password;
+    await delay(400);
+    const user = mockClientTempUser('client@example.com');
     return { user, tokens: mockTokens() };
   },
 

@@ -1,14 +1,39 @@
-import { MapPin } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
+import AtlasMap from '@/components/ui/AtlasMap';
+import { useMemo, useState } from 'react';
 
 const mockProjects = [
-  { id: '1', name: 'Polokwane Water Treatment', status: 'active' as const, value: 'R 45,000,000', hasGps: true },
-  { id: '2', name: 'Mokopane Road Rehabilitation', status: 'review' as const, value: 'R 32,000,000', hasGps: true },
-  { id: '3', name: 'Tzaneen Bridge Construction', status: 'planning' as const, value: 'R 78,000,000', hasGps: true },
+  { id: '1', name: 'Polokwane Water Treatment', status: 'active' as const, value: 'R 45,000,000', lat: -23.907, lng: 29.456, hasGps: true },
+  { id: '2', name: 'Mokopane Road Rehabilitation', status: 'review' as const, value: 'R 32,000,000', lat: -24.199, lng: 27.900, hasGps: true },
+  { id: '3', name: 'Tzaneen Bridge Construction', status: 'planning' as const, value: 'R 78,000,000', lat: -23.842, lng: 30.364, hasGps: true },
   { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, value: 'R 22,000,000', hasGps: false },
 ];
 
 export default function MapsView() {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(mockProjects[0]?.id ?? null);
+
+  const selected = useMemo(
+    () => mockProjects.find((p) => p.id === selectedProjectId) ?? null,
+    [selectedProjectId]
+  );
+
+  const markers = useMemo(() => {
+    return mockProjects
+      .filter((p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number')
+      .map((p) => ({
+        id: p.id,
+        lat: p.lat as number,
+        lng: p.lng as number,
+        label: p.name,
+        status: p.status,
+      }));
+  }, []);
+
+  const center =
+    selected?.hasGps && typeof selected.lat === 'number' && typeof selected.lng === 'number'
+      ? { lat: selected.lat, lng: selected.lng }
+      : undefined;
+
   return (
     <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-20 -mb-12">
       <div className="flex h-screen">
@@ -28,6 +53,7 @@ export default function MapsView() {
             {mockProjects.map((p) => (
               <button
                 key={p.id}
+                onClick={() => setSelectedProjectId(p.id)}
                 className="w-full text-left px-4 py-3 hover:bg-[var(--accent-glow)] transition-colors"
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
@@ -49,13 +75,14 @@ export default function MapsView() {
 
         {/* Map area */}
         <div className="flex-1 bg-[var(--bg-primary)] flex items-center justify-center pt-16">
-          <div className="text-center">
-            <MapPin className="h-16 w-16 text-[var(--accent-dim)] mx-auto mb-4" />
-            <h3 className="text-h3 mb-2">Google Maps Integration</h3>
-            <p className="text-body max-w-md">
-              Provide VITE_GOOGLE_MAPS_API_KEY to enable the interactive map with custom dark/night
-              styling and gold project markers. Implementation in Sprint 6.
-            </p>
+          <div className="w-full h-full px-6 lg:px-0">
+            <AtlasMap
+              markers={markers}
+              center={center}
+              zoom={7}
+              height="calc(100vh - 140px)"
+              onMarkerClick={(m) => setSelectedProjectId(m.id)}
+            />
           </div>
         </div>
       </div>

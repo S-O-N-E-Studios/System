@@ -1,3 +1,6 @@
+/** Placeholder for empty values in UI (no em dashes) */
+export const EMPTY_PLACEHOLDER = 'N/A';
+
 /**
  * Format integer cents as ZAR currency string: R X,XXX,XXX
  */

@@ -11,10 +11,10 @@ const settingsTabs = ['General', 'Users', 'Notifications', 'Appearance', 'Billin
 type SettingsTab = typeof settingsTabs[number];
 
 const mockUsers = [
-  { id: '1', name: 'Fortune Mabona', email: 'fortune@sonestudios.co.za', role: 'ORG_ADMIN', status: 'active' },
-  { id: '2', name: 'Thabo Ndlovu', email: 'thabo@sonestudios.co.za', role: 'PROJECT_MANAGER', status: 'active' },
-  { id: '3', name: 'Lerato Khumalo', email: 'lerato@sonestudios.co.za', role: 'MEMBER', status: 'active' },
-  { id: '4', name: 'Sipho Dlamini', email: 'sipho@sonestudios.co.za', role: 'VIEWER', status: 'suspended' },
+  { id: '1', name: 'Fortune Mabona', email: 'fortune@project360.co.za', role: 'ORG_ADMIN', status: 'active' },
+  { id: '2', name: 'Thabo Ndlovu', email: 'thabo@project360.co.za', role: 'PROJECT_MANAGER', status: 'active' },
+  { id: '3', name: 'Lerato Khumalo', email: 'lerato@project360.co.za', role: 'MEMBER', status: 'active' },
+  { id: '4', name: 'Sipho Dlamini', email: 'sipho@project360.co.za', role: 'VIEWER', status: 'suspended' },
 ];
 
 export default function Settings() {
@@ -36,7 +36,7 @@ export default function Settings() {
               className={[
                 'text-left px-4 py-2.5 text-[0.78rem] font-body transition-all duration-300',
                 activeTab === tab
-                  ? 'text-[var(--accent)] border-l-2 border-[var(--accent)] bg-[rgba(201,169,97,0.08)]'
+                  ? 'text-[var(--accent)] border-l-2 border-[var(--accent)] bg-[var(--accent-sand-glow)]'
                   : 'text-[var(--text-secondary)] border-l-2 border-transparent hover:text-[var(--accent)] hover:border-[var(--accent)]',
               ].join(' ')}
             >

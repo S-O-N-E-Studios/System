@@ -5,7 +5,7 @@ describe('projectStore', () => {
   beforeEach(() => {
     useProjectStore.setState({
       activeProjectId: null,
-      activeTab: 'ps',
+      activeTab: 'overview',
       tableFilters: {
         status: undefined,
         search: undefined,
@@ -18,7 +18,7 @@ describe('projectStore', () => {
   it('has correct initial state', () => {
     const state = useProjectStore.getState();
     expect(state.activeProjectId).toBeNull();
-    expect(state.activeTab).toBe('ps');
+    expect(state.activeTab).toBe('overview');
     expect(state.tableFilters.status).toBeUndefined();
     expect(state.tableFilters.search).toBeUndefined();
   });
@@ -35,11 +35,11 @@ describe('projectStore', () => {
   });
 
   it('setActiveTab changes tab', () => {
-    useProjectStore.getState().setActiveTab('geo');
-    expect(useProjectStore.getState().activeTab).toBe('geo');
+    useProjectStore.getState().setActiveTab('professional');
+    expect(useProjectStore.getState().activeTab).toBe('professional');
 
-    useProjectStore.getState().setActiveTab('cm');
-    expect(useProjectStore.getState().activeTab).toBe('cm');
+    useProjectStore.getState().setActiveTab('construction');
+    expect(useProjectStore.getState().activeTab).toBe('construction');
   });
 
   it('setFilters merges partial filters', () => {
