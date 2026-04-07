@@ -351,7 +351,7 @@ export default function ProjectDetail() {
               {countdown.isExpired ? (
                 <p className="text-[0.82rem] font-semibold text-[var(--status-success)]">Due</p>
               ) : (
-                <p style={{ fontFamily: "'JetBrains Mono', monospace" }} className="text-[1rem] font-semibold text-[var(--text-primary)]">
+                <p style={{ fontFamily: "'IBM Plex Mono', monospace" }} className="text-[1rem] font-semibold text-[var(--text-primary)]">
                   {countdown.days}d {String(countdown.hours).padStart(2, '0')}:{String(countdown.minutes).padStart(2, '0')}:{String(countdown.seconds).padStart(2, '0')}
                 </p>
               )}
@@ -539,19 +539,19 @@ export default function ProjectDetail() {
                           className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
                         >
                           <td className="px-4 py-3 text-[0.85rem] font-medium text-[var(--text-primary)]">{row.year}</td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q1 ? formatRands(row.q1) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q2 ? formatRands(row.q2) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q3 ? formatRands(row.q3) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q4 ? formatRands(row.q4) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.9rem] font-semibold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          <td className="px-4 py-3 text-right text-financial text-[0.9rem] font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : formatRands(total)}
                           </td>
                         </tr>
@@ -908,7 +908,7 @@ export default function ProjectDetail() {
             ].map((kpi) => (
               <div key={kpi.label} className="p-5 border border-[var(--border-default)] bg-[var(--bg-surface)]">
                 <p className="text-eyebrow mb-2">{kpi.label}</p>
-                <p className="text-currency text-[1rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <p className="text-currency text-[1rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {kpi.value}
                 </p>
               </div>
@@ -954,13 +954,13 @@ export default function ProjectDetail() {
                     className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
                   >
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{row.name}</td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                       {isClientTemp ? '—— Restricted' : formatRands(row.total)}
                     </td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                       {isClientTemp ? '—— Restricted' : formatRands(row.disbursed)}
                     </td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                       {isClientTemp ? '—— Restricted' : formatRands(row.remaining)}
                     </td>
                   </tr>

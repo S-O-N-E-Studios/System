@@ -12,24 +12,13 @@ export default function StatCard({ label, value, subline, icon, isCurrency = fal
   return (
     <div
       className={[
-        'group relative p-8 border border-[var(--border)]',
-        'bg-[var(--bg-card)]',
-        'hover:bg-[var(--bg-secondary)]',
-        'transition-[background-color] duration-500',
-        'cursor-default overflow-hidden',
-      ].join(' ')}
+        'sahara-card group cursor-default p-8',
+        isCurrency ? 'sahara-card--financial' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      {/* Bottom border sweep on hover */}
-      <div
-        className={[
-          'absolute bottom-0 left-0 w-full h-0',
-          'bg-[var(--accent)]',
-          'group-hover:h-[3px]',
-          'transition-[height] duration-[400ms] ease-in-out',
-        ].join(' ')}
-      />
-
-      <div className="flex items-start justify-between gap-4">
+      <div className="sahara-card__body flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
           <p className="text-eyebrow">{label}</p>
           <p
@@ -47,9 +36,7 @@ export default function StatCard({ label, value, subline, icon, isCurrency = fal
             </p>
           )}
         </div>
-        {icon && (
-          <div className="text-[var(--accent-dim)] opacity-70">{icon}</div>
-        )}
+        {icon && <div className="text-[var(--accent-dim)] opacity-70">{icon}</div>}
       </div>
     </div>
   );

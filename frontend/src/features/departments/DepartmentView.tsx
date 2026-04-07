@@ -80,7 +80,7 @@ export default function DepartmentView() {
               <div key={prog.name} className="flex-1 flex flex-col items-center gap-2">
                 <span
                   className="text-financial text-[0.72rem]"
-                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}
                 >
                   {formatBudgetLabel(prog.budget)}
                 </span>
@@ -158,16 +158,16 @@ export default function DepartmentView() {
                      project.status === 'danger' ? 'Delayed' : 'Complete'}
                   </StatusBadge>
                 </td>
-                <td className="px-4 py-3 text-financial text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <td className="px-4 py-3 text-financial text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {formatRands(project.engineerCost)}
                 </td>
-                <td className="px-4 py-3 text-financial text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <td className="px-4 py-3 text-financial text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {formatRands(project.contractValue)}
                 </td>
-                <td className="px-4 py-3 text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)' }}>
+                <td className="px-4 py-3 text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--text-muted)' }}>
                   {formatRands(project.expenditurePlan)}
                 </td>
-                <td className="px-4 py-3 text-financial text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <td className="px-4 py-3 text-financial text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {formatRands(project.expenditureActual)}
                 </td>
                 <td className="px-4 py-3 text-[0.78rem] text-[var(--text-muted)]">

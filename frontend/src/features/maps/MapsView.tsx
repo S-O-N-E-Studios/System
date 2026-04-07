@@ -123,7 +123,7 @@ export default function MapsView() {
                       <StatusBadge status={selected.status}>
                         {selected.status === 'active' ? 'Active' : selected.status === 'review' ? 'In Review' : 'Planning'}
                       </StatusBadge>
-                      <span className="text-currency text-[0.92rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span className="text-currency text-[0.92rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                         {selected.value}
                       </span>
                     </div>

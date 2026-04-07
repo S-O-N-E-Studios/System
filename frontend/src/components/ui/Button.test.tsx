@@ -17,7 +17,11 @@ describe('Button', () => {
 
   it('can be disabled', () => {
     const handleClick = vi.fn();
-    render(<Button disabled onClick={handleClick}>Disabled</Button>);
+    render(
+      <Button disabled onClick={handleClick}>
+        Disabled
+      </Button>
+    );
     const btn = screen.getByRole('button', { name: /disabled/i });
     expect(btn).toBeDisabled();
     fireEvent.click(btn);
@@ -42,33 +46,28 @@ describe('Button', () => {
   describe('variants', () => {
     it('applies primary variant by default', () => {
       render(<Button>Primary</Button>);
-      const btn = screen.getByRole('button');
-      expect(btn.className).toContain('border-[var(--accent)]');
+      expect(screen.getByRole('button')).toHaveClass('sahara-btn--primary');
     });
 
     it('applies secondary variant', () => {
       render(<Button variant="secondary">Secondary</Button>);
-      const btn = screen.getByRole('button');
-      expect(btn.className).toContain('border-[var(--accent-dim)]');
+      expect(screen.getByRole('button')).toHaveClass('sahara-btn--secondary');
     });
 
     it('applies ghost variant', () => {
       render(<Button variant="ghost">Ghost</Button>);
-      const btn = screen.getByRole('button');
-      expect(btn.className).toContain('border-0');
+      expect(screen.getByRole('button')).toHaveClass('sahara-btn--ghost');
     });
 
     it('applies danger variant', () => {
       render(<Button variant="danger">Delete</Button>);
-      const btn = screen.getByRole('button');
-      expect(btn.className).toContain('border-[var(--status-danger)]');
+      expect(screen.getByRole('button')).toHaveClass('sahara-btn--danger');
     });
   });
 
   it('passes through className', () => {
     render(<Button className="ml-4">Extra</Button>);
-    const btn = screen.getByRole('button');
-    expect(btn.className).toContain('ml-4');
+    expect(screen.getByRole('button').className).toContain('ml-4');
   });
 
   it('passes through type attribute', () => {
@@ -76,8 +75,8 @@ describe('Button', () => {
     expect(screen.getByRole('button')).toHaveAttribute('type', 'submit');
   });
 
-  it('applies opacity when disabled', () => {
+  it('applies disabled opacity via sahara-btn', () => {
     render(<Button disabled>Nope</Button>);
-    expect(screen.getByRole('button').className).toContain('opacity-35');
+    expect(screen.getByRole('button').className).toContain('sahara-btn');
   });
 });

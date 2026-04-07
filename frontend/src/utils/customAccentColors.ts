@@ -1,3 +1,5 @@
+import { syncAppFavicon } from '@/utils/syncAppFavicon';
+
 export const CUSTOM_ACCENT_PERIWINKLE_KEY = 'p360-accent-periwinkle';
 export const CUSTOM_ACCENT_SAND_KEY = 'p360-accent-sand';
 
@@ -23,21 +25,47 @@ function rgbaFromHex(hex: string, alpha: number): string | null {
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
 }
 
+/**
+ * Org accent overrides (Appearance). Primary → terracotta `--accent`; secondary → `--gold`.
+ * Keys remain historical names for localStorage compatibility.
+ */
 export function applyCustomAccentColors(params: { periwinkleHex: string; sandHex: string }) {
   if (typeof document === 'undefined') return;
 
-  const { periwinkleHex, sandHex } = params;
-  const periwinkleGlow = rgbaFromHex(periwinkleHex, 0.22) ?? `rgba(0,0,0,0.22)`;
-  const periwinkleLight = rgbaFromHex(periwinkleHex, 0.12) ?? `rgba(0,0,0,0.12)`;
-  const periwinkleSelection = rgbaFromHex(periwinkleHex, 0.3) ?? `rgba(0,0,0,0.3)`;
-  const sandGlow = rgbaFromHex(sandHex, 0.09) ?? `rgba(0,0,0,0.09)`;
+  const { periwinkleHex: accentHex, sandHex: goldHex } = params;
 
-  document.documentElement.style.setProperty('--accent-periwinkle', periwinkleHex);
-  document.documentElement.style.setProperty('--accent-sand', sandHex);
-  document.documentElement.style.setProperty('--accent-glow', periwinkleGlow);
-  document.documentElement.style.setProperty('--accent-light', periwinkleLight);
-  document.documentElement.style.setProperty('--accent-dim', periwinkleHex);
-  document.documentElement.style.setProperty('--selection-bg', periwinkleSelection);
-  document.documentElement.style.setProperty('--accent-sand-glow', sandGlow);
+  const accentLight = rgbaFromHex(accentHex, 0.08) ?? 'rgba(192, 100, 44, 0.08)';
+  const accentBorder = rgbaFromHex(accentHex, 0.2) ?? 'rgba(192, 100, 44, 0.2)';
+  const accentGlow = rgbaFromHex(accentHex, 0.22) ?? 'rgba(192, 100, 44, 0.22)';
+  const selectionBg = rgbaFromHex(accentHex, 0.25) ?? 'rgba(192, 100, 44, 0.25)';
+  const goldLight = rgbaFromHex(goldHex, 0.1) ?? 'rgba(184, 144, 64, 0.1)';
+
+  document.documentElement.style.setProperty('--accent', accentHex);
+  document.documentElement.style.setProperty('--gold', goldHex);
+  document.documentElement.style.setProperty('--accent-light', accentLight);
+  document.documentElement.style.setProperty('--accent-border', accentBorder);
+  document.documentElement.style.setProperty('--accent-glow', accentGlow);
+  document.documentElement.style.setProperty('--selection-bg', selectionBg);
+  document.documentElement.style.setProperty('--gold-light', goldLight);
+  /* Secondary picker → chart / link-adjacent warm tone (replaces legacy periwinkle slot) */
+  document.documentElement.style.setProperty('--accent-periwinkle', goldHex);
+  document.documentElement.style.setProperty('--accent-dim', accentHex);
+
+  syncAppFavicon();
 }
 
+export function clearCustomAccentCssProperties(): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  [
+    '--accent',
+    '--gold',
+    '--accent-light',
+    '--accent-border',
+    '--accent-glow',
+    '--selection-bg',
+    '--gold-light',
+    '--accent-periwinkle',
+    '--accent-dim',
+  ].forEach((p) => root.style.removeProperty(p));
+}

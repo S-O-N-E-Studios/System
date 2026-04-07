@@ -142,7 +142,7 @@ export default function Dashboard() {
                     {/* Budget label */}
                     <span
                       className="text-financial text-[0.72rem]"
-                      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}
                     >
                       {formatBudgetLabel(dept.budget)}
                     </span>

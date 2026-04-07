@@ -14,8 +14,8 @@ import {
   CUSTOM_ACCENT_SAND_KEY,
 } from '@/utils/customAccentColors';
 
-const DEFAULT_PERIWINKLE = '#5B6FD4';
-const DEFAULT_SAND = '#C9B87A';
+const DEFAULT_PERIWINKLE = '#C0642C';
+const DEFAULT_SAND = '#B89040';
 
 const settingsTabs = ['General', 'Users', 'Notifications', 'Appearance'] as const;
 type SettingsTab = typeof settingsTabs[number];
@@ -230,7 +230,7 @@ export default function Settings() {
                 <div className="pt-2 flex items-center justify-end">
                   {canCustomizePalette ? (
                     <Button variant="ghost" onClick={resetAccents}>
-                      Reset to Atlas Electric
+                      Reset to Atlas Sahara defaults
                     </Button>
                   ) : (
                     <p className="text-[0.72rem] text-[var(--text-muted)]">

@@ -36,7 +36,7 @@ const statusConfig: Record<BadgeStatus, { bg: string; border: string; text: stri
   accent: {
     bg: 'var(--badge-accent-bg)',
     border: 'var(--badge-accent-border)',
-    text: 'var(--accent-sand)',
+    text: 'var(--accent)',
   },
 };
 

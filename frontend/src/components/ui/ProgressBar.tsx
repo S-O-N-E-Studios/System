@@ -26,7 +26,7 @@ export default function ProgressBar({ value, showLabel = true, height = 2 }: Pro
         aria-valuemax={100}
       >
         <div
-          className="h-full bg-[var(--accent)] transition-[width] duration-[800ms]"
+          className="sahara-progress-fill h-full bg-[var(--accent)] transition-[width] duration-[600ms]"
           style={{
             width: `${width}%`,
             transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',

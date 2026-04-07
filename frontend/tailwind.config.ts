@@ -34,9 +34,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['"Cormorant Garamond"', 'serif'],
-        body: ['Montserrat', 'sans-serif'],
-        mono: ['"DM Mono"', 'monospace'],
+        display: ['"DM Serif Display"', 'Georgia', 'serif'],
+        body: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       spacing: {
         '18': '4.5rem',

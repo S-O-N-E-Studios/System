@@ -1,87 +1,85 @@
-# SA Project 360 IQ — Frontend
+# Project 360 · Frontend
 
-Engineering project management platform built with React, TypeScript, and Vite.
-Atlas White Design System v4.0 - Multi-Tenant SaaS.
+A multi-tenant engineering project management client: React, TypeScript, Vite, and the **Atlas Sahara** design system—terracotta and warm gold on sand and bone surfaces.
 
-## Tech Stack
+---
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | React 18 + TypeScript |
-| Build | Vite 7 |
-| Styling | Tailwind CSS + Atlas White CSS Tokens |
-| State | Zustand |
-| Forms | React Hook Form + Zod |
-| Routing | React Router 6 |
-| Data | TanStack React Query + Axios |
-| Charts | Recharts |
-| Animations | Lottie React |
-| Icons | Lucide React |
-| Drag-and-Drop | @dnd-kit/sortable |
-| Testing | Vitest + React Testing Library |
-
-## Design System
-
-Atlas White (RAL 095 90 10) - warm sand, periwinkle blue, cream lineage.
-
-- **Fonts**: Playfair Display (headings), Inter (body/UI), JetBrains Mono (financial/technical)
-- **border-radius**: 0 everywhere - sharp corners only
-- **Themes**: Light + Dark (warm undertones in both modes)
-- **Semantic colours**: Platform-locked (success=sage, warning=amber, danger=clay)
-
-## Getting Started
+## Quick start
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment config
-cp .env.example .env
-
-# Start dev server
+cp .env.example .env   # if present
 npm run dev
 ```
 
-The app runs at **http://localhost:3000** by default.
+Open **http://localhost:3000**. Mock auth is on by default; set `VITE_USE_MOCK_AUTH=false` to use the real API.
 
-> Mock authentication is enabled out of the box. Set `VITE_USE_MOCK_AUTH=false` in `.env` to connect to the real backend.
+---
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Type-check and production build |
-| `npm run preview` | Preview production build locally |
-| `npm run test` | Run all tests |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run lint` | Lint with ESLint (zero warnings) |
-| `npm run lint:fix` | Lint and auto-fix |
-| `npm run format` | Format with Prettier |
-| `npm run type-check` | TypeScript type checking |
+| Command | Purpose |
+|--------|---------|
+| `npm run dev` | Dev server |
+| `npm run build` | Typecheck + production bundle |
+| `npm run preview` | Serve `dist` locally |
+| `npm run test` | Vitest |
+| `npm run lint` | ESLint (zero warnings) |
+| `npm run type-check` | `tsc --noEmit` |
 
-## Project Structure
+---
+
+## Stack
+
+React 18 · TypeScript · Vite · Tailwind CSS · Zustand · React Router · TanStack Query · Axios · React Hook Form · Zod · Recharts · Lucide · Vitest · Testing Library
+
+---
+
+## Design · Atlas Sahara
+
+Tokens live in `src/styles/globals.css`: light and dark palettes, terracotta primary, gold for financial emphasis, semantic success / warning / danger, gradients for cards and primary buttons.
+
+**Typography**
+
+- **DM Serif Display** — display headings and KPI presence  
+- **Inter** — UI, navigation, tables, forms  
+- **IBM Plex Mono** — Rand, refs, coordinates, countdowns  
+
+**Surfaces**
+
+- Cards use `.sahara-card` (subtle gradient, hover lift, 2px terracotta top accent).  
+- Financial panels: `.sahara-card--financial` or `<Card variant="financial" />`.
+
+**Buttons**
+
+- `Button` maps to `.sahara-btn` / `.sahara-btn--primary|secondary|ghost|danger` — gradient primary, hover lift, pressed `scale(0.98)`.
+
+**Rules**
+
+- Corners stay square platform-wide except the Sahara progress bar (2px radius).  
+- Theme transition ~400ms on root surfaces; focus rings use terracotta glow.
+
+---
+
+## Structure
 
 ```
-frontend/
-- animations/          # Lottie JSON animation files
-- public/              # Static assets
-- src/
-  - api/             # API clients and mock layer
-  - components/
-    - layout/        # AppShell, Sidebar, TopBar
-    - ui/            # Reusable UI components
-  - features/        # App screens
-  - router/          # Routes and guards
-  - store/           # Zustand stores
-  - types/           # TypeScript types and Zod schemas
-  - utils/           # Formatters and helpers
-- vitest.config.ts
+src/
+  api/           Clients & mocks
+  components/
+    layout/      Shell, sidebar, top bar
+    ui/          Button, Card, StatCard, charts, …
+  features/      Screens
+  mocks/         Shared fixture data
+  router/        Routes & guards
+  store/         Zustand
+  styles/        globals.css (tokens + Sahara primitives)
+  types/         Types & Zod
+  utils/         Helpers, favicon sync, exports
 ```
 
-## Developers
+---
 
-- **Musa** - Frontend
-- **Fortune** - Product Owner
-- **Peter**
-- **Sthembiso**
+## Team
+
+Product · Fortune Mabona · Engineering · Musa, Peter, Sthembiso

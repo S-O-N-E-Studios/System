@@ -11,6 +11,7 @@ import {
   CUSTOM_ACCENT_PERIWINKLE_KEY,
   CUSTOM_ACCENT_SAND_KEY,
 } from '@/utils/customAccentColors';
+import { syncAppFavicon } from '@/utils/syncAppFavicon';
 
 // Hydrate auth session on load (cookie-based refresh tokens on real backend).
 // When using mock auth, don't auto-login; keep the existing "login-first" dev flow.
@@ -47,7 +48,7 @@ const queryClient = new QueryClient({
 const savedTheme = localStorage.getItem('p360-theme') ?? 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
-// Apply persisted user accent colors (overrides Atlas Electric tokens).
+// Apply persisted user accent colours (overrides default Sahara tokens).
 const savedPeriwinkle = localStorage.getItem(CUSTOM_ACCENT_PERIWINKLE_KEY);
 const savedSand = localStorage.getItem(CUSTOM_ACCENT_SAND_KEY);
 if (savedPeriwinkle && savedSand) {
@@ -56,9 +57,7 @@ if (savedPeriwinkle && savedSand) {
 
 document.title = 'PROJECT 360';
 
-const faviconHref = savedTheme === 'light' ? '/favicon-light.svg' : '/favicon-dark.svg';
-const faviconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-if (faviconLink) faviconLink.href = faviconHref;
+syncAppFavicon();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>

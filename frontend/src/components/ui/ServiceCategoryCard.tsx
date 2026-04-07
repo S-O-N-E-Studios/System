@@ -49,10 +49,10 @@ export default function ServiceCategoryCard({
           <h3 className="text-h3 mb-1">{SERVICE_CATEGORY_LABELS[category]}</h3>
         <div className="flex flex-wrap items-center gap-4 text-[0.78rem] text-[var(--text-muted)]">
             <span>{projectCount} project{projectCount !== 1 ? 's' : ''}</span>
-            <span className="text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <span className="text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
               {formatRands(totalBudget)} total
             </span>
-            <span className="text-financial" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <span className="text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
               {formatRands(totalExpenditure)} spent
             </span>
           </div>
@@ -101,7 +101,7 @@ export default function ServiceCategoryCard({
                   </td>
                   <td
                     className="px-4 py-2 text-right text-financial text-[0.78rem] min-w-0 truncate"
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}
                   >
                     {formatRands(p.contractValue)}
                   </td>

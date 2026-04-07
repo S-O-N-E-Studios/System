@@ -95,7 +95,7 @@ export default function ProjectActivitySchedule() {
           ) : (
             <div
               className="flex items-baseline gap-1"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
             >
               <span className="text-[1.1rem] font-semibold text-[var(--text-primary)]">{countdown.days}</span>
               <span className="text-[0.6rem] text-[var(--text-muted)]">d</span>
@@ -233,13 +233,13 @@ export default function ProjectActivitySchedule() {
                   <td className="px-4 py-3 text-[0.82rem] text-[var(--text-primary)]">{act.name}</td>
                   <td
                     className="px-4 py-3 text-right text-[0.82rem]"
-                    style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)' }}
+                    style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--text-muted)' }}
                   >
                     {isClientTemp ? '—— Restricted' : act.expectedFunds}
                   </td>
                   <td
                     className="px-4 py-3 text-right text-[0.82rem]"
-                    style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-financial)' }}
+                    style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--text-financial)' }}
                   >
                     {isClientTemp ? '—— Restricted' : act.actualFunds || 'N/A'}
                   </td>
@@ -250,7 +250,7 @@ export default function ProjectActivitySchedule() {
                       <span
                         className="inline-flex items-center gap-1 text-[0.78rem]"
                         style={{
-                          fontFamily: "'JetBrains Mono', monospace",
+                          fontFamily: "'IBM Plex Mono', monospace",
                           color: isOver
                             ? 'var(--status-danger)'
                             : isUnder

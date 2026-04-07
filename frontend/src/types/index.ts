@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Core Domain Types - Project 360 Engineering PM Platform v6.0
-   Atlas White Design System · Multi-Tenant SaaS
+   Atlas Sahara Design System · Multi-Tenant SaaS
    ═══════════════════════════════════════════════════════════════════════════ */
 
 // v6.0 Project Lifecycle and Service Categories

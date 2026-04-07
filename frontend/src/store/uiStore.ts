@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Theme, Toast } from '@/types';
+import { syncAppFavicon } from '@/utils/syncAppFavicon';
 
 interface UiState {
   sidebarCollapsed: boolean;
@@ -42,9 +43,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       document.documentElement.setAttribute('data-theme', theme);
 
       document.title = 'PROJECT 360';
-      const faviconHref = theme === 'light' ? '/favicon-light.svg' : '/favicon-dark.svg';
-      const faviconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-      if (faviconLink) faviconLink.href = faviconHref;
+      syncAppFavicon();
     }
     set({ theme });
   },

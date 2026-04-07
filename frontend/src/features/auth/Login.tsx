@@ -87,8 +87,8 @@ export default function Login() {
 
         <div className="relative z-10 text-center px-12">
           <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="h-16 w-16 border-2 border-[var(--accent-sand)] flex items-center justify-center">
-              <span className="text-h2 text-[var(--accent-sand)] leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>IQ</span>
+            <div className="h-16 w-16 border-2 border-[var(--accent)] flex items-center justify-center">
+              <span className="text-h2 text-[var(--accent)] leading-none" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>IQ</span>
             </div>
           </div>
           <h1 className="text-h1 tracking-[3px] uppercase mb-3">
