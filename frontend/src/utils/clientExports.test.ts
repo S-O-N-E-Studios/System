@@ -1,4 +1,19 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+
+vi.mock('exceljs', () => ({
+  default: {
+    Workbook: class MockWorkbook {
+      addWorksheet() {
+        return { addRow: vi.fn() };
+      }
+
+      xlsx = {
+        writeBuffer: vi.fn(async () => new Uint8Array([80, 75, 3, 4]).buffer),
+      };
+    },
+  },
+}));
+
 import { exportPdf, exportXlsx } from './clientExports';
 
 describe('clientExports', () => {
@@ -39,8 +54,8 @@ describe('clientExports', () => {
     createElementSpy.mockRestore();
   });
 
-  it('exportXlsx triggers a download', () => {
-    exportXlsx({
+  it('exportXlsx triggers a download', async () => {
+    await exportXlsx({
       filename: filenameXlsx,
       sheetName: 'Export',
       columns: [{ key: 'name', header: 'Name' }],

@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
+import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, Star } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
@@ -19,40 +20,6 @@ const tabs: { key: ContractTab; label: string }[] = [
   { key: 'ps', label: 'Professional Services' },
   { key: 'geo', label: 'Geo-Technical' },
   { key: 'cm', label: 'Construction Management' },
-];
-
-// Placeholder data (v6.0: added serviceCategory, localMunicipality)
-const mockProjects = [
-  {
-    id: '1', name: 'Polokwane Water Treatment Upgrade', ref: 'PRJ-2026-001',
-    gps: '-23.9045, 29.4688', contractValue: 45000000, expenditure: 18200000,
-    balance: 26800000, status: 'active' as const, attachments: 12,
-    geoTecEngineer: 'Geoscience Ltd', geoTecReport: 'submitted', ddrStatus: 'complete',
-    challenges: 'Groundwater contamination at borehole BH-3', recommendation: 'Re-route foundation to avoid contaminated zone',
-    contractor: 'BuildCorp SA', startDate: '15 Jan 2026', completionDate: '30 Nov 2026',
-    percentComplete: 42, constructionStatus: 'on_track',
-    serviceCategory: 'water_sanitation' as ServiceCategory, localMunicipality: 'Emalahleni',
-  },
-  {
-    id: '2', name: 'Mokopane Road Rehabilitation', ref: 'PRJ-2026-002',
-    gps: '-24.1868, 29.0148', contractValue: 32000000, expenditure: 14500000,
-    balance: 17500000, status: 'review' as const, attachments: 8,
-    geoTecEngineer: 'Terra Investigations', geoTecReport: 'in_review', ddrStatus: 'in_review',
-    challenges: 'Expansive clay subsoils along section km 4-7', recommendation: 'Lime stabilisation required',
-    contractor: 'RoadWorks Inc', startDate: '01 Mar 2026', completionDate: '28 Feb 2027',
-    percentComplete: 28, constructionStatus: 'at_risk',
-    serviceCategory: 'roads_stormwater' as ServiceCategory, localMunicipality: 'Steve Tshwete',
-  },
-  {
-    id: '3', name: 'Tzaneen Bridge Construction', ref: 'PRJ-2026-003',
-    gps: '-23.8318, 30.1636', contractValue: 78000000, expenditure: 5200000,
-    balance: 72800000, status: 'planning' as const, attachments: 3,
-    geoTecEngineer: '', geoTecReport: 'not_started', ddrStatus: 'pending',
-    challenges: '', recommendation: '',
-    contractor: '', startDate: '01 Jun 2026', completionDate: '31 Dec 2027',
-    percentComplete: 5, constructionStatus: 'delayed',
-    serviceCategory: 'roads_stormwater' as ServiceCategory, localMunicipality: 'Victor Khanye',
-  },
 ];
 
 export default function Projects() {
@@ -115,7 +82,7 @@ export default function Projects() {
 
   const filteredProjects = useMemo(
     () =>
-      mockProjects.filter((p) => {
+      MOCK_PORTFOLIO_PROJECTS.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
         const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
         const matchesClientScope = !isClientTemp || allowedProjectIds.includes(p.id);
@@ -138,7 +105,7 @@ export default function Projects() {
     status: string;
   };
 
-  const handleExport = (format: 'xlsx' | 'pdf') => {
+  const handleExport = async (format: 'xlsx' | 'pdf') => {
     const rows: ProjectExportRow[] = filteredProjects.map((p) => ({
       projectName: p.name,
       ref: p.ref,
@@ -165,7 +132,7 @@ export default function Projects() {
 
     const filename = `Projects.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
     if (format === 'xlsx') {
-      exportXlsx<ProjectExportRow>({ filename, sheetName: 'Projects', columns, rows });
+      await exportXlsx<ProjectExportRow>({ filename, sheetName: 'Projects', columns, rows });
     } else {
       exportPdf<ProjectExportRow>({
         filename,

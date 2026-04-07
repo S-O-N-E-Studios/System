@@ -139,7 +139,7 @@ export default function IDPView() {
 
       const filename = `IDP-Export.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
       if (format === 'xlsx') {
-        exportXlsx<Row>({ filename, sheetName: 'IDP', columns, rows });
+        await exportXlsx<Row>({ filename, sheetName: 'IDP', columns, rows });
       } else {
         exportPdf<Row>({ filename, title: 'IDP Export', columns, rows });
       }

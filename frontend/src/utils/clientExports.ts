@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
 type ExportColumn<T> = {
@@ -16,7 +15,17 @@ function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function exportXlsx<T extends Record<string, unknown>>({
+function cellValue<T extends Record<string, unknown>>(
+  row: T,
+  col: ExportColumn<T>,
+): string | number | boolean {
+  const raw = col.formatter ? col.formatter(row[col.key], row) : row[col.key];
+  if (raw == null) return '';
+  if (typeof raw === 'number' || typeof raw === 'boolean') return raw;
+  return String(raw);
+}
+
+export async function exportXlsx<T extends Record<string, unknown>>({
   filename,
   sheetName = 'Export',
   columns,
@@ -26,21 +35,19 @@ export function exportXlsx<T extends Record<string, unknown>>({
   sheetName?: string;
   columns: ExportColumn<T>[];
   rows: T[];
-}) {
-  const formatted = rows.map((row) => {
-    const out: Record<string, unknown> = {};
-    for (const col of columns) {
-      out[col.header] = col.formatter ? col.formatter(row[col.key], row) : (row[col.key] as unknown);
-    }
-    return out;
-  });
+}): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(sheetName);
 
-  const ws = XLSX.utils.json_to_sheet(formatted);
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, ws, sheetName);
+  sheet.addRow(columns.map((c) => c.header));
 
-  const arrayBuffer = XLSX.write(book, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([arrayBuffer], {
+  for (const row of rows) {
+    sheet.addRow(columns.map((col) => cellValue(row, col)));
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
   downloadBlob(blob, filename);
@@ -100,4 +107,3 @@ export function exportPdf<T extends Record<string, unknown>>({
   const blob = doc.output('blob');
   downloadBlob(blob, filename);
 }
-

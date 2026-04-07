@@ -162,7 +162,7 @@ export default function NormalServices() {
 
       const filename = `Normal-Services.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
       if (format === 'xlsx') {
-        exportXlsx<Row>({ filename, sheetName: 'Normal Services', columns, rows });
+        await exportXlsx<Row>({ filename, sheetName: 'Normal Services', columns, rows });
       } else {
         exportPdf<Row>({ filename, title: 'Normal Services Export', columns, rows });
       }
