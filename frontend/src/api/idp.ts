@@ -1,5 +1,9 @@
 import apiClient from './client';
 import type { IDPProjectRow } from '@/types';
+import { MOCK_IDP_PROJECTS } from '@/mocks/idpProjects';
+
+const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
+const mockDelay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface IDPListParams {
   localMunicipality?: string;
@@ -11,6 +15,11 @@ interface IDPListParams {
 
 export const idpApi = {
   list: async (params?: IDPListParams): Promise<IDPProjectRow[]> => {
+    if (useMockAuth) {
+      void params;
+      await mockDelay(200);
+      return MOCK_IDP_PROJECTS;
+    }
     const res = await apiClient.get<{ data: IDPProjectRow[] }>('/idp', { params });
     return res.data.data ?? res.data;
   },

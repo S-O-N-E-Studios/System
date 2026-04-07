@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { OrgTheme, Theme } from '@/types';
+import { syncAppFavicon } from '@/utils/syncAppFavicon';
 
 interface ThemeState {
   orgTheme: OrgTheme | null;
@@ -13,7 +14,6 @@ interface ThemeState {
 function injectCssOverrides(theme: OrgTheme) {
   const root = document.documentElement;
   if (theme.primaryColour) {
-    root.style.setProperty('--accent-sand', theme.primaryColour);
     root.style.setProperty('--accent', theme.primaryColour);
   }
   if (theme.fontHeading) {
@@ -22,14 +22,15 @@ function injectCssOverrides(theme: OrgTheme) {
   if (theme.fontBody) {
     root.style.setProperty('--font-body-override', theme.fontBody);
   }
+  syncAppFavicon();
 }
 
 function clearCssOverrides() {
   const root = document.documentElement;
-  root.style.removeProperty('--accent-sand');
   root.style.removeProperty('--accent');
   root.style.removeProperty('--font-display-override');
   root.style.removeProperty('--font-body-override');
+  syncAppFavicon();
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({

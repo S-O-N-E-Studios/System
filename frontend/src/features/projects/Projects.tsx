@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
-import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
+import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
+import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, Star } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
+import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
-import { fetchClientAccessGrants } from '@/api/clientAccess';
+import { fetchClientTempScope } from '@/api/clientAccess';
+import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
 
 type ContractTab = 'ps' | 'geo' | 'cm';
 
@@ -19,45 +22,10 @@ const tabs: { key: ContractTab; label: string }[] = [
   { key: 'cm', label: 'Construction Management' },
 ];
 
-// Placeholder data (v6.0: added serviceCategory, localMunicipality)
-const mockProjects = [
-  {
-    id: '1', name: 'Polokwane Water Treatment Upgrade', ref: 'PRJ-2026-001',
-    gps: '-23.9045, 29.4688', contractValue: 45000000, expenditure: 18200000,
-    balance: 26800000, status: 'active' as const, attachments: 12,
-    geoTecEngineer: 'Geoscience Ltd', geoTecReport: 'submitted', ddrStatus: 'complete',
-    challenges: 'Groundwater contamination at borehole BH-3', recommendation: 'Re-route foundation to avoid contaminated zone',
-    contractor: 'BuildCorp SA', startDate: '15 Jan 2026', completionDate: '30 Nov 2026',
-    percentComplete: 42, constructionStatus: 'on_track',
-    serviceCategory: 'water_sanitation' as ServiceCategory, localMunicipality: 'Emalahleni',
-  },
-  {
-    id: '2', name: 'Mokopane Road Rehabilitation', ref: 'PRJ-2026-002',
-    gps: '-24.1868, 29.0148', contractValue: 32000000, expenditure: 14500000,
-    balance: 17500000, status: 'review' as const, attachments: 8,
-    geoTecEngineer: 'Terra Investigations', geoTecReport: 'in_review', ddrStatus: 'in_review',
-    challenges: 'Expansive clay subsoils along section km 4-7', recommendation: 'Lime stabilisation required',
-    contractor: 'RoadWorks Inc', startDate: '01 Mar 2026', completionDate: '28 Feb 2027',
-    percentComplete: 28, constructionStatus: 'at_risk',
-    serviceCategory: 'roads_stormwater' as ServiceCategory, localMunicipality: 'Steve Tshwete',
-  },
-  {
-    id: '3', name: 'Tzaneen Bridge Construction', ref: 'PRJ-2026-003',
-    gps: '-23.8318, 30.1636', contractValue: 78000000, expenditure: 5200000,
-    balance: 72800000, status: 'planning' as const, attachments: 3,
-    geoTecEngineer: '', geoTecReport: 'not_started', ddrStatus: 'pending',
-    challenges: '', recommendation: '',
-    contractor: '', startDate: '01 Jun 2026', completionDate: '31 Dec 2027',
-    percentComplete: 5, constructionStatus: 'delayed',
-    serviceCategory: 'roads_stormwater' as ServiceCategory, localMunicipality: 'Victor Khanye',
-  },
-];
-
 export default function Projects() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const [activeTab, setActiveTab] = useState<ContractTab>('ps');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | ''>('');
 
   const { user } = useAuthStore();
@@ -66,6 +34,14 @@ export default function Projects() {
 
   const { expiresAt, allowedProjectIds, setAllowedProjectIds, setExpiresAt, clearClientTempScope } =
     useClientAccessStore();
+
+  const togglePinnedProject = useProjectStore((s) => s.togglePinnedProject);
+  const pinnedForTenant = useProjectStore((s) =>
+    tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,
+  );
+  const setFilters = useProjectStore((s) => s.setFilters);
+  const searchQuery = useProjectStore((s) => s.tableFilters.search ?? '');
+  const isPinned = (projectId: string) => pinnedForTenant.some((p) => p.id === projectId);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +53,7 @@ export default function Projects() {
       clearClientTempScope();
 
       try {
-        const res = await fetchClientAccessGrants({ tenantSlug, status: 'active' });
+        const res = await fetchClientTempScope({ tenantSlug });
         if (cancelled) return;
         setAllowedProjectIds(res.allowedProjectIds);
         setExpiresAt(res.expiresAt);
@@ -108,7 +84,7 @@ export default function Projects() {
 
   const filteredProjects = useMemo(
     () =>
-      mockProjects.filter((p) => {
+      MOCK_PORTFOLIO_PROJECTS.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
         const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
         const matchesClientScope = !isClientTemp || allowedProjectIds.includes(p.id);
@@ -118,6 +94,56 @@ export default function Projects() {
   );
 
   const showEmpty = filteredProjects.length === 0;
+
+  type ProjectExportRow = {
+    projectName: string;
+    ref: string;
+    serviceCategory: string;
+    localMunicipality: string;
+    gps: string;
+    contractValue: string;
+    expenditure: string;
+    balance: string;
+    status: string;
+  };
+
+  const handleExport = async (format: 'xlsx' | 'pdf') => {
+    const rows: ProjectExportRow[] = filteredProjects.map((p) => ({
+      projectName: p.name,
+      ref: p.ref,
+      serviceCategory: p.serviceCategory ? SERVICE_CATEGORY_LABELS[p.serviceCategory] : 'N/A',
+      localMunicipality: p.localMunicipality || 'N/A',
+      gps: p.gps || 'N/A',
+      contractValue: isClientTemp ? '—— Restricted' : formatRands(p.contractValue),
+      expenditure: isClientTemp ? '—— Restricted' : formatRands(p.expenditure),
+      balance: isClientTemp ? '—— Restricted' : formatRands(p.balance),
+      status: p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : p.status === 'planning' ? 'Not Started' : 'Complete',
+    }));
+
+    const columns: { key: keyof ProjectExportRow; header: string }[] = [
+      { key: 'projectName', header: 'Project Name' },
+      { key: 'ref', header: 'Ref' },
+      { key: 'serviceCategory', header: 'Service Category' },
+      { key: 'localMunicipality', header: 'Local Municipality' },
+      { key: 'gps', header: 'GPS' },
+      { key: 'contractValue', header: 'Contract Value' },
+      { key: 'expenditure', header: 'Expenditure' },
+      { key: 'balance', header: 'Balance' },
+      { key: 'status', header: 'Status' },
+    ];
+
+    const filename = `Projects.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
+    if (format === 'xlsx') {
+      await exportXlsx<ProjectExportRow>({ filename, sheetName: 'Projects', columns, rows });
+    } else {
+      exportPdf<ProjectExportRow>({
+        filename,
+        title: 'Projects Export',
+        columns,
+        rows,
+      });
+    }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -159,7 +185,11 @@ export default function Projects() {
             type="text"
             placeholder="Search projects..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const next = raw.trim() ? raw : undefined;
+              setFilters({ search: next });
+            }}
             className="w-full bg-transparent border-0 border-b border-[var(--border)] pl-6 pr-4 py-1.5 font-body text-[0.82rem] font-light text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none transition-[border-color] duration-200"
           />
         </div>
@@ -177,64 +207,108 @@ export default function Projects() {
           <Filter className="h-3.5 w-3.5" />
           Filter
         </Button>
-        <Button variant="secondary" className="!min-w-0 !px-4">
+        <Button
+          variant="secondary"
+          className="!min-w-0 !px-4"
+          onClick={() => handleExport('xlsx')}
+        >
           <Download className="h-3.5 w-3.5" />
-          Export
+          Export XLSX
+        </Button>
+        <Button
+          variant="secondary"
+          className="!min-w-0 !px-4"
+          onClick={() => handleExport('pdf')}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export PDF
         </Button>
       </div>
 
       {/* Professional Services Table */}
       {activeTab === 'ps' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto min-w-full">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)]">
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[23%]" />
+              <col className="w-[10%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[2%]" />
+            </colgroup>
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
-                {['Project Name', 'Ref', 'Service Category', 'Local Municipality', 'GPS', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
+                {['Project Name', 'Ref', 'Service Category', 'Local Municipality', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
+                  <th key={h} className="text-table-header text-left px-3 py-3 truncate">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filteredProjects.map((p, i) => (
-                <>
+                <Fragment key={p.id}>
                   <tr
-                    key={p.id}
                     className={[
                       'group border-b border-[var(--border)] cursor-pointer transition-all duration-300',
                       'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
                       i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                     ].join(' ')}
                   >
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/${tenantSlug}/projects/${p.id}`}
-                        className="text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
-                      >
-                        {p.name}
-                      </Link>
+                    <td className="px-3 py-3 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {!isClientTemp && (
+                          <button
+                            type="button"
+                            aria-label={isPinned(p.id) ? 'Unpin project' : 'Pin project'}
+                            aria-pressed={isPinned(p.id)}
+                            className={[
+                              'shrink-0 p-1 rounded-sm transition-colors',
+                              isPinned(p.id)
+                                ? 'text-[var(--accent-sand)] hover:text-[var(--accent)]'
+                                : 'text-[var(--text-muted)] hover:text-[var(--accent-sand)]',
+                              'hover:bg-[var(--accent-sand-glow)]',
+                            ].join(' ')}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (!tenantSlug) return;
+                              togglePinnedProject(tenantSlug, { id: p.id, name: p.name, ref: p.ref });
+                            }}
+                          >
+                            <Star
+                              className="h-3.5 w-3.5"
+                              fill={isPinned(p.id) ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                        )}
+                        <Link
+                          to={`/${tenantSlug}/projects/${p.id}`}
+                          className="block truncate text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
+                        >
+                          {p.name}
+                        </Link>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-mono">{p.ref}</td>
-                    <td className="px-4 py-3 text-[0.78rem] text-[var(--text-muted)]">
+                    <td className="px-3 py-3 text-mono min-w-0 truncate">{p.ref}</td>
+                    <td className="px-3 py-3 text-[0.78rem] text-[var(--text-muted)] min-w-0 truncate">
                       {p.serviceCategory ? SERVICE_CATEGORY_LABELS[p.serviceCategory] : 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-[0.78rem] text-[var(--text-muted)]">
+                    <td className="px-3 py-3 text-[0.78rem] text-[var(--text-muted)] min-w-0 truncate">
                       {p.localMunicipality || 'N/A'}
                     </td>
-                    <td className="px-4 py-3">
-                      <button className="text-mono !text-[var(--status-planning)] cursor-pointer hover:underline">
-                        {p.gps}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-currency">
+                    <td className="px-3 py-3 text-currency">
                       {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <button
                         onClick={() => toggleDrillDown(p.id)}
                         className="flex items-center gap-1 text-currency cursor-pointer"
@@ -247,7 +321,7 @@ export default function Projects() {
                       </button>
                     </td>
                     <td
-                      className={`px-4 py-3 text-currency ${
+                      className={`px-3 py-3 text-currency ${
                         !isClientTemp && p.balance >= 0 ? '!text-[var(--status-active)]' : ''
                       } ${
                         !isClientTemp && p.balance < 0 ? '!text-[var(--status-danger)]' : ''
@@ -255,12 +329,12 @@ export default function Projects() {
                     >
                       {isClientTemp ? '—— Restricted' : formatRands(p.balance)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <StatusBadge status={p.status}>
                         {p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : p.status === 'planning' ? 'Not Started' : 'Complete'}
                       </StatusBadge>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button className="text-[var(--text-muted)] hover:text-[var(--accent)]" aria-label="Attachments">
                           <Paperclip className="h-3.5 w-3.5" />
@@ -272,8 +346,12 @@ export default function Projects() {
                   {/* Drill-down panel */}
                   {expandedRow === p.id && (
                     <tr key={`${p.id}-drill`}>
-                      <td colSpan={10} className="px-4 py-4 bg-[var(--accent-sand-glow)] border-t border-[var(--accent)]">
+                      <td colSpan={9} className="px-4 py-4 bg-[var(--accent-sand-glow)] border-t border-[var(--accent)]">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
+                            <p className="text-[0.7rem] font-body font-medium text-[var(--text-primary)] mb-2">GPS Coordinates</p>
+                            <p className="text-[0.72rem] text-mono text-[var(--text-muted)] truncate">{p.gps || 'N/A'}</p>
+                          </div>
                           {['Monthly Progress Report', 'Tender Document', 'Drawings', 'PDR'].map((doc) => (
                             <div key={doc} className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
                               <p className="text-[0.7rem] font-body font-medium text-[var(--text-primary)] mb-2">{doc}</p>
@@ -284,7 +362,7 @@ export default function Projects() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -294,18 +372,18 @@ export default function Projects() {
 
       {/* Geo-Technical Table */}
       {activeTab === 'geo' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)]">
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
                 {['Project Name', 'Geo-Tec Engineer', 'Project Value', 'Geo-Tec Report', 'Expenditure', 'Challenges', 'Recommendation', 'DDR Status'].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
+                  <th key={h} className="text-table-header text-left px-4 py-3 truncate">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -319,8 +397,39 @@ export default function Projects() {
                     i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                   ].join(' ')}
                 >
-                  <td className="px-4 py-3 text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{p.name}</td>
-                  <td className="px-4 py-3 text-table-cell">
+                  <td className="px-4 py-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {!isClientTemp && (
+                        <button
+                          type="button"
+                          aria-label={isPinned(p.id) ? 'Unpin project' : 'Pin project'}
+                          aria-pressed={isPinned(p.id)}
+                          className={[
+                            'shrink-0 p-1 rounded-sm transition-colors',
+                            isPinned(p.id)
+                              ? 'text-[var(--accent-sand)] hover:text-[var(--accent)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--accent-sand)]',
+                            'hover:bg-[var(--accent-sand-glow)]',
+                          ].join(' ')}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!tenantSlug) return;
+                            togglePinnedProject(tenantSlug, { id: p.id, name: p.name, ref: p.ref });
+                          }}
+                        >
+                          <Star className="h-3.5 w-3.5" fill={isPinned(p.id) ? 'currentColor' : 'none'} />
+                        </button>
+                      )}
+                      <Link
+                        to={`/${tenantSlug}/projects/${p.id}`}
+                        className="block truncate text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
+                      >
+                        {p.name}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-table-cell min-w-0 truncate">
                     {p.geoTecEngineer || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
                     <td className="px-4 py-3 text-currency">
@@ -351,18 +460,18 @@ export default function Projects() {
 
       {/* Construction Management Table */}
       {activeTab === 'cm' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)]">
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
                 {['Project Name', 'Contractor', 'Contract Value', 'Start Date', 'Completion Date', 'Expenditure', '% Complete', 'Status'].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
+                  <th key={h} className="text-table-header text-left px-4 py-3 truncate">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -376,8 +485,39 @@ export default function Projects() {
                     i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                   ].join(' ')}
                 >
-                  <td className="px-4 py-3 text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{p.name}</td>
-                  <td className="px-4 py-3 text-table-cell">
+                  <td className="px-4 py-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {!isClientTemp && (
+                        <button
+                          type="button"
+                          aria-label={isPinned(p.id) ? 'Unpin project' : 'Pin project'}
+                          aria-pressed={isPinned(p.id)}
+                          className={[
+                            'shrink-0 p-1 rounded-sm transition-colors',
+                            isPinned(p.id)
+                              ? 'text-[var(--accent-sand)] hover:text-[var(--accent)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--accent-sand)]',
+                            'hover:bg-[var(--accent-sand-glow)]',
+                          ].join(' ')}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!tenantSlug) return;
+                            togglePinnedProject(tenantSlug, { id: p.id, name: p.name, ref: p.ref });
+                          }}
+                        >
+                          <Star className="h-3.5 w-3.5" fill={isPinned(p.id) ? 'currentColor' : 'none'} />
+                        </button>
+                      )}
+                      <Link
+                        to={`/${tenantSlug}/projects/${p.id}`}
+                        className="block truncate text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
+                      >
+                        {p.name}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-table-cell min-w-0 truncate">
                     {p.contractor || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
                   <td className="px-4 py-3 text-currency">

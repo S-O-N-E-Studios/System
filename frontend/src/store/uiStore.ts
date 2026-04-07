@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Theme, Toast } from '@/types';
+import { syncAppFavicon } from '@/utils/syncAppFavicon';
 
 interface UiState {
   sidebarCollapsed: boolean;
@@ -38,7 +39,12 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   setTheme: (theme) => {
     localStorage.setItem('p360-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+
+      document.title = 'PROJECT 360';
+      syncAppFavicon();
+    }
     set({ theme });
   },
 

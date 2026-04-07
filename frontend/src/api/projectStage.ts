@@ -1,5 +1,13 @@
 import apiClient from './client';
 import type { ProjectStage } from '@/types';
+import {
+  advanceMockStageOrThrow,
+  delay as mockStageDelay,
+  getMockStageStatus,
+  markMockStageRequirementSatisfied,
+} from '@/mocks/projectStageLifecycle';
+
+const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
 
 export interface StageMissingDoc {
   documentName: string;
@@ -27,6 +35,13 @@ export async function fetchProjectStageStatus(params: {
   tenantSlug: string;
   projectId: string;
 }): Promise<StageStatusResponse> {
+  if (useMockAuth) {
+    void params.tenantSlug;
+    void params.projectId;
+    await mockStageDelay(220);
+    return getMockStageStatus();
+  }
+
   const res = await apiClient.get<unknown>(
     `/${params.tenantSlug}/projects/${params.projectId}/stage-status`
   );
@@ -62,9 +77,23 @@ export async function advanceProjectStage(params: {
   tenantSlug: string;
   projectId: string;
 }): Promise<void> {
+  if (useMockAuth) {
+    void params.tenantSlug;
+    void params.projectId;
+    await mockStageDelay(380);
+    advanceMockStageOrThrow();
+    return;
+  }
+
   await apiClient.post(
     `/${params.tenantSlug}/projects/${params.projectId}/advance-stage`,
     {}
   );
+}
+
+/** Keeps mock stage gate state in sync with optimistic uploads when the files API is stubbed. */
+export function notifyMockStageDocumentUploaded(meta: { documentName: string; category: string }) {
+  if (!useMockAuth) return;
+  markMockStageRequirementSatisfied(meta);
 }
 

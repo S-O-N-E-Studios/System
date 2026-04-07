@@ -66,14 +66,14 @@ export default function ClientAccessBanner({ expiresAt }: ClientAccessBannerProp
       {isExpiringSoon ? (
         <span
           className="text-[0.72rem] font-semibold uppercase tracking-wider text-[var(--text-primary)]"
-          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          style={{ fontFamily: "'IBM Plex Mono', monospace" }}
         >
           Access expires in {formatCountdown(remainingMs)}
         </span>
       ) : (
         <span className="text-[0.72rem] font-semibold uppercase tracking-wider text-[var(--text-primary)]">
           Temporary Access&nbsp;&nbsp;·&nbsp;&nbsp;Expires{' '}
-          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{expiryDate}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{expiryDate}</span>
         </span>
       )}
     </div>

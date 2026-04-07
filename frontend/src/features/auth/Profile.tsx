@@ -8,11 +8,14 @@ import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Profile() {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { addToast } = useUiStore();
+  const navigate = useNavigate();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const {
     register,
@@ -41,9 +44,21 @@ export default function Profile() {
     }
   };
 
+  const onLogout = () => {
+    setIsLoggingOut(true);
+    logout();
+    setIsLoggingOut(false);
+    navigate('/', { replace: true });
+  };
+
   return (
     <div className="animate-fade-in max-w-3xl">
-      <h1 className="text-h1 mb-8">Profile</h1>
+      <div className="flex items-center justify-between gap-4 mb-8">
+        <h1 className="text-h1">Profile</h1>
+        <Button variant="danger" onClick={onLogout} isLoading={isLoggingOut}>
+          Log out
+        </Button>
+      </div>
 
       {/* Profile info */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 mb-8">

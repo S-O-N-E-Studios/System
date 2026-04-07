@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useGrantsStore } from '@/store/grantsStore';
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import type { Grant, GrantStatus } from '@/types';
 import { fetchGrants, fetchGrantsSummary } from '@/api/grants';
 import LoadingState from '@/components/ui/LoadingState';
@@ -15,46 +16,29 @@ const STATUS_LABELS: Record<GrantStatus, string> = {
 };
 
 export default function Grants() {
-  const { grants, filterStatus, isLoading, setGrants, setFilterStatus, setLoading } =
-    useGrantsStore();
-  const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<Awaited<ReturnType<typeof fetchGrantsSummary>> | null>(
-    null
-  );
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const [filterStatus, setFilterStatus] = useState<GrantStatus | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const {
+    data: grants = [],
+    isLoading: grantsLoading,
+    isError: grantsError,
+  } = useQuery({
+    queryKey: ['grants', 'list', tenantSlug, filterStatus],
+    queryFn: () => fetchGrants({ status: filterStatus ?? undefined }),
+  });
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+  } = useQuery({
+    queryKey: ['grants', 'summary', tenantSlug],
+    queryFn: fetchGrantsSummary,
+  });
 
-        const [grantsData, summaryData] = await Promise.all([
-          fetchGrants({ status: filterStatus }),
-          fetchGrantsSummary(),
-        ]);
-
-        if (!isMounted) return;
-
-        setGrants(grantsData);
-        setSummary(summaryData);
-      } catch {
-        if (!isMounted) return;
-        setError('Failed to load grants data.');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [filterStatus, setGrants, setLoading]);
+  const isLoading = grantsLoading || summaryLoading;
+  const error = grantsError || summaryError;
 
   const handleStatusChange = (value: string) => {
     setFilterStatus(value ? (value as GrantStatus) : null);
@@ -64,7 +48,6 @@ export default function Grants() {
     <div className="animate-fade-in">
       <h1 className="text-h1 mb-8">Grants Tracking</h1>
 
-      {/* Summary row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <GrantStatCard
           label="Total Grants"
@@ -80,7 +63,6 @@ export default function Grants() {
         />
       </div>
 
-      {/* Toolbar */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] mb-4 px-6 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <label className="text-[0.7rem] text-[var(--text-muted)]">
@@ -109,7 +91,6 @@ export default function Grants() {
         </div>
       </div>
 
-      {/* Grants table */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)]">
         {isLoading ? (
           <LoadingState
@@ -117,10 +98,7 @@ export default function Grants() {
             description="Fetching grant allocation and compliance data."
           />
         ) : error ? (
-          <ErrorState
-            title="Unable to load grants"
-            description="Please try again later."
-          />
+          <ErrorState title="Unable to load grants" description="Please try again later." />
         ) : grants.length === 0 ? (
           <EmptyState
             title="No grants captured yet."
@@ -192,4 +170,3 @@ function GrantStatCard({ label, value }: GrantStatCardProps) {
     </div>
   );
 }
-

@@ -2,12 +2,7 @@ import { Link } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
-
-const mockTenants = [
-  { id: '1', name: 'Limpopo Civil Engineering', slug: 'limpopo-civil', plan: 'Starter', users: 4, isActive: true },
-  { id: '2', name: 'Gauteng Structures Corp', slug: 'gauteng-structures', plan: 'Professional', users: 12, isActive: true },
-  { id: '3', name: 'Cape Town Roads Dept', slug: 'ct-roads', plan: 'Starter', users: 2, isActive: false },
-];
+import { MOCK_SUPER_ADMIN_TENANTS } from '@/mocks/superAdminTenants';
 
 export default function Tenants() {
   return (
@@ -20,7 +15,7 @@ export default function Tenants() {
       </div>
 
       <div className="bg-[var(--bg-card)] border border-[var(--border)]">
-        {mockTenants.length === 0 ? (
+        {MOCK_SUPER_ADMIN_TENANTS.length === 0 ? (
           <EmptyState
             title="No tenants yet."
             description="Organisations will appear here once created."
@@ -35,7 +30,7 @@ export default function Tenants() {
             </tr>
           </thead>
           <tbody>
-            {mockTenants.map((t, i) => (
+            {MOCK_SUPER_ADMIN_TENANTS.map((t, i) => (
               <tr key={t.id} className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}>
                 <td className="px-4 py-3 text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{t.name}</td>
                 <td className="px-4 py-3 text-mono">{t.slug}</td>

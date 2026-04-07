@@ -104,7 +104,7 @@ export default function Modal({ modalId, title, size = 'md', children, onClose }
           'relative z-10 w-full mx-4',
           sizeStyles[size],
           'bg-[var(--bg-card)] border border-[var(--border)]',
-          'shadow-2xl outline-none',
+          'shadow-2xl outline-none max-h-[calc(100vh-4rem)] flex flex-col',
         ].join(' ')}
       >
         {/* Header */}
@@ -124,7 +124,7 @@ export default function Modal({ modalId, title, size = 'md', children, onClose }
         )}
 
         {/* Body */}
-        <div className="px-8 py-6">{children}</div>
+        <div className="px-8 py-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

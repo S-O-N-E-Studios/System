@@ -92,7 +92,7 @@ export default function StageDocumentDrawer({
         aria-label="Close drawer"
       />
       <div
-        className="fixed top-0 right-0 h-full w-full max-w-md bg-[var(--bg-surface)] border-l border-[var(--border-default)] z-50 shadow-xl flex flex-col animate-slide-in-right"
+        className="fixed top-16 right-4 w-[calc(100%-2rem)] max-w-md max-h-[calc(100vh-5rem)] bg-[var(--bg-surface)] border border-[var(--border-default)] z-50 shadow-xl flex flex-col animate-slide-in-right"
         role="dialog"
         aria-labelledby="stage-drawer-title"
       >
@@ -110,7 +110,7 @@ export default function StageDocumentDrawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="overflow-y-auto px-6 py-6">
           <div className="flex items-center gap-2 mb-6">
             {gatePassed ? (
               <>

@@ -1,38 +1,37 @@
 import StatusBadge from '@/components/ui/StatusBadge';
 import AtlasMap from '@/components/ui/AtlasMap';
 import { useMemo, useState } from 'react';
-
-const mockProjects = [
-  { id: '1', name: 'Polokwane Water Treatment', status: 'active' as const, value: 'R 45,000,000', lat: -23.907, lng: 29.456, hasGps: true },
-  { id: '2', name: 'Mokopane Road Rehabilitation', status: 'review' as const, value: 'R 32,000,000', lat: -24.199, lng: 27.900, hasGps: true },
-  { id: '3', name: 'Tzaneen Bridge Construction', status: 'planning' as const, value: 'R 78,000,000', lat: -23.842, lng: 30.364, hasGps: true },
-  { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, value: 'R 22,000,000', hasGps: false },
-];
+import { MAP_MOCK_PROJECTS } from '@/mocks/mapProjects';
+import { formatRands } from '@/utils/formatters';
 
 export default function MapsView() {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(mockProjects[0]?.id ?? null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    MAP_MOCK_PROJECTS[0]?.id ?? null,
+  );
 
   const selected = useMemo(
-    () => mockProjects.find((p) => p.id === selectedProjectId) ?? null,
-    [selectedProjectId]
+    () => MAP_MOCK_PROJECTS.find((p) => p.id === selectedProjectId) ?? null,
+    [selectedProjectId],
   );
 
   const markers = useMemo(() => {
-    return mockProjects
-      .filter((p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number')
-      .map((p) => ({
-        id: p.id,
-        lat: p.lat as number,
-        lng: p.lng as number,
-        label: p.name,
-        status: p.status,
-      }));
+    return MAP_MOCK_PROJECTS.filter(
+      (p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number',
+    ).map((p) => ({
+      id: p.id,
+      lat: p.lat as number,
+      lng: p.lng as number,
+      label: p.name,
+      status: p.status,
+    }));
   }, []);
 
   const center =
     selected?.hasGps && typeof selected.lat === 'number' && typeof selected.lng === 'number'
       ? { lat: selected.lat, lng: selected.lng }
       : undefined;
+
+  const zoom = selected?.hasGps ? 14 : 7;
 
   return (
     <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-20 -mb-12">
@@ -50,10 +49,11 @@ export default function MapsView() {
             </select>
           </div>
           <div className="divide-y divide-[var(--border)]">
-            {mockProjects.map((p) => (
+            {MAP_MOCK_PROJECTS.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelectedProjectId(p.id)}
+                onMouseEnter={() => setSelectedProjectId(p.id)}
                 className="w-full text-left px-4 py-3 hover:bg-[var(--accent-glow)] transition-colors"
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
@@ -64,7 +64,9 @@ export default function MapsView() {
                     {p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : 'New'}
                   </StatusBadge>
                 </div>
-                <p className="text-currency text-[0.82rem]">{p.value}</p>
+                <p className="text-currency text-[0.82rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {formatRands(p.contractValue)}
+                </p>
                 {!p.hasGps && (
                   <p className="text-[0.6rem] text-[var(--text-muted)] mt-1">No GPS</p>
                 )}
@@ -75,14 +77,37 @@ export default function MapsView() {
 
         {/* Map area */}
         <div className="flex-1 bg-[var(--bg-primary)] flex items-center justify-center pt-16">
-          <div className="w-full h-full px-6 lg:px-0">
+          <div className="w-full h-full px-6 lg:px-0 relative">
             <AtlasMap
               markers={markers}
               center={center}
-              zoom={7}
+              zoom={zoom}
               height="calc(100vh - 140px)"
               onMarkerClick={(m) => setSelectedProjectId(m.id)}
             />
+
+            {selected && (
+              <div className="absolute z-30 top-4 left-4 w-[340px] bg-[var(--bg-surface)] border border-[var(--border-default)] p-5 shadow-lg">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <h3 className="text-h3 text-[1rem] mb-2 truncate">{selected.name}</h3>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <StatusBadge status={selected.status}>
+                        {selected.status === 'active' ? 'Active' : selected.status === 'review' ? 'In Review' : 'Planning'}
+                      </StatusBadge>
+                      <span className="text-currency text-[0.92rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {formatRands(selected.contractValue)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[var(--border)]">
+                  <p className="text-[0.7rem] text-[var(--text-muted)] uppercase tracking-wider mb-1">Project Location</p>
+                  <p className="text-[0.82rem] text-[var(--text-primary)] leading-relaxed">{selected.fullAddress}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

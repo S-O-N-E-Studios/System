@@ -221,13 +221,13 @@ export default function IDPTable({ projects, onExport, isLoading }: IDPTableProp
                       <td className="px-4 py-2 text-[0.78rem] text-[var(--text-muted)]">
                         {p.location || p.localMunicipality || 'N/A'}
                       </td>
-                      <td className="px-4 py-2 text-financial text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <td className="px-4 py-2 text-financial text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                         {p.mtefYear1 != null ? formatRands(p.mtefYear1) : 'N/A'}
                       </td>
-                      <td className="px-4 py-2 text-financial text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <td className="px-4 py-2 text-financial text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                         {p.mtefYear2 != null ? formatRands(p.mtefYear2) : 'N/A'}
                       </td>
-                      <td className="px-4 py-2 text-financial text-[0.78rem]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <td className="px-4 py-2 text-financial text-[0.78rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                         {p.mtefYear3 != null ? formatRands(p.mtefYear3) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-[0.78rem]">

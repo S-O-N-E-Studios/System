@@ -3,7 +3,7 @@ import { useJsApiLoader, GoogleMap, Marker as GoogleMarker } from '@react-google
 import { MapPin } from 'lucide-react';
 
 // Leaflet provider
-import { MapContainer, TileLayer, Marker as LeafletMarker, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker as LeafletMarker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 /** Lat/lng shape used by Google Maps and Leaflet in this component. */
@@ -28,6 +28,16 @@ interface AtlasMapProps {
   height?: string;
   provider?: AtlasMapProvider; // defaults from env
   onMarkerClick?: (marker: AtlasMapMarker) => void;
+}
+
+function LeafletViewSync({ center, zoom }: { center: MapLatLng; zoom: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(center, zoom, { animate: true });
+  }, [map, center, zoom]);
+
+  return null;
 }
 
 function readCssVar(name: string, fallback: string): string {
@@ -240,6 +250,7 @@ export default function AtlasMap({
         style={containerStyle}
         scrollWheelZoom={false}
       >
+        <LeafletViewSync center={computedCenter} zoom={zoom} />
         <TileLayer
           url={isDark ? darkTileUrl : lightTileUrl}
           attribution={

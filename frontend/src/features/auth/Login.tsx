@@ -11,10 +11,12 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Avatar from '@/components/ui/Avatar';
 
+const FORGOT_PASSWORD_MODAL_ID = 'forgot-password';
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  const { openModal, addToast } = useUiStore();
+  const { openModal, addToast, closeModal } = useUiStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [tenantChoices, setTenantChoices] = useState<TenantSummary[]>([]);
@@ -87,8 +89,8 @@ export default function Login() {
 
         <div className="relative z-10 text-center px-12">
           <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="h-16 w-16 border-2 border-[var(--accent-sand)] flex items-center justify-center">
-              <span className="text-h2 text-[var(--accent-sand)] leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>IQ</span>
+            <div className="h-16 w-16 border-2 border-[var(--accent)] flex items-center justify-center">
+              <span className="text-h2 text-[var(--accent)] leading-none" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>IQ</span>
             </div>
           </div>
           <h1 className="text-h1 tracking-[3px] uppercase mb-3">
@@ -143,7 +145,12 @@ export default function Login() {
               </Button>
 
               <div className="flex items-center justify-between">
-                <Button type="button" variant="ghost" className="!text-[0.6rem]">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="!text-[0.6rem]"
+                  onClick={() => openModal(FORGOT_PASSWORD_MODAL_ID)}
+                >
                   Forgot password?
                 </Button>
                 <Link
@@ -157,6 +164,21 @@ export default function Login() {
           </form>
         </div>
       </div>
+
+      <Modal modalId={FORGOT_PASSWORD_MODAL_ID} title="Reset password" size="sm">
+        <div className="space-y-4 text-[0.82rem] text-[var(--text-secondary)] leading-relaxed">
+          <p>
+            Password reset is not wired to email in mock mode. When the backend is live, this will send a secure link to
+            your address.
+          </p>
+          <p className="text-[0.72rem] text-[var(--text-muted)]">
+            For now, contact your organisation administrator or use demo credentials from your team.
+          </p>
+          <Button type="button" variant="primary" className="w-full" onClick={() => closeModal()}>
+            Close
+          </Button>
+        </div>
+      </Modal>
 
       {/* Tenant selector modal */}
       <Modal modalId="tenant-selector" title="Select Organisation" size="sm">

@@ -3,131 +3,209 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PROJECT 360 - Atlas White Design Token System v4.0
-   RAL 095 90 10 foundation. Warm sand, periwinkle blue, cream lineage.
-   WCAG 2.1 AA: standard text ≥4.5:1, large text/UI ≥3:1.
-   All CSS must reference these tokens - no hardcoded hex in components.
-   Semantic status colours are platform-locked - orgs cannot override.
+   PROJECT 360 — Atlas Sahara Design System
+   Terracotta + warm gold on sand and bone surfaces. WCAG-minded pairings.
+   Canonical tokens: --bg-page, --accent, --gold, --success, …
+   Legacy aliases (--bg-primary, --accent-sand, --accent-periwinkle, …) map here
+   so existing components keep working.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Light Theme (Default - Atlas White Foundation) */
+:root {
+  --font-display: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* --- LIGHT MODE --- */
 :root,
 [data-theme='light'] {
-  --bg-primary: #ECE4CE;
-  --bg-surface: #FFFFFF;
-  --bg-surface-alt: #F5F0E8;
+  --bg-page: #f5efe4;
+  --bg-surface: #fdfaf5;
+  --bg-surface-alt: #eee6d6;
+  --bg-surface-deep: #e5d8c4;
 
-  --accent-sand: #D7C697;
-  --accent-periwinkle: #97A8D7;
-  --accent-lavender: #CED6EC;
+  --accent: #c0642c;
+  --accent-hover: #a8521e;
+  --accent-light: rgba(192, 100, 44, 0.08);
+  --accent-border: rgba(192, 100, 44, 0.2);
 
-  --status-success: #7A9B76;
-  --status-warning: #C4A45A;
-  --status-danger: #B07A6E;
+  --gold: #b89040;
+  --gold-light: #fff3dc;
+  --ochre: #c8a050;
+  --sienna: #a06848;
 
-  --text-primary: #2C2822;
-  --text-muted: #7A7260;
-  --text-financial: #3A3428;
+  --text-primary: #1e1408;
+  --text-secondary: #604830;
+  --text-muted: #a08868;
+  --text-financial: #3a2810;
 
-  --border-default: #E8E0CE;
+  --border: rgba(160, 100, 50, 0.16);
+  --border-emphasis: rgba(160, 100, 50, 0.3);
 
-  --accent-sand-glow: rgba(215, 198, 151, 0.07);
-  --nav-backdrop: rgba(236, 228, 206, 0.85);
-  --table-header-bg: rgba(215, 198, 151, 0.25);
-  --table-row-alt: var(--bg-surface-alt);
-  --crosshatch-color: rgba(215, 198, 151, 0.03);
-  --selection-bg: rgba(215, 198, 151, 0.3);
+  --success: #3a7040;
+  --warning: #a06828;
+  --danger: #943028;
 
-  /* Backward-compatible aliases (migrate components to new names over time) */
+  /* Gradients (card / button / chart tint) */
+  --gradient-card: linear-gradient(160deg, #fdfaf5 0%, #f5efe4 100%);
+  --gradient-button: linear-gradient(135deg, #c0642c 0%, #d08050 100%);
+  --gradient-chart-fill: linear-gradient(180deg, rgba(192, 100, 44, 0.25) 0%, rgba(192, 100, 44, 0) 100%);
+  --gradient-financial-panel: linear-gradient(135deg, rgba(184, 144, 64, 0.06) 0%, transparent 100%);
+
+  /* Legacy & composite aliases */
+  --bg-primary: var(--bg-page);
   --bg-secondary: var(--bg-surface-alt);
   --bg-card: var(--bg-surface);
-  --accent: var(--accent-sand);
-  --accent-light: var(--accent-periwinkle);
-  --accent-dim: var(--accent-lavender);
-  --accent-glow: var(--accent-sand-glow);
-  --teal-accent: var(--accent-periwinkle);
-  --teal-accent-dim: var(--accent-periwinkle);
-  --blue-accent: var(--accent-periwinkle);
-  --text-secondary: var(--text-muted);
-  --border: var(--border-default);
-  --border-strong: var(--border-default);
-  --status-active: var(--status-success);
-  --status-review: var(--status-warning);
-  --status-planning: var(--accent-periwinkle);
-  --status-done: var(--accent-lavender);
-  --table-subheader-bg: rgba(215, 198, 151, 0.12);
+  --accent-sand: var(--accent);
+  --accent-periwinkle: var(--ochre);
+  --accent-lavender: var(--sienna);
+  --status-success: var(--success);
+  --status-warning: var(--warning);
+  --status-danger: var(--danger);
+  --status-active: var(--success);
+  --status-review: var(--warning);
+  --status-planning: var(--ochre);
+  --status-done: var(--sienna);
+  --border-default: var(--border);
+  --border-strong: var(--border-emphasis);
 
-  /* Charts: bar / activity timelines (blue family, Atlas periwinkle + lavender) */
-  --chart-bar-base: var(--accent-lavender);
-  --chart-bar-fill: var(--accent-periwinkle);
-  --chart-bar-fill-hover: #7B8EC9;
-  --chart-bar-series-a: var(--accent-periwinkle);
-  --chart-bar-series-b: #A8B5E0;
-  --chart-activity-bar: var(--accent-periwinkle);
-  --chart-activity-bar-hover: #7B8EC9;
+  --accent-sand-glow: var(--accent-light);
+  --nav-backdrop: rgba(245, 239, 228, 0.92);
+  --table-header-bg: rgba(192, 100, 44, 0.1);
+  --table-row-alt: var(--bg-surface-alt);
+  --table-subheader-bg: rgba(192, 100, 44, 0.14);
+  --crosshatch-color: rgba(160, 100, 50, 0.06);
+  --selection-bg: rgba(192, 100, 44, 0.22);
+
+  --accent-dim: var(--accent-hover);
+  --accent-glow: rgba(192, 100, 44, 0.22);
+  --teal-accent: var(--ochre);
+  --teal-accent-dim: var(--sienna);
+  --blue-accent: var(--ochre);
+
+  --badge-active-bg: rgba(58, 112, 64, 0.1);
+  --badge-active-border: rgba(58, 112, 64, 0.35);
+  --badge-review-bg: rgba(160, 104, 40, 0.1);
+  --badge-review-border: rgba(160, 104, 40, 0.35);
+  --badge-planning-bg: rgba(200, 160, 80, 0.12);
+  --badge-planning-border: rgba(200, 160, 80, 0.35);
+  --badge-done-bg: rgba(160, 104, 72, 0.1);
+  --badge-done-border: rgba(160, 104, 72, 0.32);
+  --badge-danger-bg: rgba(148, 48, 40, 0.1);
+  --badge-danger-border: rgba(148, 48, 40, 0.35);
+  --badge-accent-bg: var(--accent-light);
+  --badge-accent-border: var(--accent-border);
+
+  --chart-bar-base: rgba(192, 100, 44, 0.22);
+  --chart-bar-fill: var(--accent);
+  --chart-bar-fill-hover: var(--accent-hover);
+  --chart-bar-series-a: var(--accent);
+  --chart-bar-series-b: var(--ochre);
+  --chart-activity-bar: var(--accent);
+  --chart-activity-bar-hover: var(--accent-hover);
 }
 
-/* Dark Theme (Warm derivation - not cold) */
+/* --- DARK MODE --- */
 [data-theme='dark'] {
-  --bg-primary: #1A1814;
-  --bg-surface: #26231C;
-  --bg-surface-alt: #2E2A22;
+  --bg-page: #100c08;
+  --bg-surface: #1a1410;
+  --bg-surface-alt: #231c15;
+  --bg-surface-deep: #2c231a;
 
-  --accent-sand: #B8A87A;
-  --accent-periwinkle: #6B7FB8;
-  --accent-lavender: #8A97C4;
+  --accent: #d08050;
+  --accent-hover: #e89060;
+  --accent-light: rgba(208, 128, 80, 0.12);
+  --accent-border: rgba(208, 128, 80, 0.28);
 
-  --status-success: #6A8B66;
-  --status-warning: #A88D4A;
-  --status-danger: #9A6A60;
+  --gold: #d4a840;
+  --gold-light: rgba(212, 168, 64, 0.1);
+  --ochre: #c8904a;
+  --sienna: #c07850;
 
-  --text-primary: #E8E0CE;
-  --text-muted: #9A9282;
-  --text-financial: #D4CAB4;
+  --text-primary: #f0e8dc;
+  --text-secondary: #a89070;
+  --text-muted: #604840;
+  --text-financial: #e8c888;
 
-  --border-default: #3A3428;
+  --border: rgba(200, 130, 70, 0.18);
+  --border-emphasis: rgba(200, 130, 70, 0.32);
 
-  --accent-sand-glow: rgba(184, 168, 122, 0.07);
-  --nav-backdrop: rgba(26, 24, 20, 0.85);
-  --table-header-bg: rgba(184, 168, 122, 0.2);
-  --table-row-alt: var(--bg-surface-alt);
-  --crosshatch-color: rgba(184, 168, 122, 0.03);
-  --selection-bg: rgba(184, 168, 122, 0.3);
+  --success: #50a060;
+  --warning: #c89040;
+  --danger: #c05848;
 
+  --gradient-card: linear-gradient(160deg, #1a1410 0%, #100c08 100%);
+  --gradient-button: linear-gradient(135deg, #d08050 0%, #e89060 100%);
+  --gradient-chart-fill: linear-gradient(180deg, rgba(208, 128, 80, 0.28) 0%, rgba(208, 128, 80, 0) 100%);
+  --gradient-financial-panel: linear-gradient(135deg, rgba(212, 168, 64, 0.08) 0%, transparent 100%);
+
+  --bg-primary: var(--bg-page);
   --bg-secondary: var(--bg-surface-alt);
   --bg-card: var(--bg-surface);
-  --accent: var(--accent-sand);
-  --accent-light: var(--accent-periwinkle);
-  --accent-dim: var(--accent-lavender);
-  --accent-glow: var(--accent-sand-glow);
-  --teal-accent: var(--accent-periwinkle);
-  --teal-accent-dim: var(--accent-periwinkle);
-  --blue-accent: var(--accent-periwinkle);
-  --text-secondary: var(--text-muted);
-  --border: var(--border-default);
-  --border-strong: var(--border-default);
-  --status-active: var(--status-success);
-  --status-review: var(--status-warning);
-  --status-planning: var(--accent-periwinkle);
-  --status-done: var(--accent-lavender);
-  --table-subheader-bg: rgba(184, 168, 122, 0.1);
+  --accent-sand: var(--accent);
+  --accent-periwinkle: var(--ochre);
+  --accent-lavender: var(--sienna);
+  --status-success: var(--success);
+  --status-warning: var(--warning);
+  --status-danger: var(--danger);
+  --status-active: var(--success);
+  --status-review: var(--warning);
+  --status-planning: var(--ochre);
+  --status-done: var(--sienna);
+  --border-default: var(--border);
+  --border-strong: var(--border-emphasis);
 
-  --chart-bar-base: rgba(138, 151, 196, 0.35);
-  --chart-bar-fill: var(--accent-periwinkle);
-  --chart-bar-fill-hover: #8A9FD4;
-  --chart-bar-series-a: var(--accent-periwinkle);
-  --chart-bar-series-b: #9AAAD8;
-  --chart-activity-bar: var(--accent-periwinkle);
-  --chart-activity-bar-hover: #8A9FD4;
+  --accent-sand-glow: var(--accent-light);
+  --nav-backdrop: rgba(16, 12, 8, 0.9);
+  --table-header-bg: rgba(208, 128, 80, 0.14);
+  --table-row-alt: var(--bg-surface-alt);
+  --table-subheader-bg: rgba(208, 128, 80, 0.18);
+  --crosshatch-color: rgba(200, 130, 70, 0.05);
+  --selection-bg: rgba(208, 128, 80, 0.28);
+
+  --accent-dim: var(--sienna);
+  --accent-glow: rgba(208, 128, 80, 0.24);
+  --teal-accent: var(--ochre);
+  --teal-accent-dim: var(--sienna);
+  --blue-accent: var(--ochre);
+
+  --badge-active-bg: rgba(80, 160, 96, 0.12);
+  --badge-active-border: rgba(80, 160, 96, 0.4);
+  --badge-review-bg: rgba(200, 144, 64, 0.12);
+  --badge-review-border: rgba(200, 144, 64, 0.38);
+  --badge-planning-bg: rgba(200, 144, 74, 0.12);
+  --badge-planning-border: rgba(200, 144, 74, 0.36);
+  --badge-done-bg: rgba(192, 120, 80, 0.12);
+  --badge-done-border: rgba(192, 120, 80, 0.35);
+  --badge-danger-bg: rgba(192, 88, 72, 0.12);
+  --badge-danger-border: rgba(192, 88, 72, 0.38);
+  --badge-accent-bg: var(--accent-light);
+  --badge-accent-border: var(--accent-border);
+
+  --chart-bar-base: rgba(208, 128, 80, 0.25);
+  --chart-bar-fill: var(--accent);
+  --chart-bar-fill-hover: var(--accent-hover);
+  --chart-bar-series-a: var(--accent);
+  --chart-bar-series-b: var(--ochre);
+  --chart-activity-bar: var(--accent);
+  --chart-activity-bar-hover: var(--accent-hover);
 }
 
-/* Theme Transition (300ms per Atlas spec) */
+/* Theme crossfade (Atlas Sahara: 0.4s on surfaces + text) */
+html {
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
 body {
-  transition: background-color 300ms ease, color 300ms ease;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+  html,
+  body {
+    transition-duration: 0.01ms;
+  }
+
   *,
   *::before,
   *::after {
@@ -136,7 +214,6 @@ body {
   }
 }
 
-/* Base Reset and Defaults */
 @layer base {
   * {
     box-sizing: border-box;
@@ -146,15 +223,16 @@ body {
   }
 
   html {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg-page);
   }
 
   body {
     background-color: var(--bg-primary);
-    color: var(--text-muted);
-    font-family: 'Inter', sans-serif;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
     font-size: 0.88rem;
     font-weight: 400;
     line-height: 1.6;
@@ -200,8 +278,12 @@ body {
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent-periwinkle);
-    outline-offset: 3px;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(192, 100, 44, 0.25);
+  }
+
+  [data-theme='dark'] :focus-visible {
+    box-shadow: 0 0 0 3px rgba(208, 128, 80, 0.28);
   }
 
   .scrollbar-hidden {
@@ -218,19 +300,17 @@ body {
   }
 }
 
-/* Typography Utility Classes */
 @layer components {
-  /* Playfair Display stands in for Canela (commercial - swap when licensed) */
   .text-h1 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: var(--font-display-override, var(--font-display));
     font-size: 3rem;
-    font-weight: 300;
+    font-weight: 400;
     letter-spacing: 0.5px;
     color: var(--text-primary);
   }
 
   .text-h2 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: var(--font-display-override, var(--font-display));
     font-size: 2rem;
     font-weight: 400;
     letter-spacing: 0;
@@ -238,67 +318,68 @@ body {
   }
 
   .text-h3 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: var(--font-display-override, var(--font-display));
     font-size: 1.35rem;
-    font-weight: 500;
+    font-weight: 400;
     letter-spacing: 0.5px;
     color: var(--text-primary);
   }
 
   .text-stat {
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--accent-sand);
+    font-family: var(--font-display-override, var(--font-display));
+    font-size: 1.75rem;
+    font-weight: 400;
+    color: var(--accent);
   }
 
   .text-currency {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1rem;
-    font-weight: 600;
+    font-family: var(--font-body-override, var(--font-mono));
+    font-size: 0.8125rem;
+    font-weight: 500;
     color: var(--text-financial);
   }
 
   .text-financial {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-body-override, var(--font-mono));
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-financial);
   }
 
   .text-eyebrow {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.62rem;
+    font-family: var(--font-body-override, var(--font-ui));
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--accent-sand);
+    color: var(--text-muted);
   }
 
   .text-table-header {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.65rem;
+    font-family: var(--font-body-override, var(--font-ui));
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--accent-sand);
+    color: var(--text-muted);
   }
 
   .text-table-cell {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.82rem;
+    font-family: var(--font-body-override, var(--font-ui));
+    font-size: 0.75rem;
     font-weight: 400;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   .text-body {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body-override, var(--font-ui));
     font-size: 0.88rem;
     font-weight: 400;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   .text-button {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body-override, var(--font-ui));
     font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 2px;
@@ -306,7 +387,7 @@ body {
   }
 
   .text-nav {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body-override, var(--font-ui));
     font-size: 0.78rem;
     font-weight: 400;
     letter-spacing: 0.5px;
@@ -314,14 +395,13 @@ body {
   }
 
   .text-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-body-override, var(--font-mono));
     font-size: 0.78rem;
     font-weight: 400;
     letter-spacing: 0.5px;
     color: var(--text-muted);
   }
 
-  /* Animation Keyframes */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -388,15 +468,185 @@ body {
     animation: slideInRight 0.3s ease-out forwards;
   }
 
-  /* Skeleton Loader */
   .skeleton {
     background: linear-gradient(
       90deg,
       var(--bg-surface-alt) 25%,
-      var(--accent-sand-glow) 50%,
+      var(--accent-light) 50%,
       var(--bg-surface-alt) 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
+  }
+
+  /* ─── Atlas Sahara — cards ─── */
+  .sahara-card {
+    position: relative;
+    background: var(--gradient-card);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition:
+      transform 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .sahara-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    background: var(--accent);
+    transition: height 0.18s ease;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .sahara-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-emphasis);
+  }
+
+  [data-theme='light'] .sahara-card:hover {
+    box-shadow: 0 4px 24px rgba(30, 20, 8, 0.07);
+  }
+
+  [data-theme='dark'] .sahara-card:hover {
+    box-shadow:
+      0 4px 20px rgba(208, 128, 80, 0.08),
+      0 0 0 1px rgba(208, 128, 80, 0.25);
+  }
+
+  .sahara-card:hover::before {
+    height: 2px;
+  }
+
+  .sahara-card--financial {
+    background-image: var(--gradient-financial-panel), var(--gradient-card);
+    background-color: var(--bg-surface);
+  }
+
+  .sahara-card__body {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── Atlas Sahara — buttons ─── */
+  .sahara-btn {
+    font-family: var(--font-body-override, var(--font-ui));
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 2rem;
+    min-width: 120px;
+    cursor: pointer;
+    border-style: solid;
+    border-width: 1px;
+    transition:
+      transform 0.1s ease,
+      filter 0.18s ease,
+      box-shadow 0.18s ease,
+      background-color 0.18s ease,
+      background-image 0.18s ease,
+      border-color 0.18s ease,
+      color 0.18s ease;
+  }
+
+  .sahara-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .sahara-btn--primary {
+    border-color: var(--accent-border);
+    background-color: var(--accent);
+    background-image: var(--gradient-button);
+    color: var(--bg-surface);
+  }
+
+  [data-theme='dark'] .sahara-btn--primary {
+    color: var(--bg-page);
+  }
+
+  .sahara-btn--primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: 0 4px 16px rgba(192, 100, 44, 0.25);
+  }
+
+  [data-theme='dark'] .sahara-btn--primary:hover:not(:disabled) {
+    box-shadow: 0 4px 18px rgba(208, 128, 80, 0.35);
+  }
+
+  .sahara-btn--primary:active:not(:disabled) {
+    transform: scale(0.98);
+    filter: brightness(0.98);
+  }
+
+  .sahara-btn--secondary {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-secondary);
+  }
+
+  .sahara-btn--secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: var(--accent-light);
+    border-color: var(--border-emphasis);
+    color: var(--accent);
+  }
+
+  .sahara-btn--secondary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .sahara-btn--ghost {
+    min-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+  }
+
+  .sahara-btn--ghost:hover:not(:disabled) {
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  .sahara-btn--danger {
+    background: transparent;
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  .sahara-btn--danger:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(148, 48, 40, 0.1);
+    border-color: var(--danger);
+  }
+
+  [data-theme='dark'] .sahara-btn--danger:hover:not(:disabled) {
+    background: rgba(192, 88, 72, 0.14);
+  }
+
+  .sahara-btn--danger:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+@layer utilities {
+  .sahara-progress-fill {
+    border-radius: 2px !important;
   }
 }

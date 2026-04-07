@@ -43,6 +43,6 @@ describe('StatusBadge', () => {
   it('accent variant uses accent color', () => {
     render(<StatusBadge status="accent">Highlighted</StatusBadge>);
     const badge = screen.getByText('Highlighted');
-    expect(badge.style.color).toBe('var(--accent-sand)');
+    expect(badge.style.color).toBe('var(--accent)');
   });
 });

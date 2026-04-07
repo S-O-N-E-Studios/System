@@ -29,7 +29,7 @@ function MapPlaceholder({
         {gpsFormatted && (
           <p
             className="text-[0.7rem] text-[var(--text-muted)] mt-1"
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
           >
             {gpsFormatted}
           </p>
@@ -80,7 +80,7 @@ export default function ProjectLocationMap({
           {gpsFormatted && (
             <p
               className="text-[0.7rem] text-[var(--text-muted)]"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
             >
               {gpsFormatted}
             </p>

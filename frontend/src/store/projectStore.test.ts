@@ -12,6 +12,7 @@ describe('projectStore', () => {
         dateFrom: undefined,
         dateTo: undefined,
       },
+      pinnedProjectsByTenant: {},
     });
   });
 
@@ -76,5 +77,20 @@ describe('projectStore', () => {
     expect(filters.search).toBeUndefined();
     expect(filters.dateFrom).toBeUndefined();
     expect(filters.dateTo).toBeUndefined();
+  });
+
+  it('togglePinnedProject pins and unpins', () => {
+    const tenantSlug = 'test-org';
+    const project = { id: 'p1', name: 'Project 1', ref: 'PRJ-1' };
+
+    expect(useProjectStore.getState().isProjectPinned(tenantSlug, project.id)).toBe(false);
+
+    useProjectStore.getState().togglePinnedProject(tenantSlug, project);
+    expect(useProjectStore.getState().isProjectPinned(tenantSlug, project.id)).toBe(true);
+    expect(useProjectStore.getState().getPinnedProjects(tenantSlug)).toEqual([project]);
+
+    useProjectStore.getState().togglePinnedProject(tenantSlug, project);
+    expect(useProjectStore.getState().isProjectPinned(tenantSlug, project.id)).toBe(false);
+    expect(useProjectStore.getState().getPinnedProjects(tenantSlug)).toEqual([]);
   });
 });
