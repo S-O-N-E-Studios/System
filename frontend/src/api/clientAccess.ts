@@ -1,5 +1,9 @@
 import apiClient from './client';
 import type { TemporaryAccess, TemporaryAccessStatus } from '@/types';
+import {
+  MOCK_CLIENT_TEMP_ALLOWED_PROJECT_IDS,
+  mockClientTempExpiresAtIso,
+} from '@/mocks/clientTempScope';
 
 const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
 
@@ -34,10 +38,9 @@ export async function clientAccessCheck(params: {
   if (useMockAuth) {
     // Minimal mock scope for frontend-only development.
     // `ClientGuard` will deny if the projectId isn't in allowedProjectIds.
-    const expiresAt = new Date(Date.now() + 2 * 24 * 3_600_000).toISOString();
     return {
-      allowedProjectIds: ['1'],
-      expiresAt,
+      allowedProjectIds: [...MOCK_CLIENT_TEMP_ALLOWED_PROJECT_IDS],
+      expiresAt: mockClientTempExpiresAtIso(),
     };
   }
 
@@ -83,8 +86,7 @@ export async function fetchClientAccessGrants(params: {
   expiresAt: string | null;
 }> {
   if (useMockAuth) {
-    // Mock a single grant that expires in ~3 days.
-    const expiresAt = new Date(Date.now() + 3 * 24 * 3_600_000).toISOString();
+    const expiresAt = mockClientTempExpiresAtIso();
     return {
       grants: [
         {
@@ -92,14 +94,14 @@ export async function fetchClientAccessGrants(params: {
           tenantId: params.tenantSlug,
           grantedBy: 'mock-user',
           clientEmail: 'client@example.com',
-          projectIds: ['1'],
+          projectIds: [...MOCK_CLIENT_TEMP_ALLOWED_PROJECT_IDS],
           expiresAt,
           grantedAt: new Date().toISOString(),
           status: 'active',
           extensionHistory: [],
         },
       ],
-      allowedProjectIds: ['1'],
+      allowedProjectIds: [...MOCK_CLIENT_TEMP_ALLOWED_PROJECT_IDS],
       expiresAt,
     };
   }
@@ -126,5 +128,33 @@ export async function fetchClientAccessGrants(params: {
   const expiresAt = sortedExpiry.length > 0 ? sortedExpiry[0] : null;
 
   return { grants, allowedProjectIds, expiresAt };
+}
+
+const scopeDelay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * CLIENT_TEMP list/banner hydration without requiring the org-admin `GET /client-access` route.
+ * In mock mode this mirrors `clientAccessCheck` scope; with a real backend it falls back to grants.
+ */
+export async function fetchClientTempScope(params: {
+  tenantSlug: string;
+}): Promise<{ allowedProjectIds: string[]; expiresAt: string | null }> {
+  if (useMockAuth) {
+    await scopeDelay(120);
+    return {
+      allowedProjectIds: [...MOCK_CLIENT_TEMP_ALLOWED_PROJECT_IDS],
+      expiresAt: mockClientTempExpiresAtIso(),
+    };
+  }
+
+  try {
+    const { allowedProjectIds, expiresAt } = await fetchClientAccessGrants({
+      tenantSlug: params.tenantSlug,
+      status: 'active',
+    });
+    return { allowedProjectIds, expiresAt };
+  } catch {
+    return { allowedProjectIds: [], expiresAt: null };
+  }
 }
 

@@ -23,6 +23,7 @@ function LazyRoute({ component: Component }: { component: React.LazyExoticCompon
 }
 
 // Lazy Imports - Public
+const Landing = lazy(() => import('@/features/landing/Landing'));
 const Login = lazy(() => import('@/features/auth/Login'));
 const Register = lazy(() => import('@/features/auth/Register'));
 const InviteAccept = lazy(() => import('@/features/auth/InviteAccept'));
@@ -54,7 +55,8 @@ const SuperAdminTenantDetail = lazy(() => import('@/features/superadmin/TenantDe
 // Router Configuration
 export const router = createBrowserRouter([
   // Public routes
-  { path: '/', element: <LazyRoute component={Login} /> },
+  { path: '/', element: <LazyRoute component={Landing} /> },
+  { path: '/login', element: <LazyRoute component={Login} /> },
   { path: '/register', element: <LazyRoute component={Register} /> },
   { path: '/invite/:token', element: <LazyRoute component={InviteAccept} /> },
   { path: '/client-access/:token', element: <LazyRoute component={ClientActivate} /> },

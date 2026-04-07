@@ -625,10 +625,22 @@ export const registerOrgSchema = z.object({
   agreeToTerms: z.boolean().refine((v) => v === true, {
     message: 'You must agree to the terms',
   }),
-}).refine(data => data.adminPassword === data.adminPasswordConfirm, {
-  message: 'Passwords do not match',
-  path: ['adminPasswordConfirm'],
-});
+  /** Required when orgType is provincial_gov (validated in superRefine). */
+  localMunicipalityIds: z.array(z.string()).optional(),
+})
+  .refine((data) => data.adminPassword === data.adminPasswordConfirm, {
+    message: 'Passwords do not match',
+    path: ['adminPasswordConfirm'],
+  })
+  .superRefine((data, ctx) => {
+    if (data.orgType === 'provincial_gov' && (!data.localMunicipalityIds || data.localMunicipalityIds.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Select at least one local municipality',
+        path: ['localMunicipalityIds'],
+      });
+    }
+  });
 
 export type RegisterOrgFormData = z.infer<typeof registerOrgSchema>;
 

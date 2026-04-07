@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
@@ -14,11 +15,13 @@ import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 import { STAGE_NAMES } from '@/types';
 import type { ProjectFile, ProjectStage } from '@/types';
 import { useAuthStore } from '@/store/authStore';
-import { useProjectStore } from '@/store/projectStore';
+import { useUiStore } from '@/store/uiStore';
+import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
 import { useCan } from '@/rbac/useCan';
 import {
   advanceProjectStage,
   fetchProjectStageStatus,
+  notifyMockStageDocumentUploaded,
   type StageMissingDoc,
 } from '@/api/projectStage';
 import { filesApi } from '@/api/files';
@@ -133,16 +136,19 @@ export default function ProjectDetail() {
   >({});
 
   const { user } = useAuthStore();
+  const { addToast } = useUiStore();
   const tenantRole =
     user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
   const isClientTemp = tenantRole === 'CLIENT_TEMP';
   const can = useCan();
   const canEditProject = can('edit_project');
   const togglePinnedProject = useProjectStore((s) => s.togglePinnedProject);
-  const isProjectPinned = useProjectStore((s) => s.isProjectPinned);
+  const pinnedForTenant = useProjectStore((s) =>
+    tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,
+  );
   const projectDisplayName = 'R573 Road Rehabilitation';
   const projectRef = 'PRJ-2026-001';
-  const isPinned = tenantSlug && id ? isProjectPinned(tenantSlug, id) : false;
+  const isPinned = Boolean(tenantSlug && id && pinnedForTenant.some((p) => p.id === id));
 
   const visibleDocs = isClientTemp
     ? MOCK_DOCS.filter((doc) => doc.category !== 'payment-certificate' && doc.category !== 'proof-of-payment')
@@ -435,10 +441,13 @@ export default function ProjectDetail() {
                             (m) => !(m.documentName === documentName && m.category === category),
                           ),
                         );
+                        notifyMockStageDocumentUploaded({ documentName, category });
                         setIsStageLoading(false);
                         setIsStageStatusLoaded(true);
                         return;
                       }
+
+                      notifyMockStageDocumentUploaded({ documentName, category });
 
                       // Reload stage gate status after successful upload.
                       try {
@@ -487,8 +496,42 @@ export default function ProjectDetail() {
                               projectId: id,
                             });
                             succeeded = true;
-                          } catch {
+                          } catch (err: unknown) {
                             succeeded = false;
+                            if (axios.isAxiosError(err) && err.response?.status === 422) {
+                              const body = err.response?.data as {
+                                error?: string;
+                                missing?: StageMissingDoc[];
+                              };
+                              const missing = Array.isArray(body?.missing)
+                                ? body.missing.filter(
+                                    (m): m is StageMissingDoc =>
+                                      !!m &&
+                                      typeof m === 'object' &&
+                                      typeof m.documentName === 'string' &&
+                                      typeof m.category === 'string',
+                                  )
+                                : [];
+                              if (missing.length > 0) {
+                                setStageMissingDocs(missing);
+                              }
+                              const label =
+                                missing.length > 0
+                                  ? missing.map((m) => m.documentName).join(', ')
+                                  : 'Required documents';
+                              addToast({
+                                type: 'error',
+                                message:
+                                  body?.error === 'STAGE_GATE_FAILED'
+                                    ? `Stage gate blocked. Missing: ${label}`
+                                    : `Cannot advance stage. ${label}`,
+                              });
+                            } else {
+                              addToast({
+                                type: 'error',
+                                message: 'Could not advance stage. Try again.',
+                              });
+                            }
                           }
 
                           try {

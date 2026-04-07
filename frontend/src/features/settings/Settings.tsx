@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTenantStore } from '@/store/tenantStore';
 import { useUiStore } from '@/store/uiStore';
@@ -13,12 +13,12 @@ import {
   CUSTOM_ACCENT_PERIWINKLE_KEY,
   CUSTOM_ACCENT_SAND_KEY,
 } from '@/utils/customAccentColors';
+import ClientAccessSettings from './ClientAccessSettings';
 
 const DEFAULT_PERIWINKLE = '#C0642C';
 const DEFAULT_SAND = '#B89040';
 
-const settingsTabs = ['General', 'Users', 'Notifications', 'Appearance'] as const;
-type SettingsTab = typeof settingsTabs[number];
+type SettingsTab = 'General' | 'Users' | 'Client access' | 'Notifications' | 'Appearance';
 
 const mockUsers = [
   { id: '1', name: 'Fortune Mabona', email: 'fortune@project360.co.za', role: 'ORG_ADMIN', status: 'active' },
@@ -35,6 +35,10 @@ export default function Settings() {
   const { user } = useAuthStore();
   const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
   const canCustomizePalette = tenantRole === 'ORG_ADMIN' || tenantRole === 'SUPER_ADMIN';
+  const settingsTabs: SettingsTab[] =
+    tenantRole === 'ORG_ADMIN'
+      ? ['General', 'Users', 'Client access', 'Notifications', 'Appearance']
+      : ['General', 'Users', 'Notifications', 'Appearance'];
 
   const [accentPeriwinkle, setAccentPeriwinkle] = useState<string>(() => {
     if (typeof window === 'undefined') return DEFAULT_PERIWINKLE;
@@ -45,11 +49,21 @@ export default function Settings() {
     return localStorage.getItem(CUSTOM_ACCENT_SAND_KEY) ?? DEFAULT_SAND;
   });
 
+  useEffect(() => {
+    if (activeTab === 'Client access' && tenantRole !== 'ORG_ADMIN') {
+      setActiveTab('General');
+    }
+  }, [activeTab, tenantRole]);
+
   const applyAndPersist = (next: { periwinkleHex: string; sandHex: string }) => {
     if (typeof window === 'undefined') return;
     applyCustomAccentColors(next);
-    localStorage.setItem(CUSTOM_ACCENT_PERIWINKLE_KEY, next.periwinkleHex);
-    localStorage.setItem(CUSTOM_ACCENT_SAND_KEY, next.sandHex);
+    try {
+      localStorage.setItem(CUSTOM_ACCENT_PERIWINKLE_KEY, next.periwinkleHex);
+      localStorage.setItem(CUSTOM_ACCENT_SAND_KEY, next.sandHex);
+    } catch {
+      // Quota / private mode: colours still apply for this session via applyCustomAccentColors.
+    }
   };
 
   const resetAccents = () => {
@@ -100,6 +114,9 @@ export default function Settings() {
               <Button variant="primary">Save Changes</Button>
             </div>
           )}
+
+          {/* Client access (org admin) */}
+          {activeTab === 'Client access' && tenantRole === 'ORG_ADMIN' && <ClientAccessSettings />}
 
           {/* Users */}
           {activeTab === 'Users' && (

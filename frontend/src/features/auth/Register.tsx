@@ -9,6 +9,7 @@ import { useUiStore } from '@/store/uiStore';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { generateSlug } from '@/utils/formatters';
+import { LIMPOPO_LOCAL_MUNICIPALITIES } from '@/mocks/limpopoMunicipalities';
 import { ArrowLeft, ArrowRight, Check, Building2, UserPlus, ClipboardCheck } from 'lucide-react';
 
 type Step = 1 | 2 | 3;
@@ -51,11 +52,14 @@ export default function Register() {
       adminPassword: '',
       adminPasswordConfirm: '',
       agreeToTerms: false,
+      localMunicipalityIds: [],
     },
   });
 
   const orgName = watch('orgName');
   const slug = watch('slug');
+  const orgType = watch('orgType');
+  const localMunicipalityIds = watch('localMunicipalityIds');
   const adminPassword = watch('adminPassword');
 
   // Auto-generate slug from org name
@@ -65,6 +69,12 @@ export default function Register() {
       setValue('slug', generated);
     }
   }, [orgName, step, setValue]);
+
+  useEffect(() => {
+    if (orgType !== 'provincial_gov') {
+      setValue('localMunicipalityIds', []);
+    }
+  }, [orgType, setValue]);
 
   // Check slug availability (debounced)
   useEffect(() => {
@@ -88,12 +98,23 @@ export default function Register() {
     return () => clearTimeout(timer);
   }, [slug]);
 
-  const step1Fields = ['orgName', 'slug', 'orgType', 'industryType', 'primaryContactName', 'primaryContactEmail'] as const;
+  const step1Fields =
+    orgType === 'provincial_gov'
+      ? ([
+          'orgName',
+          'slug',
+          'orgType',
+          'industryType',
+          'primaryContactName',
+          'primaryContactEmail',
+          'localMunicipalityIds',
+        ] as const)
+      : (['orgName', 'slug', 'orgType', 'industryType', 'primaryContactName', 'primaryContactEmail'] as const);
   const step2Fields = ['adminFirstName', 'adminLastName', 'adminEmail', 'adminPassword', 'adminPasswordConfirm'] as const;
 
   const goNext = async () => {
     const fieldsToValidate = step === 1 ? step1Fields : step2Fields;
-    const valid = await trigger(fieldsToValidate as unknown as (keyof RegisterOrgFormData)[]);
+    const valid = await trigger([...fieldsToValidate] as unknown as (keyof RegisterOrgFormData)[]);
     if (valid) setStep((s) => Math.min(s + 1, 3) as Step);
   };
 
@@ -113,6 +134,8 @@ export default function Register() {
         adminLastName: data.adminLastName,
         adminEmail: data.adminEmail,
         adminPassword: data.adminPassword,
+        localMunicipalityIds:
+          data.orgType === 'provincial_gov' ? data.localMunicipalityIds : undefined,
       });
       login(result.user, result.tokens);
       addToast({ type: 'success', message: 'Organisation created successfully!' });
@@ -311,6 +334,43 @@ export default function Register() {
                   error={errors.primaryContactEmail?.message}
                   {...register('primaryContactEmail')}
                 />
+
+                {orgType === 'provincial_gov' && (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-eyebrow text-[var(--text-muted)]">Local municipalities</span>
+                    <p className="text-[0.65rem] text-[var(--text-muted)]">
+                      Sample Limpopo list for UX; replace with API-driven options when available.
+                    </p>
+                    <div className="max-h-44 overflow-y-auto border border-[var(--border-default)] p-3 space-y-2 bg-[var(--bg-primary)]">
+                      {LIMPOPO_LOCAL_MUNICIPALITIES.map((m) => {
+                        const ids = localMunicipalityIds ?? [];
+                        const checked = ids.includes(m.id);
+                        return (
+                          <label
+                            key={m.id}
+                            className="flex items-start gap-2 text-[0.8rem] text-[var(--text-primary)] cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={checked}
+                              onChange={() => {
+                                const next = checked ? ids.filter((x) => x !== m.id) : [...ids, m.id];
+                                setValue('localMunicipalityIds', next, { shouldValidate: true });
+                              }}
+                            />
+                            <span>{m.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {errors.localMunicipalityIds && (
+                      <p className="text-[0.62rem] text-[var(--status-danger)]">
+                        {errors.localMunicipalityIds.message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -394,7 +454,30 @@ export default function Register() {
                   <div className="flex flex-col gap-2">
                     <ReviewRow label="Name" value={values.orgName} />
                     <ReviewRow label="Slug" value={values.slug} mono />
+                    <ReviewRow
+                      label="Organisation type"
+                      value={
+                        values.orgType === 'provincial_gov'
+                          ? 'Provincial Government'
+                          : values.orgType === 'private_firm'
+                            ? 'Private Engineering Firm'
+                            : ''
+                      }
+                    />
                     <ReviewRow label="Industry" value={values.industryType} />
+                    {values.orgType === 'provincial_gov' && (
+                      <ReviewRow
+                        label="Local municipalities"
+                        value={
+                          (values.localMunicipalityIds ?? [])
+                            .map(
+                              (mid) =>
+                                LIMPOPO_LOCAL_MUNICIPALITIES.find((m) => m.id === mid)?.name ?? mid,
+                            )
+                            .join(', ') || '—'
+                        }
+                      />
+                    )}
                     <ReviewRow label="Contact" value={values.primaryContactName} />
                     <ReviewRow label="Contact Email" value={values.primaryContactEmail} />
                   </div>
@@ -435,7 +518,7 @@ export default function Register() {
               </Button>
             ) : (
               <Link
-                to="/"
+                to="/login"
                 className="text-button text-[0.65rem] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
               >
                 ← Back to Sign In

@@ -26,6 +26,7 @@ interface RegisterOrgRequest {
   adminLastName: string;
   adminEmail: string;
   adminPassword: string;
+  localMunicipalityIds?: string[];
 }
 
 interface CheckSlugResponse {

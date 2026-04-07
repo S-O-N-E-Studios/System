@@ -89,6 +89,8 @@ export interface MockRegisterOrgRequest {
   adminLastName: string;
   adminEmail: string;
   adminPassword: string;
+  /** Carried for future API; ignored in mock user creation. */
+  localMunicipalityIds?: string[];
 }
 
 export const authMock = {

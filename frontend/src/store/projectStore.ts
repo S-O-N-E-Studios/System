@@ -24,6 +24,9 @@ const defaultFilters: TableFilter = {
   dateTo: undefined,
 };
 
+/** Stable reference for Zustand selectors when a tenant has no pins (avoid `[]` per snapshot). */
+export const EMPTY_PINNED_LIST: PinnedProject[] = [];
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   activeProjectId: null,
   activeTab: 'overview',
@@ -60,7 +63,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   getPinnedProjects: (tenantSlug) => {
     const pinned = get().pinnedProjectsByTenant[tenantSlug];
-    return pinned ?? [];
+    return pinned ?? EMPTY_PINNED_LIST;
   },
 
   isProjectPinned: (tenantSlug, projectId) => {

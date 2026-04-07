@@ -11,8 +11,8 @@ import { formatRands } from '@/utils/formatters';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
-import { fetchClientAccessGrants } from '@/api/clientAccess';
-import { useProjectStore } from '@/store/projectStore';
+import { fetchClientTempScope } from '@/api/clientAccess';
+import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
 
 type ContractTab = 'ps' | 'geo' | 'cm';
 
@@ -36,10 +36,12 @@ export default function Projects() {
     useClientAccessStore();
 
   const togglePinnedProject = useProjectStore((s) => s.togglePinnedProject);
-  const isProjectPinned = useProjectStore((s) => s.isProjectPinned);
+  const pinnedForTenant = useProjectStore((s) =>
+    tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,
+  );
   const setFilters = useProjectStore((s) => s.setFilters);
   const searchQuery = useProjectStore((s) => s.tableFilters.search ?? '');
-  const isPinned = (projectId: string) => (tenantSlug ? isProjectPinned(tenantSlug, projectId) : false);
+  const isPinned = (projectId: string) => pinnedForTenant.some((p) => p.id === projectId);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +53,7 @@ export default function Projects() {
       clearClientTempScope();
 
       try {
-        const res = await fetchClientAccessGrants({ tenantSlug, status: 'active' });
+        const res = await fetchClientTempScope({ tenantSlug });
         if (cancelled) return;
         setAllowedProjectIds(res.allowedProjectIds);
         setExpiresAt(res.expiresAt);

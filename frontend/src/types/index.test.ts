@@ -136,6 +136,23 @@ describe('registerOrgSchema', () => {
     const result = registerOrgSchema.safeParse({ ...validData, industryType: '' });
     expect(result.success).toBe(false);
   });
+
+  it('rejects provincial government org without local municipalities', () => {
+    const result = registerOrgSchema.safeParse({
+      ...validData,
+      orgType: 'provincial_gov' as const,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts provincial government org with at least one municipality', () => {
+    const result = registerOrgSchema.safeParse({
+      ...validData,
+      orgType: 'provincial_gov' as const,
+      localMunicipalityIds: ['polokwane'],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('projectSchema', () => {
