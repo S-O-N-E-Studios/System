@@ -15,6 +15,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 15_000,
     setupFiles: './src/test-setup.ts',
+    exclude: ['**/node_modules/**', '**/e2e/**', 'playwright.config.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

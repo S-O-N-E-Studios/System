@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   addDays,
   addMonths,
@@ -51,36 +52,27 @@ export default function Calendar() {
   } = useCalendarStore();
   const [error, setError] = React.useState<string | null>(null);
 
+  const { data, isLoading: calendarQueryLoading, isError } = useQuery({
+    queryKey: ['calendar', 'events', view, selectedDate, filterType],
+    queryFn: () =>
+      fetchCalendarEvents({
+        view,
+        date: selectedDate,
+        eventType: filterType,
+      }),
+  });
+
   useEffect(() => {
-    let isMounted = true;
+    setLoading(calendarQueryLoading);
+  }, [calendarQueryLoading, setLoading]);
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const { events: loaded } = await fetchCalendarEvents({
-          view,
-          date: selectedDate,
-          eventType: filterType,
-        });
-        if (!isMounted) return;
-        setEvents(loaded);
-      } catch {
-        if (!isMounted) return;
-        setError('Failed to load calendar events.');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
+  useEffect(() => {
+    if (data?.events) setEvents(data.events);
+  }, [data, setEvents]);
 
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [view, selectedDate, filterType, setEvents, setLoading]);
+  useEffect(() => {
+    setError(isError ? 'Failed to load calendar events.' : null);
+  }, [isError]);
 
   const selectedDateObj = startOfDay(new Date(`${selectedDate}T00:00:00`));
 

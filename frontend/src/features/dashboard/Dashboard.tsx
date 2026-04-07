@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
@@ -34,43 +34,15 @@ export default function Dashboard() {
   const { user } = useAuthStore();
   const { currentTenant } = useTenantStore();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [departments, setDepartments] = useState<DepartmentBudgetSummary[]>([]);
-  const [recentProjects, setRecentProjects] = useState<RecentProjectSummary[]>([]);
-  const [tasks, setTasks] = useState<OutstandingTaskSummary[]>([]);
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['dashboard', 'summary', tenantSlug],
+    queryFn: fetchDashboardSummary,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function load() {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const summary = await fetchDashboardSummary();
-
-        if (!isMounted) return;
-
-        setDepartments(summary.departments);
-        setRecentProjects(summary.recentProjects);
-        setTasks(summary.outstandingTasks);
-      } catch {
-        if (!isMounted) return;
-        setError('Failed to load dashboard data.');
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const departments: DepartmentBudgetSummary[] = data?.departments ?? [];
+  const recentProjects: RecentProjectSummary[] = data?.recentProjects ?? [];
+  const tasks: OutstandingTaskSummary[] = data?.outstandingTasks ?? [];
+  const error = isError;
 
   const greeting = getGreeting();
   const firstName = user?.firstName ?? 'User';
@@ -87,7 +59,7 @@ export default function Dashboard() {
     );
   }
 
-  if (error) {
+  if (error && !isLoading) {
     return (
       <div className="animate-fade-in">
         <ErrorState

@@ -12,7 +12,7 @@ describe('FileManager mock download fallback', () => {
     });
   });
 
-  it('shows an error toast when downloading mock files without blobUrl', () => {
+  it('downloads a mock placeholder and shows a success toast when blobUrl is absent', () => {
     render(<FileManager />);
 
     const downloadButtons = screen.getAllByText('Download');
@@ -21,7 +21,11 @@ describe('FileManager mock download fallback', () => {
     fireEvent.click(downloadButtons[0]);
 
     const toasts = useUiStore.getState().toasts;
-    expect(toasts.some((t) => t.message === 'Download is not available for mock files yet.')).toBe(true);
+    expect(
+      toasts.some((t) =>
+        t.message.includes('Downloaded mock placeholder') && t.message.includes('signed URLs'),
+      ),
+    ).toBe(true);
   });
 });
 

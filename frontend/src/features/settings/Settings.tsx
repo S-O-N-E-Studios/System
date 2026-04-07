@@ -13,25 +13,30 @@ import {
   CUSTOM_ACCENT_PERIWINKLE_KEY,
   CUSTOM_ACCENT_SAND_KEY,
 } from '@/utils/customAccentColors';
+import {
+  loadOrgGeneral,
+  saveOrgGeneral,
+  loadNotificationPrefs,
+  saveNotificationPrefs,
+  NOTIFY_LABELS,
+  loadTeamMembers,
+  saveTeamMembers,
+  type NotificationPrefKey,
+} from '@/utils/tenantSettingsStorage';
+import type { MockSettingsTeamMember } from '@/mocks/settingsTeamMembers';
 import ClientAccessSettings from './ClientAccessSettings';
+import InviteUserModal, { INVITE_USER_MODAL_ID, type InviteTenantRole } from './InviteUserModal';
 
 const DEFAULT_PERIWINKLE = '#C0642C';
 const DEFAULT_SAND = '#B89040';
 
 type SettingsTab = 'General' | 'Users' | 'Client access' | 'Notifications' | 'Appearance';
 
-const mockUsers = [
-  { id: '1', name: 'Fortune Mabona', email: 'fortune@project360.co.za', role: 'ORG_ADMIN', status: 'active' },
-  { id: '2', name: 'Thabo Ndlovu', email: 'thabo@project360.co.za', role: 'PROJECT_MANAGER', status: 'active' },
-  { id: '3', name: 'Lerato Khumalo', email: 'lerato@project360.co.za', role: 'MEMBER', status: 'active' },
-  { id: '4', name: 'Sipho Dlamini', email: 'sipho@project360.co.za', role: 'VIEWER', status: 'suspended' },
-];
-
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('General');
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { currentTenant } = useTenantStore();
-  const { theme, toggleTheme } = useUiStore();
+  const { theme, toggleTheme, openModal, addToast, closeModal } = useUiStore();
   const { user } = useAuthStore();
   const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
   const canCustomizePalette = tenantRole === 'ORG_ADMIN' || tenantRole === 'SUPER_ADMIN';
@@ -48,6 +53,26 @@ export default function Settings() {
     if (typeof window === 'undefined') return DEFAULT_SAND;
     return localStorage.getItem(CUSTOM_ACCENT_SAND_KEY) ?? DEFAULT_SAND;
   });
+
+  const [orgName, setOrgName] = useState('');
+  const [primaryContact, setPrimaryContact] = useState('');
+  const [address, setAddress] = useState('');
+  const [timezone, setTimezone] = useState('Africa/Johannesburg');
+  const [notifyPrefs, setNotifyPrefs] = useState<Record<NotificationPrefKey, boolean>>(() =>
+    loadNotificationPrefs(undefined),
+  );
+  const [teamMembers, setTeamMembers] = useState<MockSettingsTeamMember[]>([]);
+
+  useEffect(() => {
+    if (!tenantSlug) return;
+    const g = loadOrgGeneral(tenantSlug);
+    setOrgName(g.orgName || currentTenant?.name || '');
+    setPrimaryContact(g.primaryContact);
+    setAddress(g.address);
+    setTimezone(g.timezone);
+    setNotifyPrefs(loadNotificationPrefs(tenantSlug));
+    setTeamMembers(loadTeamMembers(tenantSlug));
+  }, [tenantSlug, currentTenant?.name]);
 
   useEffect(() => {
     if (activeTab === 'Client access' && tenantRole !== 'ORG_ADMIN') {
@@ -70,6 +95,56 @@ export default function Settings() {
     setAccentPeriwinkle(DEFAULT_PERIWINKLE);
     setAccentSand(DEFAULT_SAND);
     applyAndPersist({ periwinkleHex: DEFAULT_PERIWINKLE, sandHex: DEFAULT_SAND });
+  };
+
+  const handleSaveGeneral = () => {
+    if (!tenantSlug) return;
+    const ok = saveOrgGeneral(tenantSlug, {
+      orgName,
+      primaryContact,
+      address,
+      timezone,
+    });
+    addToast({
+      type: ok ? 'success' : 'error',
+      message: ok
+        ? 'Organisation details saved locally for this tenant (mock until API exists).'
+        : 'Could not save — browser storage may be full or blocked.',
+    });
+  };
+
+  const updateNotifyPref = (key: NotificationPrefKey, checked: boolean) => {
+    setNotifyPrefs((prev) => {
+      const next = { ...prev, [key]: checked };
+      if (tenantSlug) {
+        const saved = saveNotificationPrefs(tenantSlug, next);
+        if (!saved) {
+          addToast({ type: 'error', message: 'Could not persist notification preference.' });
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleInviteUser = (email: string, role: InviteTenantRole) => {
+    if (!tenantSlug) return;
+    const localPart = email.split('@')[0] ?? 'User';
+    const name = localPart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const newMember: MockSettingsTeamMember = {
+      id: `inv-${Date.now().toString(36)}`,
+      name,
+      email,
+      role,
+      status: 'active',
+    };
+    const next = [...teamMembers, newMember];
+    setTeamMembers(next);
+    saveTeamMembers(tenantSlug, next);
+    closeModal();
+    addToast({
+      type: 'success',
+      message: `Invitation queued for ${email} (mock; no email sent).`,
+    });
   };
 
   return (
@@ -101,17 +176,42 @@ export default function Settings() {
           {activeTab === 'General' && (
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
               <h3 className="text-h3">Organisation Settings</h3>
-              <FormInput label="Organisation Name" value={currentTenant?.name ?? ''} />
+              <p className="text-[0.72rem] text-[var(--text-muted)]">
+                Values persist in <span className="font-mono">localStorage</span> per tenant until the settings API is available.
+              </p>
+              <FormInput
+                label="Organisation Name"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder={currentTenant?.name ?? 'Organisation name'}
+              />
               <div>
                 <label className="text-eyebrow text-[var(--text-muted)] mb-2 block">Logo</label>
                 <div className="h-20 w-20 border border-dashed border-[var(--border-strong)] flex items-center justify-center">
-                  <Avatar name={currentTenant?.name ?? 'S'} size="xl" />
+                  <Avatar name={orgName || currentTenant?.name || 'S'} size="xl" />
                 </div>
               </div>
-              <FormInput label="Primary Contact" placeholder="Contact name" />
-              <FormInput label="Address" placeholder="Business address" />
-              <FormInput label="Timezone" placeholder="Africa/Johannesburg" />
-              <Button variant="primary">Save Changes</Button>
+              <FormInput
+                label="Primary Contact"
+                placeholder="Contact name"
+                value={primaryContact}
+                onChange={(e) => setPrimaryContact(e.target.value)}
+              />
+              <FormInput
+                label="Address"
+                placeholder="Business address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+              <FormInput
+                label="Timezone"
+                placeholder="Africa/Johannesburg"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+              />
+              <Button variant="primary" onClick={handleSaveGeneral} disabled={!tenantSlug}>
+                Save Changes
+              </Button>
             </div>
           )}
 
@@ -123,7 +223,9 @@ export default function Settings() {
             <div className="bg-[var(--bg-card)] border border-[var(--border)]">
               <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
                 <h3 className="text-h3">Team Members</h3>
-                <Button variant="primary">Invite User</Button>
+                <Button variant="primary" onClick={() => openModal(INVITE_USER_MODAL_ID)}>
+                  Invite User
+                </Button>
               </div>
               <div>
                 <table className="w-full table-fixed">
@@ -135,7 +237,7 @@ export default function Settings() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockUsers.map((u, i) => (
+                    {teamMembers.map((u, i) => (
                       <tr key={u.id} className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -151,7 +253,18 @@ export default function Settings() {
                           </StatusBadge>
                         </td>
                         <td className="px-4 py-3">
-                          <Button variant="ghost" className="!text-[0.55rem]">Edit</Button>
+                          <Button
+                            variant="ghost"
+                            className="!text-[0.55rem]"
+                            onClick={() =>
+                              addToast({
+                                type: 'info',
+                                message: 'User edit will open when the directory API is connected.',
+                              })
+                            }
+                          >
+                            Edit
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -165,11 +278,19 @@ export default function Settings() {
           {activeTab === 'Notifications' && (
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
               <h3 className="text-h3">Notification Preferences</h3>
-              {['Project updates', 'Task assignments', 'Report submissions', 'Deadline reminders', 'Team invitations'].map((pref) => (
-                <label key={pref} className="flex items-center justify-between py-3 border-b border-[var(--border)]">
+              <p className="text-[0.72rem] text-[var(--text-muted)]">
+                Toggles save per tenant in the browser. Delivery rules will use the API later.
+              </p>
+              {NOTIFY_LABELS.map((pref) => (
+                <label key={pref} className="flex items-center justify-between py-3 border-b border-[var(--border)] cursor-pointer">
                   <span className="text-body">{pref}</span>
                   <div className="relative">
-                    <input type="checkbox" defaultChecked className="sr-only peer" />
+                    <input
+                      type="checkbox"
+                      checked={notifyPrefs[pref]}
+                      onChange={(e) => updateNotifyPref(pref, e.target.checked)}
+                      className="sr-only peer"
+                    />
                     <div className="w-10 h-5 bg-[var(--bg-secondary)] border border-[var(--border)] peer-checked:bg-[var(--accent)] peer-checked:border-[var(--accent)] transition-colors cursor-pointer">
                       <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-[var(--text-primary)] peer-checked:translate-x-5 transition-transform" />
                     </div>
@@ -261,6 +382,8 @@ export default function Settings() {
 
         </div>
       </div>
+
+      <InviteUserModal onInvite={handleInviteUser} />
     </div>
   );
 }

@@ -1,8 +1,16 @@
 import apiClient from './client';
 import type { ServiceCategorySummary, ServiceCategory } from '@/types';
+import { getMockServiceSummaries } from '@/mocks/normalServiceSummaries';
+
+const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
+const mockDelay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const servicesApi = {
   summary: async (): Promise<ServiceCategorySummary[]> => {
+    if (useMockAuth) {
+      await mockDelay(180);
+      return getMockServiceSummaries();
+    }
     const res = await apiClient.get<{ data: ServiceCategorySummary[] }>('/services');
     return res.data.data ?? res.data;
   },

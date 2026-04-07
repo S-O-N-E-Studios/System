@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import StatCard from '@/components/ui/StatCard';
 import { formatRands } from '@/utils/formatters';
@@ -12,44 +14,29 @@ import { fetchReportsOverview } from '@/api/reports';
 import { mockPaymentHistory } from '@/api/payments';
 import { useUiStore } from '@/store/uiStore';
 import jsPDF from 'jspdf';
+import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
+import { SERVICE_CATEGORY_LABELS } from '@/types';
 
 type ReportsTab = 'overview' | 'payment-history' | 'payment-forecast';
 
 export default function Reports() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const [activeTab, setActiveTab] = useState<ReportsTab>('overview');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [overview, setOverview] =
-    useState<Awaited<ReturnType<typeof fetchReportsOverview>> | null>(null);
   const { addToast } = useUiStore();
+
+  const {
+    data: overview,
+    isLoading,
+    isError: overviewError,
+  } = useQuery({
+    queryKey: ['reports', 'overview', tenantSlug],
+    queryFn: fetchReportsOverview,
+  });
 
   const [preview, setPreview] = useState<{
     url: string;
     filename: string;
   } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await fetchReportsOverview();
-        if (!cancelled) setOverview(data);
-      } catch {
-        if (!cancelled) setError('Failed to load report overview.');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const closePreview = () => {
     if (preview?.url) URL.revokeObjectURL(preview.url);
@@ -248,7 +235,7 @@ export default function Reports() {
               title="Loading portfolio reports"
               description="Fetching dashboard KPIs and budget summaries."
             />
-          ) : error ? (
+          ) : overviewError ? (
             <ErrorState
               title="Unable to load overview"
               description="Please try again later."
@@ -282,7 +269,7 @@ export default function Reports() {
                 />
               </div>
 
-              {/* Simple department + service breakdown placeholders */}
+              {/* Department + service breakdown from overview API (mocked until backend). */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-[var(--bg-card)] border border-[var(--border)]">
                   <div className="px-6 py-4 border-b border-[var(--border)]">
@@ -318,6 +305,28 @@ export default function Reports() {
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              <div className="bg-[var(--bg-card)] border border-[var(--border)] mt-8">
+                <div className="px-6 py-4 border-b border-[var(--border)]">
+                  <h3 className="text-h3">Active portfolio snapshot (mock)</h3>
+                  <p className="text-[0.72rem] text-[var(--text-muted)] mt-1">
+                    Same rows as the projects list fixture; will bind to live portfolio when the API is ready.
+                  </p>
+                </div>
+                <div className="px-6 py-4 divide-y divide-[var(--border)]">
+                  {MOCK_PORTFOLIO_PROJECTS.map((p) => (
+                    <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
+                      <div>
+                        <p className="text-[0.82rem] font-medium text-[var(--text-primary)]">{p.name}</p>
+                        <p className="text-[0.68rem] text-[var(--text-muted)]">
+                          {SERVICE_CATEGORY_LABELS[p.serviceCategory]} · {p.ref}
+                        </p>
+                      </div>
+                      <span className="text-[0.78rem] text-financial">{formatRands(p.contractValue)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </>

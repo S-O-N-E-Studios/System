@@ -1,59 +1,29 @@
 import StatusBadge from '@/components/ui/StatusBadge';
 import AtlasMap from '@/components/ui/AtlasMap';
 import { useMemo, useState } from 'react';
-
-const mockProjects = [
-  {
-    id: '1',
-    name: 'Polokwane Water Treatment',
-    status: 'active' as const,
-    value: 'R 45,000,000',
-    lat: -23.907,
-    lng: 29.456,
-    hasGps: true,
-    fullAddress: 'Sims Park, Polokwane, Limpopo, South Africa',
-  },
-  {
-    id: '2',
-    name: 'Mokopane Road Rehabilitation',
-    status: 'review' as const,
-    value: 'R 32,000,000',
-    lat: -24.199,
-    lng: 27.9,
-    hasGps: true,
-    fullAddress: 'Main Road (R501), Mokopane, Limpopo, South Africa',
-  },
-  {
-    id: '3',
-    name: 'Tzaneen Bridge Construction',
-    status: 'planning' as const,
-    value: 'R 78,000,000',
-    lat: -23.842,
-    lng: 30.364,
-    hasGps: true,
-    fullAddress: 'R71 Bridge Section, Tzaneen, Limpopo, South Africa',
-  },
-  { id: '4', name: 'Musina Wastewater Plant', status: 'active' as const, value: 'R 22,000,000', hasGps: false, fullAddress: 'Musina, Limpopo, South Africa' },
-];
+import { MAP_MOCK_PROJECTS } from '@/mocks/mapProjects';
+import { formatRands } from '@/utils/formatters';
 
 export default function MapsView() {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(mockProjects[0]?.id ?? null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    MAP_MOCK_PROJECTS[0]?.id ?? null,
+  );
 
   const selected = useMemo(
-    () => mockProjects.find((p) => p.id === selectedProjectId) ?? null,
-    [selectedProjectId]
+    () => MAP_MOCK_PROJECTS.find((p) => p.id === selectedProjectId) ?? null,
+    [selectedProjectId],
   );
 
   const markers = useMemo(() => {
-    return mockProjects
-      .filter((p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number')
-      .map((p) => ({
-        id: p.id,
-        lat: p.lat as number,
-        lng: p.lng as number,
-        label: p.name,
-        status: p.status,
-      }));
+    return MAP_MOCK_PROJECTS.filter(
+      (p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number',
+    ).map((p) => ({
+      id: p.id,
+      lat: p.lat as number,
+      lng: p.lng as number,
+      label: p.name,
+      status: p.status,
+    }));
   }, []);
 
   const center =
@@ -79,7 +49,7 @@ export default function MapsView() {
             </select>
           </div>
           <div className="divide-y divide-[var(--border)]">
-            {mockProjects.map((p) => (
+            {MAP_MOCK_PROJECTS.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelectedProjectId(p.id)}
@@ -94,7 +64,9 @@ export default function MapsView() {
                     {p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : 'New'}
                   </StatusBadge>
                 </div>
-                <p className="text-currency text-[0.82rem]">{p.value}</p>
+                <p className="text-currency text-[0.82rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {formatRands(p.contractValue)}
+                </p>
                 {!p.hasGps && (
                   <p className="text-[0.6rem] text-[var(--text-muted)] mt-1">No GPS</p>
                 )}
@@ -124,7 +96,7 @@ export default function MapsView() {
                         {selected.status === 'active' ? 'Active' : selected.status === 'review' ? 'In Review' : 'Planning'}
                       </StatusBadge>
                       <span className="text-currency text-[0.92rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                        {selected.value}
+                        {formatRands(selected.contractValue)}
                       </span>
                     </div>
                   </div>

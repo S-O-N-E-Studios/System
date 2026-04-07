@@ -1,92 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import IDPTable from '@/components/ui/IDPTable';
 import { idpApi } from '@/api/idp';
-import type { IDPProjectRow } from '@/types';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
-
-/* Mock data for frontend-only development */
-const MOCK_IDP_PROJECTS: IDPProjectRow[] = [
-  {
-    id: '1',
-    idpProjectNo: 'IDP-2026-001',
-    name: 'R573 Road Rehabilitation',
-    description: 'Road rehabilitation and stormwater upgrades',
-    location: 'Mbombela, R573',
-    localMunicipality: 'Emalahleni',
-    mtefYear1: 15_000_000,
-    mtefYear2: 18_000_000,
-    mtefYear3: 12_000_000,
-    funderType: 'mig',
-    serviceCategory: 'roads_stormwater',
-    currentStage: 4,
-    status: 'active',
-  },
-  {
-    id: '2',
-    idpProjectNo: 'IDP-2026-002',
-    name: 'Mokopane Water Treatment Upgrade',
-    description: 'Bulk water supply and reticulation',
-    location: 'Mokopane',
-    localMunicipality: 'Steve Tshwete',
-    mtefYear1: 22_000_000,
-    mtefYear2: 25_000_000,
-    mtefYear3: 8_000_000,
-    funderType: 'rbig',
-    serviceCategory: 'water_sanitation',
-    currentStage: 3,
-    status: 'active',
-  },
-  {
-    id: '3',
-    idpProjectNo: 'IDP-2026-003',
-    name: 'Victor Khanye Community Hall',
-    description: 'Recreational facility construction',
-    location: 'Delmas',
-    localMunicipality: 'Victor Khanye',
-    mtefYear1: 5_000_000,
-    mtefYear2: 3_000_000,
-    mtefYear3: 0,
-    funderType: 'equitable_share',
-    serviceCategory: 'recreational_sport_libraries',
-    currentStage: 5,
-    status: 'active',
-  },
-  {
-    id: '4',
-    idpProjectNo: 'IDP-2025-012',
-    name: 'Emakhazeni Waste Transfer Station',
-    description: 'Solid waste transfer facility',
-    location: 'Belfast',
-    localMunicipality: 'Emakhazeni',
-    mtefYear1: 8_000_000,
-    mtefYear2: 0,
-    mtefYear3: 0,
-    funderType: 'mig',
-    serviceCategory: 'waste_management',
-    currentStage: 6,
-    status: 'complete',
-  },
-];
+import { MOCK_IDP_PROJECTS } from '@/mocks/idpProjects';
 
 export default function IDPView() {
-  const [projects, setProjects] = useState<IDPProjectRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetch = async () => {
-      try {
-        const data = await idpApi.list();
-        if (!cancelled) setProjects(data);
-      } catch {
-        if (!cancelled) setProjects(MOCK_IDP_PROJECTS);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    fetch();
-    return () => { cancelled = true; };
-  }, []);
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ['idp', 'projects', tenantSlug],
+    queryFn: () => idpApi.list(),
+  });
 
   const handleExport = async (format: 'xlsx' | 'pdf') => {
     try {
@@ -111,7 +36,7 @@ export default function IDPView() {
         mtefYear3: number;
       };
 
-      const rows: Row[] = projects.map((p) => ({
+      const rows: Row[] = (projects.length > 0 ? projects : MOCK_IDP_PROJECTS).map((p) => ({
         idpProjectNo: p.idpProjectNo ?? 'N/A',
         name: p.name ?? 'N/A',
         localMunicipality: p.localMunicipality ?? 'N/A',

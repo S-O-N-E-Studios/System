@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NormalServices from './NormalServices';
 import { servicesApi } from '@/api/services';
 
@@ -30,12 +31,17 @@ const mockSummaries = [
 ];
 
 function renderNormalServices() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={['/demo']}>
-      <Routes>
-        <Route path="/:tenantSlug" element={<NormalServices />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/demo']}>
+        <Routes>
+          <Route path="/:tenantSlug" element={<NormalServices />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

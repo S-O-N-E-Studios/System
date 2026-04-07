@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import IDPView from './IDPView';
 import { idpApi } from '@/api/idp';
 import { type IDPProjectRow } from '@/types';
@@ -26,12 +27,17 @@ const mockProjects: IDPProjectRow[] = [
 ];
 
 function renderIDPView() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={['/demo']}>
-      <Routes>
-        <Route path="/:tenantSlug" element={<IDPView />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/demo']}>
+        <Routes>
+          <Route path="/:tenantSlug" element={<IDPView />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
