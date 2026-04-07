@@ -2,7 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
-import { getGreeting } from '@/utils/formatters';
+import { getGreeting, formatRands } from '@/utils/formatters';
+import {
+  buildNarrativePdfBlob,
+  downloadExportedFile,
+  exportWorkbookXlsx,
+  type NarrativePdfSection,
+} from '@/utils/clientExports';
+import { useUiStore } from '@/store/uiStore';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Download } from 'lucide-react';
@@ -33,6 +40,7 @@ export default function Dashboard() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
   const { currentTenant } = useTenantStore();
+  const { addToast } = useUiStore();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboard', 'summary', tenantSlug],
@@ -46,10 +54,162 @@ export default function Dashboard() {
 
   const greeting = getGreeting();
   const firstName = user?.firstName ?? 'User';
-  const tenantName = currentTenant?.name ?? 'Mpumalanga Provincial Government';
 
   const maxBudget =
     departments.length > 0 ? Math.max(...departments.map((d) => d.budget)) : 0;
+
+  const tenantName = currentTenant?.name ?? 'Mpumalanga Provincial Government';
+
+  const handleExportPdf = () => {
+    if (!data) {
+      addToast({ type: 'warning', message: 'Nothing to export yet.' });
+      return;
+    }
+    const sections: NarrativePdfSection[] = [];
+    if (departments.length > 0) {
+      sections.push({
+        title: 'Department budgets',
+        lines: departments.map((d) => {
+          const pct = d.budget ? Math.round((d.spent / d.budget) * 100) : 0;
+          return {
+            label: d.fullName || d.name,
+            value: `${formatRands(d.budget)} budget · ${formatRands(d.spent)} spent · ${pct}% utilised`,
+          };
+        }),
+      });
+    }
+    if (recentProjects.length > 0) {
+      sections.push({
+        title: 'Recent projects',
+        lines: recentProjects.map((p) => ({
+          label: p.name,
+          value: `${p.dept} · ${
+            p.status === 'active'
+              ? 'Active'
+              : p.status === 'completed'
+                ? 'Completed'
+                : p.status === 'review'
+                  ? 'In review'
+                  : 'Not started'
+          } · ${p.updatedAt}`,
+        })),
+      });
+    }
+    if (tasks.length > 0) {
+      sections.push({
+        title: 'Outstanding tasks',
+        lines: tasks.map((t) => ({
+          label: t.title,
+          value: `${t.due} · ${t.dueStatus === 'danger' ? 'Overdue / urgent' : t.dueStatus === 'review' ? 'Due soon' : 'Scheduled'}`,
+        })),
+      });
+    }
+    if (sections.length === 0) {
+      addToast({ type: 'warning', message: 'Nothing to export yet.' });
+      return;
+    }
+    const blob = buildNarrativePdfBlob({
+      documentTitle: `Dashboard · ${tenantName}`,
+      sections,
+    });
+    downloadExportedFile(blob, `Dashboard-${tenantSlug ?? 'portfolio'}.pdf`);
+  };
+
+  const handleExportXlsx = async () => {
+    if (!data) {
+      addToast({ type: 'warning', message: 'Nothing to export yet.' });
+      return;
+    }
+    const hasAny = departments.length > 0 || recentProjects.length > 0 || tasks.length > 0;
+    if (!hasAny) {
+      addToast({ type: 'warning', message: 'Nothing to export yet.' });
+      return;
+    }
+    const sheets: Parameters<typeof exportWorkbookXlsx>[1] = [];
+    if (departments.length > 0) {
+      sheets.push({
+        sheetName: 'Departments',
+        columns: [
+          { key: 'name', header: 'Name' },
+          { key: 'fullName', header: 'Full name' },
+          {
+            key: 'budget',
+            header: 'Budget',
+            formatter: (v) => formatRands(Number(v)),
+          },
+          {
+            key: 'spent',
+            header: 'Spent',
+            formatter: (v) => formatRands(Number(v)),
+          },
+          {
+            key: 'pct',
+            header: '% utilised',
+            formatter: (_, row) => {
+              const b = Number(row.budget);
+              const s = Number(row.spent);
+              return b ? String(Math.round((s / b) * 100)) : '0';
+            },
+          },
+        ],
+        rows: departments.map((d) => ({
+          name: d.name,
+          fullName: d.fullName,
+          budget: d.budget,
+          spent: d.spent,
+        })),
+      });
+    }
+    if (recentProjects.length > 0) {
+      sheets.push({
+        sheetName: 'Recent projects',
+        columns: [
+          { key: 'name', header: 'Project' },
+          { key: 'dept', header: 'Department' },
+          {
+            key: 'status',
+            header: 'Status',
+            formatter: (v) =>
+              v === 'active'
+                ? 'Active'
+                : v === 'completed'
+                  ? 'Completed'
+                  : v === 'review'
+                    ? 'In review'
+                    : 'Not started',
+          },
+          { key: 'updatedAt', header: 'Updated' },
+        ],
+        rows: recentProjects.map((p) => ({
+          name: p.name,
+          dept: p.dept,
+          status: p.status,
+          updatedAt: p.updatedAt,
+        })),
+      });
+    }
+    if (tasks.length > 0) {
+      sheets.push({
+        sheetName: 'Outstanding tasks',
+        columns: [
+          { key: 'title', header: 'Task' },
+          { key: 'due', header: 'Due' },
+          {
+            key: 'dueStatus',
+            header: 'Priority',
+            formatter: (v) =>
+              v === 'danger' ? 'Urgent' : v === 'review' ? 'Due soon' : 'Scheduled',
+          },
+        ],
+        rows: tasks.map((t) => ({
+          title: t.title,
+          due: t.due,
+          dueStatus: t.dueStatus,
+        })),
+      });
+    }
+    await exportWorkbookXlsx(`Dashboard-${tenantSlug ?? 'portfolio'}.xlsx`, sheets);
+  };
 
   if (isLoading) {
     return (
@@ -78,10 +238,16 @@ export default function Dashboard() {
           <p className="text-body mb-1">{greeting},</p>
           <h1 className="text-h1">{firstName}</h1>
         </div>
-        <Button variant="secondary">
-          <Download className="h-3.5 w-3.5" />
-          Export Portfolio
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={handleExportPdf}>
+            <Download className="h-3.5 w-3.5" />
+            Export PDF
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => void handleExportXlsx()}>
+            <Download className="h-3.5 w-3.5" />
+            Export XLSX
+          </Button>
+        </div>
       </div>
 
       {/* Province map + tenant name */}

@@ -132,13 +132,23 @@ export default function Projects() {
       { key: 'status', header: 'Status' },
     ];
 
+    const tabLabel = tabs.find((t) => t.key === activeTab)?.label ?? '';
+    const subtitleParts = [
+      `${filteredProjects.length} project${filteredProjects.length === 1 ? '' : 's'}`,
+      tabLabel,
+      serviceCategoryFilter ? `Category: ${SERVICE_CATEGORY_LABELS[serviceCategoryFilter]}` : null,
+      searchQuery.trim() ? `Search: "${searchQuery.trim()}"` : null,
+    ].filter(Boolean);
+    const subtitle = subtitleParts.join(' · ');
+
     const filename = `Projects.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
     if (format === 'xlsx') {
       await exportXlsx<ProjectExportRow>({ filename, sheetName: 'Projects', columns, rows });
     } else {
       exportPdf<ProjectExportRow>({
         filename,
-        title: 'Projects Export',
+        title: 'Projects',
+        subtitle,
         columns,
         rows,
       });

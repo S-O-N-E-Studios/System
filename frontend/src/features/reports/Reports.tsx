@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import StatCard from '@/components/ui/StatCard';
 import { formatRands } from '@/utils/formatters';
-import { Download, DollarSign, TrendingDown, Wallet, FileText, History, TrendingUp } from 'lucide-react';
+import { Download, Printer, DollarSign, TrendingDown, Wallet, FileText, History, TrendingUp } from 'lucide-react';
 import PaymentHistory from './PaymentHistory';
 import PaymentForecast from './PaymentForecast';
 import LoadingState from '@/components/ui/LoadingState';
@@ -13,7 +13,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { fetchReportsOverview } from '@/api/reports';
 import { mockPaymentHistory } from '@/api/payments';
 import { useUiStore } from '@/store/uiStore';
-import jsPDF from 'jspdf';
+import { buildNarrativePdfBlob, type NarrativePdfSection } from '@/utils/clientExports';
 import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
 import { SERVICE_CATEGORY_LABELS } from '@/types';
 
@@ -37,6 +37,7 @@ export default function Reports() {
     url: string;
     filename: string;
   } | null>(null);
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
   const closePreview = () => {
     if (preview?.url) URL.revokeObjectURL(preview.url);
@@ -49,77 +50,76 @@ export default function Reports() {
     };
   }, [preview?.url]);
 
-  const generateReportPdfBlob = () => {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-    const marginX = 40;
-    let y = 50;
+  const generateReportPdfBlob = (): Blob | null => {
+    const tabLabel =
+      activeTab === 'overview'
+        ? 'Overview'
+        : activeTab === 'payment-history'
+          ? 'Payment history'
+          : 'Payment forecast';
 
-    doc.setFontSize(16);
-    doc.text('Reports Export', marginX, y);
-    y += 22;
-
-    doc.setFontSize(10);
-
-    const drawLine = (label: string, value: string) => {
-      const line = `${label}: ${value}`;
-      const chunks = doc.splitTextToSize(line, 520);
-      for (const c of chunks) {
-        doc.text(c, marginX, y);
-        y += 12;
-      }
-    };
+    const sections: NarrativePdfSection[] = [];
 
     if (activeTab === 'overview') {
       if (!overview) return null;
-      drawLine('Allocated', formatRands(overview.kpis.allocated));
-      drawLine('Spent', formatRands(overview.kpis.spent));
-      drawLine('Remaining', formatRands(overview.kpis.remaining));
-
-      y += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Departments', marginX, y);
-      y += 14;
-      doc.setFont('helvetica', 'normal');
-      for (const dept of overview.departments) {
-        drawLine(dept.deptName, formatRands(dept.totalBudget));
-      }
-
-      y += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Service Categories', marginX, y);
-      y += 14;
-      doc.setFont('helvetica', 'normal');
-      for (const sc of overview.serviceCategories) {
-        drawLine(sc.category, formatRands(sc.totalValue));
-      }
+      sections.push({
+        title: 'Portfolio KPIs',
+        lines: [
+          { label: 'Allocated', value: formatRands(overview.kpis.allocated) },
+          { label: 'Spent', value: formatRands(overview.kpis.spent) },
+          { label: 'Remaining', value: formatRands(overview.kpis.remaining) },
+        ],
+      });
+      sections.push({
+        title: 'Department budgets',
+        lines: overview.departments.map((d) => ({
+          label: d.deptName,
+          value: formatRands(d.totalBudget),
+        })),
+      });
+      sections.push({
+        title: 'Service category breakdown',
+        lines: overview.serviceCategories.map((s) => ({
+          label: s.category,
+          value: formatRands(s.totalValue),
+        })),
+      });
+      sections.push({
+        title: 'Active portfolio snapshot',
+        lines: MOCK_PORTFOLIO_PROJECTS.map((p) => ({
+          label: `${p.name} (${SERVICE_CATEGORY_LABELS[p.serviceCategory]})`,
+          value: `${p.ref} · ${formatRands(p.contractValue)}`,
+        })),
+      });
     } else if (activeTab === 'payment-history') {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Payment History', marginX, y);
-      y += 14;
-      doc.setFont('helvetica', 'normal');
-
       const entries = mockPaymentHistory();
-      for (const e of entries) {
-        drawLine(`${e.projectName} · ${e.invoiceNumber}`, `${e.paymentDate} · ${formatRands(e.paymentAmount)} · ${e.paymentStatus}`);
-      }
+      sections.push({
+        title: 'Payment history',
+        lines: entries.map((e) => ({
+          label: `${e.projectName} · ${e.invoiceNumber}`,
+          value: `${e.paymentDate} · ${formatRands(e.paymentAmount)} · ${e.paymentStatus}`,
+        })),
+      });
     } else {
-      // payment-forecast
-      doc.setFont('helvetica', 'bold');
-      doc.text('Payment Forecast', marginX, y);
-      y += 14;
-      doc.setFont('helvetica', 'normal');
-
       const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const expectedPerMonth = 6_200_000;
-      for (let i = 0; i < MONTHS.length; i++) {
-        const month = MONTHS[i];
-        const variance = 0.82 + (i % 5) * 0.04;
-        const actual = Math.round(expectedPerMonth * variance);
-        drawLine(month, `Expected ${formatRands(expectedPerMonth)} · Actual ${formatRands(actual)}`);
-      }
+      sections.push({
+        title: 'Payment forecast (12-month view)',
+        lines: MONTHS.map((month, i) => {
+          const variance = 0.82 + (i % 5) * 0.04;
+          const actual = Math.round(expectedPerMonth * variance);
+          return {
+            label: month,
+            value: `Expected ${formatRands(expectedPerMonth)} · Actual ${formatRands(actual)}`,
+          };
+        }),
+      });
     }
 
-    return doc.output('blob');
+    return buildNarrativePdfBlob({
+      documentTitle: `Reports · ${tabLabel}`,
+      sections,
+    });
   };
 
   const handlePreviewReport = () => {
@@ -140,6 +140,13 @@ export default function Reports() {
     a.href = preview.url;
     a.download = preview.filename;
     a.click();
+  };
+
+  const handlePrintPreview = () => {
+    if (!preview) return;
+    const w = previewFrameRef.current?.contentWindow;
+    w?.focus();
+    w?.print();
   };
 
   return (
@@ -206,17 +213,22 @@ export default function Reports() {
           <div className="relative z-10 w-full max-w-5xl h-[80vh] bg-[var(--bg-card)] border border-[var(--border)] shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] shrink-0">
               <h2 className="text-h3">Report Preview</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button variant="ghost" onClick={closePreview}>
+                  Cancel
+                </Button>
+                <Button variant="secondary" onClick={handlePrintPreview}>
+                  <Printer className="h-3.5 w-3.5" />
+                  Print
+                </Button>
                 <Button variant="secondary" onClick={handleDownloadPreview}>
                   <Download className="h-3.5 w-3.5" />
                   Download
                 </Button>
-                <Button variant="ghost" onClick={closePreview}>
-                  Close
-                </Button>
               </div>
             </div>
             <iframe
+              ref={previewFrameRef}
               src={preview.url}
               title="Report preview"
               className="flex-1 w-full border-0 bg-white"

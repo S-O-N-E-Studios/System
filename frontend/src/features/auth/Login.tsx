@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +28,13 @@ export default function Login() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  // `activeModal` survives route changes; without tenant choices this is a stale shell (e.g. Sign in from landing).
+  useEffect(() => {
+    if (useUiStore.getState().activeModal !== 'tenant-selector') return;
+    if (tenantChoices.length > 0) return;
+    closeModal();
+  }, [closeModal, tenantChoices.length]);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);

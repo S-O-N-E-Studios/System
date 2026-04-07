@@ -4,6 +4,7 @@ import IDPTable from '@/components/ui/IDPTable';
 import { idpApi } from '@/api/idp';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import { MOCK_IDP_PROJECTS } from '@/mocks/idpProjects';
+import { formatRands } from '@/utils/formatters';
 
 export default function IDPView() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
@@ -49,24 +50,50 @@ export default function IDPView() {
         mtefYear3: p.mtefYear3 ?? 0,
       }));
 
-      const columns: { key: keyof Row; header: string }[] = [
+      const columns: {
+        key: keyof Row;
+        header: string;
+        formatter?: (value: unknown, row: Row) => string;
+      }[] = [
         { key: 'idpProjectNo', header: 'IDP No' },
         { key: 'name', header: 'Project Name' },
         { key: 'localMunicipality', header: 'Local Municipality' },
         { key: 'location', header: 'Location' },
         { key: 'serviceCategory', header: 'Service Category' },
-        { key: 'currentStage', header: 'Current Stage' },
+        {
+          key: 'currentStage',
+          header: 'Current Stage',
+          formatter: (v) => (Number(v) > 0 ? `Stage ${v}` : 'N/A'),
+        },
         { key: 'status', header: 'Status' },
-        { key: 'mtefYear1', header: 'MTEF Year 1' },
-        { key: 'mtefYear2', header: 'MTEF Year 2' },
-        { key: 'mtefYear3', header: 'MTEF Year 3' },
+        {
+          key: 'mtefYear1',
+          header: 'MTEF Year 1',
+          formatter: (v) => formatRands(Number(v)),
+        },
+        {
+          key: 'mtefYear2',
+          header: 'MTEF Year 2',
+          formatter: (v) => formatRands(Number(v)),
+        },
+        {
+          key: 'mtefYear3',
+          header: 'MTEF Year 3',
+          formatter: (v) => formatRands(Number(v)),
+        },
       ];
 
       const filename = `IDP-Export.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
       if (format === 'xlsx') {
         await exportXlsx<Row>({ filename, sheetName: 'IDP', columns, rows });
       } else {
-        exportPdf<Row>({ filename, title: 'IDP Export', columns, rows });
+        exportPdf<Row>({
+          filename,
+          title: 'IDP view',
+          subtitle: 'Projects by local municipality (current data)',
+          columns,
+          rows,
+        });
       }
     }
   };

@@ -7,6 +7,7 @@ import { Download } from 'lucide-react';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import type { Project, ServiceCategory } from '@/types';
 import { getMockServiceSummaries } from '@/mocks/normalServiceSummaries';
+import { formatRands } from '@/utils/formatters';
 
 export default function NormalServices() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
@@ -52,20 +53,45 @@ export default function NormalServices() {
         })),
       );
 
-      const columns: { key: keyof Row; header: string }[] = [
+      const columns: {
+        key: keyof Row;
+        header: string;
+        formatter?: (value: unknown, row: Row) => string;
+      }[] = [
         { key: 'category', header: 'Service Category' },
         { key: 'projectName', header: 'Project' },
         { key: 'localMunicipality', header: 'Local Municipality' },
-        { key: 'budget', header: 'Budget' },
+        {
+          key: 'budget',
+          header: 'Budget',
+          formatter: (v) => formatRands(Number(v)),
+        },
         { key: 'stage', header: 'Stage' },
-        { key: 'status', header: 'Status' },
+        {
+          key: 'status',
+          header: 'Status',
+          formatter: (v) =>
+            v === 'active'
+              ? 'Active'
+              : v === 'review'
+                ? 'In Review'
+                : v === 'planning'
+                  ? 'Not Started'
+                  : 'Complete',
+        },
       ];
 
       const filename = `Normal-Services.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
       if (format === 'xlsx') {
         await exportXlsx<Row>({ filename, sheetName: 'Normal Services', columns, rows });
       } else {
-        exportPdf<Row>({ filename, title: 'Normal Services Export', columns, rows });
+        exportPdf<Row>({
+          filename,
+          title: 'Normal Services',
+          subtitle: 'Projects by service category (current view)',
+          columns,
+          rows,
+        });
       }
     }
   };
