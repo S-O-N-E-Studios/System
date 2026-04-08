@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
@@ -11,6 +21,7 @@ import { formatRands } from '@/utils/formatters';
 import { ArrowLeft, Edit, FileText, Clock, Check, X, Star } from 'lucide-react';
 import ProjectLocationMap from '@/components/ui/ProjectLocationMap';
 import ProjectActivitySchedule from './ProjectActivitySchedule';
+import ProjectPaymentHistory from './ProjectPaymentHistory';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 import { STAGE_NAMES } from '@/types';
 import type { ProjectFile, ProjectStage } from '@/types';
@@ -604,12 +615,53 @@ export default function ProjectDetail() {
                 </table>
               </div>
 
-              {/* Mini line chart placeholder */}
-              <div className="mt-4 h-24 bg-[var(--bg-surface-alt)] border border-dashed border-[var(--border-default)] flex items-center justify-center">
-                <p className="text-[0.72rem] text-[var(--text-muted)]">
-                  Multi-year payment trend chart (Recharts integration)
-                </p>
-              </div>
+              {!isClientTemp && (
+                <div className="mt-4">
+                  <ResponsiveContainer width="100%" height={120}>
+                    <BarChart
+                      data={MOCK_PAYMENT_PLAN.map((row) => ({
+                        year: String(row.year),
+                        Q1: row.q1,
+                        Q2: row.q2,
+                        Q3: row.q3,
+                        Q4: row.q4,
+                      }))}
+                      margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+                      barCategoryGap="30%"
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border-default)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="year"
+                        tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis hide />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-default)',
+                          borderRadius: 0,
+                          fontSize: 11,
+                        }}
+                        formatter={(val: number) => formatRands(val)}
+                      />
+                      <Legend
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 10, color: 'var(--text-muted)' }}
+                      />
+                      <Bar dataKey="Q1" stackId="a" fill="var(--accent)" opacity={0.9} />
+                      <Bar dataKey="Q2" stackId="a" fill="var(--ochre)" opacity={0.85} />
+                      <Bar dataKey="Q3" stackId="a" fill="var(--sienna)" opacity={0.8} />
+                      <Bar dataKey="Q4" stackId="a" fill="var(--gold)" opacity={0.75} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
 
             {/* Document Panel */}
@@ -969,6 +1021,10 @@ export default function ProjectDetail() {
               title="Expected vs Actual Payments"
               height={320}
             />
+          )}
+
+          {!isClientTemp && id && (
+            <ProjectPaymentHistory projectId={id} />
           )}
         </div>
       )}

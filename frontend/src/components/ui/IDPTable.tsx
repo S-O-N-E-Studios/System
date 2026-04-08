@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Download, Filter } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
+import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
 import { formatRands } from '@/utils/formatters';
 import {
   type IDPProjectRow,
@@ -24,7 +25,7 @@ const LOCAL_MUNICIPALITIES = [
 
 interface IDPTableProps {
   projects: IDPProjectRow[];
-  onExport?: (format: 'xlsx' | 'pdf') => void;
+  onExport?: (format: ExportFormat) => void | Promise<void>;
   isLoading?: boolean;
 }
 
@@ -35,6 +36,7 @@ export default function IDPTable({ projects, onExport, isLoading }: IDPTableProp
   const [serviceFilter, setServiceFilter] = useState<ServiceCategory | ''>('');
   const [stageFilter, setStageFilter] = useState<ProjectStage | ''>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const toggleGroup = (muni: string) => {
     setExpandedGroups((prev) => {
@@ -147,13 +149,9 @@ export default function IDPTable({ projects, onExport, isLoading }: IDPTableProp
           <option value="cancelled">Cancelled</option>
         </select>
         <div className="ml-auto flex gap-2">
-          <Button variant="secondary" onClick={() => onExport?.('xlsx')}>
+          <Button variant="secondary" onClick={() => setExportOpen(true)}>
             <Download className="h-3.5 w-3.5" />
-            Export XLSX
-          </Button>
-          <Button variant="secondary" onClick={() => onExport?.('pdf')}>
-            <Download className="h-3.5 w-3.5" />
-            Export PDF
+            Export
           </Button>
         </div>
       </div>
@@ -248,6 +246,17 @@ export default function IDPTable({ projects, onExport, isLoading }: IDPTableProp
           </tbody>
         </table>
       </div>
+
+      {onExport && (
+        <ExportDialog
+          isOpen={exportOpen}
+          onClose={() => setExportOpen(false)}
+          context="IDP View"
+          onExport={async (fmt) => {
+            await onExport(fmt);
+          }}
+        />
+      )}
     </div>
   );
 }

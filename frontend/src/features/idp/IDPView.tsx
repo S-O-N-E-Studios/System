@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import IDPTable from '@/components/ui/IDPTable';
 import { idpApi } from '@/api/idp';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
+import type { ExportFormat } from '@/components/ui/ExportDialog';
 import { MOCK_IDP_PROJECTS } from '@/mocks/idpProjects';
 import { formatRands } from '@/utils/formatters';
 
@@ -14,7 +15,12 @@ export default function IDPView() {
     queryFn: () => idpApi.list(),
   });
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'both') {
+      await handleExport('pdf');
+      await handleExport('xlsx');
+      return;
+    }
     try {
       const blob = format === 'xlsx' ? await idpApi.exportXlsx() : await idpApi.exportPdf();
       const url = URL.createObjectURL(blob);

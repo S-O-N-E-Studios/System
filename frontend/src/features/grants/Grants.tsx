@@ -10,6 +10,8 @@ import Button from '@/components/ui/Button';
 import { formatRands } from '@/utils/formatters';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import { useUiStore } from '@/store/uiStore';
+import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
+import { Download } from 'lucide-react';
 
 const STATUS_LABELS: Record<GrantStatus, string> = {
   active: 'Active',
@@ -20,6 +22,7 @@ const STATUS_LABELS: Record<GrantStatus, string> = {
 export default function Grants() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const [filterStatus, setFilterStatus] = useState<GrantStatus | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const { addToast } = useUiStore();
 
   const {
@@ -58,7 +61,12 @@ export default function Grants() {
     status: string;
   };
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'both') {
+      await handleExport('pdf');
+      await handleExport('xlsx');
+      return;
+    }
     if (grants.length === 0) {
       addToast({ type: 'warning', message: 'No grants to export for the current filter.' });
       return;
@@ -142,11 +150,9 @@ export default function Grants() {
           </label>
         </div>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="secondary" onClick={() => handleExport('pdf')}>
-            Export PDF
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => void handleExport('xlsx')}>
-            Export XLSX
+          <Button type="button" variant="secondary" onClick={() => setExportOpen(true)}>
+            <Download className="h-3.5 w-3.5" />
+            Export
           </Button>
         </div>
       </div>
@@ -211,6 +217,13 @@ export default function Grants() {
           </div>
         )}
       </div>
+
+      <ExportDialog
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        context="Grants"
+        onExport={handleExport}
+      />
     </div>
   );
 }

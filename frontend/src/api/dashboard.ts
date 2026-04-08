@@ -1,6 +1,8 @@
 // Dashboard API – mocked for MVP frontend work.
 // Swap implementation to use apiClient when backend is ready.
 
+import type { CalendarEventType } from '@/types';
+
 export interface DepartmentBudgetSummary {
   id: string;
   name: string;
@@ -24,10 +26,19 @@ export interface OutstandingTaskSummary {
   due: string;
 }
 
+export interface UpcomingEventSummary {
+  id: string;
+  title: string;
+  eventType: CalendarEventType;
+  date: string;
+  projectId?: string;
+}
+
 export interface DashboardSummaryResponse {
   departments: DepartmentBudgetSummary[];
   recentProjects: RecentProjectSummary[];
   outstandingTasks: OutstandingTaskSummary[];
+  upcomingEvents: UpcomingEventSummary[];
 }
 
 export async function fetchDashboardSummary(): Promise<DashboardSummaryResponse> {
@@ -108,10 +119,50 @@ export async function fetchDashboardSummary(): Promise<DashboardSummaryResponse>
     },
   ];
 
+  const now = new Date();
+  const daysFromNow = (d: number) => new Date(now.getTime() + d * 86_400_000).toISOString().split('T')[0];
+
+  const upcomingEvents: UpcomingEventSummary[] = [
+    {
+      id: 'ue-1',
+      title: 'Stage 4 Complete · R573',
+      eventType: 'milestone',
+      date: daysFromNow(1),
+      projectId: '1',
+    },
+    {
+      id: 'ue-2',
+      title: 'Payment Certificate · Mokopane WTW',
+      eventType: 'payment',
+      date: daysFromNow(2),
+      projectId: '2',
+    },
+    {
+      id: 'ue-3',
+      title: 'Site Visit · Tzaneen Bridge',
+      eventType: 'site_visit',
+      date: daysFromNow(3),
+      projectId: '3',
+    },
+    {
+      id: 'ue-4',
+      title: 'Monthly Safety Report Due',
+      eventType: 'report_due',
+      date: daysFromNow(4),
+    },
+    {
+      id: 'ue-5',
+      title: 'Project Review Meeting',
+      eventType: 'meeting',
+      date: daysFromNow(7),
+    },
+  ];
+
   return Promise.resolve({
     departments,
     recentProjects,
     outstandingTasks,
+    upcomingEvents,
   });
 }
 
