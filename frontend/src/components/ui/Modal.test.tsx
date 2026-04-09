@@ -42,9 +42,11 @@ describe('Modal', () => {
 
   it('closes when backdrop is clicked', () => {
     useUiStore.setState({ activeModal: 'test-modal' });
-    const { container } = render(<Modal modalId="test-modal" title="Test"><p>Hi</p></Modal>);
+    render(<Modal modalId="test-modal" title="Test"><p>Hi</p></Modal>);
 
-    const backdrop = container.querySelector('[aria-hidden="true"]')!;
+    // Modal is rendered via portal into document.body, so query there
+    const backdrop = document.body.querySelector('[aria-hidden="true"]') as HTMLElement;
+    expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop);
     expect(useUiStore.getState().activeModal).toBeNull();
   });
@@ -84,5 +86,15 @@ describe('Modal', () => {
 
     fireEvent.click(screen.getByLabelText('Close modal'));
     expect(closed).toBe(true);
+  });
+
+  it('renders via a portal into document.body (not the render container)', () => {
+    useUiStore.setState({ activeModal: 'portal-modal' });
+    const { container } = render(
+      <Modal modalId="portal-modal" title="Portal Test"><p>portal content</p></Modal>,
+    );
+    // The dialog must NOT be inside the test container but must exist in the document
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
 });

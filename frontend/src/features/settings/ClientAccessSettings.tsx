@@ -97,7 +97,14 @@ export default function ClientAccessSettings() {
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed min-w-[720px]">
+        <table className="w-full min-w-[680px]" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '26%' }} />
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '20%' }} />
+          </colgroup>
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
               {['Client', 'Projects', 'Expires', 'Status', 'Actions'].map((h) => (
@@ -113,11 +120,23 @@ export default function ClientAccessSettings() {
                 key={g.id}
                 className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
               >
-                <td className="px-4 py-3 text-[0.82rem] text-[var(--text-primary)]">{g.clientEmail}</td>
-                <td className="px-4 py-3 text-table-cell">
-                  {g.projectIds.map((pid) => projectName(pid)).join(', ')}
+                <td className="px-4 py-3 overflow-hidden">
+                  <span
+                    className="block text-[0.82rem] text-[var(--text-primary)] truncate"
+                    title={g.clientEmail}
+                  >
+                    {g.clientEmail}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-[0.72rem] font-mono text-[var(--text-secondary)]">
+                <td className="px-4 py-3 overflow-hidden">
+                  <span
+                    className="block text-table-cell truncate"
+                    title={g.projectIds.map((pid) => projectName(pid)).join(', ')}
+                  >
+                    {g.projectIds.map((pid) => projectName(pid)).join(', ')}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-[0.72rem] font-mono text-[var(--text-secondary)] whitespace-nowrap">
                   {new Date(g.expiresAt).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3">
@@ -129,23 +148,41 @@ export default function ClientAccessSettings() {
                     {g.status}
                   </StatusBadge>
                 </td>
-                <td className="px-4 py-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    className="!text-[0.55rem] !py-1.5"
-                    disabled={g.status !== 'active'}
-                    onClick={() => extend(g.id)}
-                  >
-                    +7 days
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="!text-[0.55rem] !py-1.5 text-[var(--status-danger)]"
-                    disabled={g.status !== 'active'}
-                    onClick={() => revoke(g.id)}
-                  >
-                    Revoke
-                  </Button>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={g.status !== 'active'}
+                      onClick={() => extend(g.id)}
+                      title={g.status !== 'active' ? 'Grant is no longer active' : 'Extend access by 7 days'}
+                      className="px-2.5 py-1 text-[0.7rem] font-medium tracking-wide border transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+                      style={{
+                        background: 'transparent',
+                        borderColor: 'var(--border)',
+                        color: 'var(--text-secondary)',
+                      }}
+                      onMouseEnter={(e) => { if (g.status === 'active') (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}
+                    >
+                      +7 days
+                    </button>
+                    <button
+                      type="button"
+                      disabled={g.status !== 'active'}
+                      onClick={() => revoke(g.id)}
+                      title={g.status !== 'active' ? 'Grant is no longer active' : 'Revoke access immediately'}
+                      className="px-2.5 py-1 text-[0.7rem] font-medium tracking-wide border transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+                      style={{
+                        background: 'transparent',
+                        borderColor: 'var(--border)',
+                        color: 'var(--status-danger)',
+                      }}
+                      onMouseEnter={(e) => { if (g.status === 'active') (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--status-danger)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}
+                    >
+                      Revoke
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

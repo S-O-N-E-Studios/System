@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 
@@ -82,9 +83,9 @@ export default function Modal({ modalId, title, size = 'md', children, onClose }
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[150] flex items-center justify-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? `modal-title-${modalId}` : undefined}
@@ -126,6 +127,7 @@ export default function Modal({ modalId, title, size = 'md', children, onClose }
         {/* Body */}
         <div className="px-8 py-6 overflow-y-auto">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

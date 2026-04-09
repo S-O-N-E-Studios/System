@@ -3,6 +3,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
+import DatePicker from '@/components/ui/DatePicker';
 import { Plus, GripVertical } from 'lucide-react';
 import type { TaskStatus, TaskPriority } from '@/types';
 import Modal from '@/components/ui/Modal';
@@ -209,6 +210,7 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [assignee, setAssignee] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<TaskStatus>(initialStatus ?? 'backlog');
 
@@ -230,7 +232,7 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-body text-[0.75rem] text-[var(--text-muted)]">Priority</label>
             <select
@@ -245,12 +247,32 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-body text-[0.75rem] text-[var(--text-muted)]">Due date</label>
-            <input
+            <DatePicker
+              label="Start date"
+              type="date"
+              value={startDate}
+              onChange={setStartDate}
+              max={dueDate || undefined}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <DatePicker
+              label="Due date"
+              type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full bg-transparent border border-[var(--border)] px-3 py-2 text-[0.85rem] focus:border-[var(--accent)] focus:outline-none"
-              placeholder="e.g. 10 Mar 2026"
+              onChange={setDueDate}
+              min={startDate || undefined}
+            />
+          </div>
+          <div className="space-y-1">
+            <DatePicker
+              label="Time (optional)"
+              type="time"
+              value=""
+              onChange={() => {/* will wire to API */}}
             />
           </div>
         </div>
@@ -289,12 +311,19 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
             onClick={() => {
               if (!title.trim()) return;
 
+              const formatDate = (iso: string) => {
+                if (!iso) return '—';
+                const [y, m, d] = iso.split('-');
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
+              };
+
               onAddTask({
                 id: crypto.randomUUID(),
                 title: title.trim(),
                 priority,
                 assignee: assignee.trim() || 'Unassigned',
-                dueDate: dueDate.trim() || '—',
+                dueDate: formatDate(dueDate),
                 status,
               });
               closeModal();

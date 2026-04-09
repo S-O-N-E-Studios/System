@@ -43,14 +43,17 @@ export default function ExpenditureGauge({
     if (!el) return;
     el.style.transition = 'none';
     el.style.strokeDashoffset = String(CIRCUMFERENCE);
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    // Track both frames so the inner one is also cancelled on unmount.
+    let innerRaf = 0;
+    const outerRaf = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(() => {
         el.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)';
         el.style.strokeDashoffset = String(targetOffset);
       });
     });
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
     };
   }, [targetOffset]);
 

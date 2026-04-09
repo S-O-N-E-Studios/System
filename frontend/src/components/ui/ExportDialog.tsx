@@ -45,14 +45,16 @@ export interface ExportDialogProps {
 export default function ExportDialog({ isOpen, onClose, context, onExport }: ExportDialogProps) {
   const [selected, setSelected] = useState<ExportFormat | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
 
-  // Reset selection each time dialog opens.
+  // Reset state each time dialog opens.
   useEffect(() => {
     if (isOpen) {
       setSelected(null);
       setLoading(false);
+      setExportError(null);
       prevFocusRef.current = document.activeElement as HTMLElement;
       panelRef.current?.focus();
     } else {
@@ -65,7 +67,7 @@ export default function ExportDialog({ isOpen, onClose, context, onExport }: Exp
     onClose();
   }, [loading, onClose]);
 
-  // Keyboard: Escape closes, focus trap inside panel.
+  // Keyboard: Escape closes; focus trap re-queries live so it works while buttons are disabled.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -75,9 +77,12 @@ export default function ExportDialog({ isOpen, onClose, context, onExport }: Exp
         return;
       }
       if (e.key === 'Tab' && panelRef.current) {
-        const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
-        );
+        // Re-query every keydown so the list stays accurate when loading disables buttons.
+        const focusable = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => !el.hasAttribute('disabled'));
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
         if (e.shiftKey && document.activeElement === first) {
@@ -101,11 +106,16 @@ export default function ExportDialog({ isOpen, onClose, context, onExport }: Exp
   const handleExport = async () => {
     if (!selected || loading) return;
     setLoading(true);
+    setExportError(null);
     try {
       await onExport(selected);
+      // Only close after a successful export — errors stay visible for retry.
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed. Please try again.';
+      setExportError(message);
     } finally {
       setLoading(false);
-      onClose();
     }
   };
 
@@ -220,6 +230,11 @@ export default function ExportDialog({ isOpen, onClose, context, onExport }: Exp
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--border)]">
+          {exportError && (
+            <p className="mr-auto text-[0.72rem] text-[var(--status-danger)] leading-snug max-w-[55%]">
+              {exportError}
+            </p>
+          )}
           <Button type="button" variant="ghost" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
