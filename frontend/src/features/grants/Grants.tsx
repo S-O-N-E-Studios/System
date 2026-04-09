@@ -8,6 +8,10 @@ import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
 import Button from '@/components/ui/Button';
 import { formatRands } from '@/utils/formatters';
+import { exportPdf, exportXlsx } from '@/utils/clientExports';
+import { useUiStore } from '@/store/uiStore';
+import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
+import { Download } from 'lucide-react';
 
 const STATUS_LABELS: Record<GrantStatus, string> = {
   active: 'Active',
@@ -18,6 +22,8 @@ const STATUS_LABELS: Record<GrantStatus, string> = {
 export default function Grants() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const [filterStatus, setFilterStatus] = useState<GrantStatus | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const { addToast } = useUiStore();
 
   const {
     data: grants = [],
@@ -42,6 +48,68 @@ export default function Grants() {
 
   const handleStatusChange = (value: string) => {
     setFilterStatus(value ? (value as GrantStatus) : null);
+  };
+
+  type GrantRow = {
+    grantName: string;
+    grantType: string;
+    funderOrg: string;
+    financialYear: string;
+    totalValue: string;
+    disbursedToDate: string;
+    remaining: string;
+    status: string;
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'both') {
+      await handleExport('pdf');
+      await handleExport('xlsx');
+      return;
+    }
+    if (grants.length === 0) {
+      addToast({ type: 'warning', message: 'No grants to export for the current filter.' });
+      return;
+    }
+    const rows: GrantRow[] = grants.map((g) => ({
+      grantName: g.grantName,
+      grantType: g.grantType.toUpperCase(),
+      funderOrg: g.funderOrg,
+      financialYear: g.financialYear,
+      totalValue: formatRands(g.totalValue),
+      disbursedToDate: formatRands(g.disbursedToDate),
+      remaining: formatRands(g.remaining),
+      status: STATUS_LABELS[g.status],
+    }));
+    const columns: { key: keyof GrantRow; header: string }[] = [
+      { key: 'grantName', header: 'Grant' },
+      { key: 'grantType', header: 'Type' },
+      { key: 'funderOrg', header: 'Funder' },
+      { key: 'financialYear', header: 'Year' },
+      { key: 'totalValue', header: 'Total' },
+      { key: 'disbursedToDate', header: 'Disbursed' },
+      { key: 'remaining', header: 'Remaining' },
+      { key: 'status', header: 'Status' },
+    ];
+    const filterNote =
+      filterStatus != null ? `Status: ${STATUS_LABELS[filterStatus]}` : 'All statuses';
+    const filename = `Grants-${tenantSlug ?? 'tenant'}.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
+    if (format === 'xlsx') {
+      await exportXlsx<GrantRow>({
+        filename,
+        sheetName: 'Grants',
+        columns,
+        rows,
+      });
+    } else {
+      exportPdf<GrantRow>({
+        filename,
+        title: 'Grants tracking',
+        subtitle: filterNote,
+        columns,
+        rows,
+      });
+    }
   };
 
   return (
@@ -82,11 +150,9 @@ export default function Grants() {
           </label>
         </div>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="secondary">
-            Export PDF
-          </Button>
-          <Button type="button" variant="secondary">
-            Export XLSX
+          <Button type="button" variant="secondary" onClick={() => setExportOpen(true)}>
+            <Download className="h-3.5 w-3.5" />
+            Export
           </Button>
         </div>
       </div>
@@ -151,6 +217,13 @@ export default function Grants() {
           </div>
         )}
       </div>
+
+      <ExportDialog
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        context="Grants"
+        onExport={handleExport}
+      />
     </div>
   );
 }

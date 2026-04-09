@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ServiceCategoryCard from '@/components/ui/ServiceCategoryCard';
@@ -5,11 +6,14 @@ import Button from '@/components/ui/Button';
 import { servicesApi } from '@/api/services';
 import { Download } from 'lucide-react';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
+import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
 import type { Project, ServiceCategory } from '@/types';
 import { getMockServiceSummaries } from '@/mocks/normalServiceSummaries';
+import { formatRands } from '@/utils/formatters';
 
 export default function NormalServices() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: summaries = [], isLoading } = useQuery({
     queryKey: ['services', 'summary', tenantSlug],
@@ -22,7 +26,12 @@ export default function NormalServices() {
     },
   });
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'both') {
+      await handleExport('pdf');
+      await handleExport('xlsx');
+      return;
+    }
     try {
       const blob = format === 'xlsx' ? await servicesApi.exportXlsx() : await servicesApi.exportPdf();
       const url = URL.createObjectURL(blob);
@@ -52,20 +61,45 @@ export default function NormalServices() {
         })),
       );
 
-      const columns: { key: keyof Row; header: string }[] = [
+      const columns: {
+        key: keyof Row;
+        header: string;
+        formatter?: (value: unknown, row: Row) => string;
+      }[] = [
         { key: 'category', header: 'Service Category' },
         { key: 'projectName', header: 'Project' },
         { key: 'localMunicipality', header: 'Local Municipality' },
-        { key: 'budget', header: 'Budget' },
+        {
+          key: 'budget',
+          header: 'Budget',
+          formatter: (v) => formatRands(Number(v)),
+        },
         { key: 'stage', header: 'Stage' },
-        { key: 'status', header: 'Status' },
+        {
+          key: 'status',
+          header: 'Status',
+          formatter: (v) =>
+            v === 'active'
+              ? 'Active'
+              : v === 'review'
+                ? 'In Review'
+                : v === 'planning'
+                  ? 'Not Started'
+                  : 'Complete',
+        },
       ];
 
       const filename = `Normal-Services.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
       if (format === 'xlsx') {
         await exportXlsx<Row>({ filename, sheetName: 'Normal Services', columns, rows });
       } else {
-        exportPdf<Row>({ filename, title: 'Normal Services Export', columns, rows });
+        exportPdf<Row>({
+          filename,
+          title: 'Normal Services',
+          subtitle: 'Projects by service category (current view)',
+          columns,
+          rows,
+        });
       }
     }
   };
@@ -96,13 +130,9 @@ export default function NormalServices() {
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <Button variant="secondary" onClick={() => handleExport('xlsx')}>
+          <Button variant="secondary" onClick={() => setExportOpen(true)}>
             <Download className="h-3.5 w-3.5" />
-            Export XLSX
-          </Button>
-          <Button variant="secondary" onClick={() => handleExport('pdf')}>
-            <Download className="h-3.5 w-3.5" />
-            Export PDF
+            Export
           </Button>
         </div>
       </div>
@@ -119,6 +149,13 @@ export default function NormalServices() {
           />
         ))}
       </div>
+
+      <ExportDialog
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        context="Normal Services"
+        onExport={handleExport}
+      />
     </div>
   );
 }

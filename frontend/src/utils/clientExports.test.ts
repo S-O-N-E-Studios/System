@@ -1,10 +1,33 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
+const makeMockCell = () => ({
+  border: {},
+  font: {},
+  fill: {},
+  alignment: {},
+});
+
+const makeMockRow = () => ({
+  font: {},
+  fill: {},
+  alignment: {},
+  height: undefined,
+  border: {},
+  eachCell: vi.fn((cb: (cell: ReturnType<typeof makeMockCell>, col: number) => void) => {
+    cb(makeMockCell(), 1);
+  }),
+});
+
 vi.mock('exceljs', () => ({
   default: {
     Workbook: class MockWorkbook {
       addWorksheet() {
-        return { addRow: vi.fn() };
+        return {
+          mergeCells: vi.fn(),
+          addRow: vi.fn(() => makeMockRow()),
+          getRow: vi.fn(() => makeMockRow()),
+          columns: [] as unknown[],
+        };
       }
 
       xlsx = {
@@ -14,7 +37,7 @@ vi.mock('exceljs', () => ({
   },
 }));
 
-import { exportPdf, exportXlsx } from './clientExports';
+import { exportPdf, exportXlsx, exportWorkbookXlsx } from './clientExports';
 
 describe('clientExports', () => {
   const filenameXlsx = 'test.xlsx';
@@ -79,5 +102,23 @@ describe('clientExports', () => {
     expect(clickSpy).toHaveBeenCalled();
     vi.runOnlyPendingTimers();
   });
-});
 
+  it('exportWorkbookXlsx triggers a download', async () => {
+    await exportWorkbookXlsx('book.xlsx', [
+      {
+        sheetName: 'A',
+        columns: [{ key: 'x', header: 'X' }],
+        rows: [{ x: 1 }],
+      },
+      {
+        sheetName: 'B',
+        columns: [{ key: 'y', header: 'Y' }],
+        rows: [{ y: 2 }],
+      },
+    ]);
+
+    expect(createObjectURLSpy).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    vi.runOnlyPendingTimers();
+  });
+});

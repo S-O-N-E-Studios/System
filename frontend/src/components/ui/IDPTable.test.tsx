@@ -49,10 +49,9 @@ describe('IDPTable', () => {
     expect(screen.getByText('Water Treatment')).toBeInTheDocument();
   });
 
-  it('renders Export XLSX and PDF buttons', () => {
+  it('renders a single Export button', () => {
     renderWithRouter();
-    expect(screen.getByText('Export XLSX')).toBeInTheDocument();
-    expect(screen.getByText('Export PDF')).toBeInTheDocument();
+    expect(screen.getByText('Export')).toBeInTheDocument();
   });
 
   it('shows loading skeleton when isLoading', () => {
@@ -64,14 +63,15 @@ describe('IDPTable', () => {
     expect(document.querySelector('.skeleton')).toBeInTheDocument();
   });
 
-  it('calls onExport when export button clicked', () => {
+  it('opens export dialog when Export button clicked', () => {
     const onExport = vi.fn();
     render(
       <MemoryRouter>
         <IDPTable projects={mockProjects} onExport={onExport} />
       </MemoryRouter>
     );
-    fireEvent.click(screen.getByText('Export XLSX'));
-    expect(onExport).toHaveBeenCalledWith('xlsx');
+    fireEvent.click(screen.getByText('Export'));
+    // ExportDialog renders via portal — verify the dialog heading appears
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

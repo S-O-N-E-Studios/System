@@ -1,54 +1,104 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Search, Bell, Menu, X, Sun, Moon } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Bell, Menu, X, Sun, Moon, ArrowRight, Clock } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import ClientAccessBanner from '@/components/ui/ClientAccessBanner';
-import Modal from '@/components/ui/Modal';
-import Button from '@/components/ui/Button';
 import { useProjectStore } from '@/store/projectStore';
 
 export default function TopBar() {
   const navigate = useNavigate();
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
-  const { setSidebarMobileOpen, openModal, closeModal, theme, toggleTheme } = useUiStore();
+  const { setSidebarMobileOpen, theme, toggleTheme } = useUiStore();
   const { currentTenant } = useTenantStore();
   const { user } = useAuthStore();
   const { expiresAt } = useClientAccessStore();
 
   const setFilters = useProjectStore((s) => s.setFilters);
+  const getPinnedProjects = useProjectStore((s) => s.getPinnedProjects);
+  const pinnedProjects = getPinnedProjects(tenantSlug ?? '');
 
   const [searchValue, setSearchValue] = useState('');
-  const [searchDraft, setSearchDraft] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [searchDropPos, setSearchDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+  const searchDropRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const notificationsRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
+  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
 
-  const notifications = [
-    { id: 'n1', title: 'Stage gate pending', body: 'PBD.pdf is required for completion.', date: '2h ago' },
-    { id: 'n2', title: 'Payment received', body: 'A payment was recorded for PRJ-2026-002.', date: 'Yesterday' },
-    { id: 'n3', title: 'Activity update', body: 'Geo-Tec report moved to In Review.', date: '3 days ago' },
-  ];
+  type Notification = { id: string; title: string; body: string; date: string; read: boolean };
+  const [notifications, setNotifications] = useState<Notification[]>([
+    { id: 'n1', title: 'Stage gate pending', body: 'PBD.pdf is required for Stage 4 completion.', date: '2h ago', read: false },
+    { id: 'n2', title: 'Payment received', body: 'A payment was recorded for PRJ-2026-002.', date: 'Yesterday', read: false },
+    { id: 'n3', title: 'Activity update', body: 'Geo-Tec report moved to In Review.', date: '3 days ago', read: true },
+  ]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const openNotifications = () => {
+    if (bellRef.current) {
+      const rect = bellRef.current.getBoundingClientRect();
+      setPanelPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setNotificationsOpen(true);
+  };
+
+  const closeNotifications = () => setNotificationsOpen(false);
+
+  const markRead = (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const markAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    closeNotifications();
+  };
 
   const tenantRole =
     user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
   const showClientBanner = tenantRole === 'CLIENT_TEMP' && Boolean(expiresAt);
 
-  const openSearch = () => {
-    if (!tenantSlug) return;
-    setSearchDraft(searchValue);
-    openModal('topbar-search');
+  const openSearchDrop = () => {
+    if (searchWrapRef.current) {
+      const rect = searchWrapRef.current.getBoundingClientRect();
+      setSearchDropPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    }
+    setSearchFocused(true);
   };
 
-  const applySearch = () => {
-    const q = searchDraft.trim();
-    setFilters({ search: q ? q : undefined });
-    closeModal();
-    if (tenantSlug) navigate(`/${tenantSlug}/projects`);
+  const closeSearchDrop = () => setSearchFocused(false);
+
+  const commitSearch = () => {
+    if (!tenantSlug) return;
+    const q = searchValue.trim();
+    setFilters({ search: q || undefined });
+    closeSearchDrop();
+    navigate(`/${tenantSlug}/projects`);
   };
+
+  const goToProject = (projectId: string) => {
+    if (!tenantSlug) return;
+    closeSearchDrop();
+    navigate(`/${tenantSlug}/projects/${projectId}`);
+  };
+
+  const filteredPins = searchValue.trim()
+    ? pinnedProjects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+          (p.ref ?? '').toLowerCase().includes(searchValue.toLowerCase()),
+      )
+    : pinnedProjects.slice(0, 5);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -56,34 +106,52 @@ export default function TopBar() {
       if (!isK) return;
       if (!(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
-      openSearch();
+      searchInputRef.current?.focus();
+      openSearchDrop();
     };
-
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantSlug, searchValue]);
+  }, [tenantSlug]);
 
   useEffect(() => {
-    const onPointerDown = (e: MouseEvent) => {
-      if (!notificationsOpen) return;
-      const el = notificationsRef.current;
-      if (!el) return;
-      if (e.target instanceof Node && el.contains(e.target)) return;
-      setNotificationsOpen(false);
+    if (!searchFocused) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const drop = searchDropRef.current;
+      const wrap = searchWrapRef.current;
+      if (!drop || !wrap) return;
+      if (e.target instanceof Node && (drop.contains(e.target) || wrap.contains(e.target))) return;
+      closeSearchDrop();
     };
-
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [notificationsOpen]);
-
-  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setNotificationsOpen(false);
+      if (e.key === 'Escape') { closeSearchDrop(); searchInputRef.current?.blur(); }
     };
+    document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [searchFocused]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      const panel = panelRef.current;
+      const bell = bellRef.current;
+      if (!panel || !bell) return;
+      if (e.target instanceof Node && (panel.contains(e.target) || bell.contains(e.target))) return;
+      closeNotifications();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeNotifications();
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [notificationsOpen]);
 
   return (
     <header
@@ -109,28 +177,26 @@ export default function TopBar() {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="relative flex items-center flex-1 max-w-md">
+          <div ref={searchWrapRef} className="relative flex items-center flex-1 max-w-md">
             <div
               className={[
-                'flex items-center w-full rounded-sm border',
+                'flex items-center w-full border',
                 'bg-[var(--bg-surface)] border-[var(--border-default)]',
-                'focus-within:border-[var(--accent-sand)] focus-within:shadow-[0_0_12px_rgba(212,175,55,0.2)]',
+                searchFocused
+                  ? 'border-[var(--accent-sand)] shadow-[0_0_12px_rgba(212,175,55,0.2)]'
+                  : 'hover:border-[var(--accent-sand)]',
                 'transition-all duration-200',
               ].join(' ')}
             >
-              <Search className="absolute left-3 h-4 w-4 text-[var(--accent-sand)]" />
+              <Search className="absolute left-3 h-4 w-4 text-[var(--accent-sand)] pointer-events-none" />
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Search projects..."
+                placeholder="Search projects… (⌘K)"
                 value={searchValue}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setSearchValue(next);
-                  setFilters({ search: next.trim() ? next : undefined });
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') openSearch();
-                }}
+                onChange={(e) => setSearchValue(e.target.value)}
+                onFocus={openSearchDrop}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(); }}
                 className={[
                   'w-full bg-transparent border-0 pl-9 pr-10 py-2.5',
                   'font-body text-[0.85rem] text-[var(--text-primary)]',
@@ -138,6 +204,10 @@ export default function TopBar() {
                   'focus:outline-none',
                 ].join(' ')}
                 aria-label="Search projects"
+                aria-expanded={searchFocused}
+                aria-haspopup="listbox"
+                role="combobox"
+                autoComplete="off"
               />
               {searchValue.trim() ? (
                 <button
@@ -147,12 +217,93 @@ export default function TopBar() {
                   onClick={() => {
                     setSearchValue('');
                     setFilters({ search: undefined });
+                    searchInputRef.current?.focus();
                   }}
                 >
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
             </div>
+
+            {/* Search dropdown portal */}
+            {searchFocused && searchDropPos && createPortal(
+              <div
+                ref={searchDropRef}
+                role="listbox"
+                aria-label="Search suggestions"
+                className="fixed bg-[var(--bg-card)] border border-[var(--border-default)] shadow-2xl z-[200] overflow-hidden"
+                style={{ top: searchDropPos.top, left: searchDropPos.left, width: searchDropPos.width }}
+              >
+                {/* Pinned / filtered projects */}
+                {filteredPins.length > 0 && (
+                  <>
+                    <div className="px-3 pt-2.5 pb-1">
+                      <p className="text-[0.62rem] uppercase tracking-wider text-[var(--text-muted)] font-semibold flex items-center gap-1.5">
+                        <Clock className="h-3 w-3" />
+                        {searchValue.trim() ? 'Pinned matches' : 'Pinned projects'}
+                      </p>
+                    </div>
+                    <ul>
+                      {filteredPins.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={false}
+                            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-[var(--accent-sand-glow)] transition-colors text-left group"
+                            onClick={() => goToProject(p.id)}
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-[0.82rem] text-[var(--text-primary)] truncate">{p.name}</span>
+                              {p.ref && (
+                                <span className="text-[0.65rem] text-[var(--text-muted)]"
+                                  style={{ fontFamily: 'var(--font-mono)' }}
+                                >
+                                  {p.ref}
+                                </span>
+                              )}
+                            </span>
+                            <ArrowRight className="h-3 w-3 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="border-t border-[var(--border-default)]" />
+                  </>
+                )}
+
+                {/* No pinned + no query: prompt */}
+                {filteredPins.length === 0 && !searchValue.trim() && (
+                  <div className="px-3 py-4 text-center">
+                    <p className="text-[0.78rem] text-[var(--text-muted)]">Type to search all projects</p>
+                  </div>
+                )}
+
+                {/* No pin matches but has query */}
+                {filteredPins.length === 0 && searchValue.trim() && (
+                  <div className="px-3 pt-2.5 pb-1">
+                    <p className="text-[0.72rem] text-[var(--text-muted)]">No pinned matches</p>
+                  </div>
+                )}
+
+                {/* Search all row */}
+                {tenantSlug && (
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--accent-sand-glow)] transition-colors text-left"
+                    onClick={commitSearch}
+                  >
+                    <Search className="h-3.5 w-3.5 text-[var(--accent)] shrink-0" />
+                    <span className="text-[0.82rem] text-[var(--accent)]">
+                      {searchValue.trim()
+                        ? `Search all projects for "${searchValue.trim()}"`
+                        : 'Browse all projects'}
+                    </span>
+                  </button>
+                )}
+              </div>,
+              document.body,
+            )}
           </div>
         </div>
 
@@ -179,91 +330,113 @@ export default function TopBar() {
           </button>
 
           {/* Notifications */}
-          <div ref={notificationsRef} className="relative">
+          <div className="relative">
             <button
-              className="relative text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors p-1"
-              aria-label="Notifications"
-              onClick={() => {
-                setNotificationsOpen((v) => !v);
-                setHasUnreadNotifications(false);
-              }}
+              ref={bellRef}
               type="button"
+              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+              aria-expanded={notificationsOpen}
+              className="relative text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors p-1"
+              onClick={() => (notificationsOpen ? closeNotifications() : openNotifications())}
             >
               <Bell className="h-4 w-4" />
-              {hasUnreadNotifications && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-[var(--status-danger)] rounded-full" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center bg-[var(--status-danger)] rounded-full text-white leading-none"
+                  style={{ fontSize: '0.58rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}
+                >
+                  {unreadCount}
+                </span>
               )}
             </button>
 
-            {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-[360px] bg-[var(--bg-card)] border border-[var(--border-default)] rounded-sm shadow-2xl z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-[var(--border-default)]">
-                  <p className="text-[0.72rem] uppercase tracking-wider text-[var(--text-muted)] font-medium">Notifications</p>
+            {notificationsOpen && panelPos && createPortal(
+              <div
+                ref={panelRef}
+                role="dialog"
+                aria-label="Notifications"
+                className="fixed w-[340px] bg-[var(--bg-card)] border border-[var(--border-default)] shadow-2xl z-[200] overflow-hidden"
+                style={{ top: panelPos.top, right: panelPos.right }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
+                  <p className="text-[0.68rem] uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-[var(--status-danger)] text-white rounded-full"
+                        style={{ fontSize: '0.58rem', fontWeight: 700 }}
+                      >
+                        {unreadCount}
+                      </span>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={closeNotifications}
+                    className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                    aria-label="Close notifications"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <ul className="max-h-[320px] overflow-y-auto">
+
+                {/* Items */}
+                <ul className="max-h-[320px] overflow-y-auto divide-y divide-[var(--border-default)]">
                   {notifications.map((n) => (
                     <li
                       key={n.id}
-                      className="px-4 py-3 border-b border-[var(--border-default)] last:border-b-0 hover:bg-[var(--accent-sand-glow)] transition-colors cursor-pointer"
-                      onClick={() => setNotificationsOpen(false)}
                       role="button"
                       tabIndex={0}
+                      onClick={() => { markRead(n.id); closeNotifications(); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { markRead(n.id); closeNotifications(); } }}
+                      className={[
+                        'flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-colors',
+                        'hover:bg-[var(--accent-sand-glow)]',
+                        !n.read ? 'bg-[var(--accent-light)]' : '',
+                      ].join(' ')}
                     >
-                      <p className="text-[0.86rem] font-medium text-[var(--text-primary)]">{n.title}</p>
-                      <p className="text-[0.78rem] text-[var(--text-secondary)] mt-1 leading-snug">{n.body}</p>
-                      <p className="text-[0.62rem] text-[var(--text-muted)] mt-2">{n.date}</p>
+                      {/* Unread dot */}
+                      <span
+                        className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full transition-colors"
+                        style={{ background: n.read ? 'transparent' : 'var(--accent)' }}
+                      />
+                      <div className="min-w-0">
+                        <p className={`text-[0.82rem] leading-snug ${n.read ? 'text-[var(--text-secondary)]' : 'font-semibold text-[var(--text-primary)]'}`}>
+                          {n.title}
+                        </p>
+                        <p className="text-[0.75rem] text-[var(--text-muted)] mt-0.5 leading-snug">
+                          {n.body}
+                        </p>
+                        <p className="text-[0.6rem] text-[var(--text-muted)] mt-1.5"
+                          style={{ fontFamily: 'var(--font-mono)' }}
+                        >
+                          {n.date}
+                        </p>
+                      </div>
                     </li>
                   ))}
                 </ul>
-                <div className="px-4 py-3 border-t border-[var(--border-default)]">
+
+                {/* Footer */}
+                <div className="px-4 py-3 border-t border-[var(--border-default)] flex items-center justify-between">
                   <button
                     type="button"
-                    className="text-[0.75rem] text-[var(--accent-sand)] hover:text-[var(--accent)]"
-                    onClick={() => {
-                      setHasUnreadNotifications(false);
-                      setNotificationsOpen(false);
-                    }}
+                    className="text-[0.7rem] text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors font-medium disabled:opacity-40"
+                    onClick={markAllRead}
+                    disabled={unreadCount === 0}
                   >
                     Mark all as read
                   </button>
+                  <span className="text-[0.65rem] text-[var(--text-muted)]">
+                    {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+                  </span>
                 </div>
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
         </div>
       </div>
 
-      <Modal
-        modalId="topbar-search"
-        title="Search Projects"
-        size="sm"
-        onClose={() => {
-          closeModal();
-        }}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Search className="h-4 w-4 text-[var(--accent-sand)] shrink-0" />
-            <input
-              autoFocus
-              type="text"
-              value={searchDraft}
-              onChange={(e) => setSearchDraft(e.target.value)}
-              placeholder="Type a project name or ref..."
-              className="w-full bg-transparent border border-[var(--border-default)] rounded-sm px-3 py-2 text-[0.85rem] focus:outline-none focus:border-[var(--accent)] text-[var(--text-primary)]"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3">
-            <Button variant="ghost" onClick={() => closeModal()}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={applySearch}>
-              Search
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </header>
   );
 }

@@ -9,6 +9,7 @@ import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, Star } from 'lucide-react';
 import { formatRands } from '@/utils/formatters';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
+import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
 import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import { fetchClientTempScope } from '@/api/clientAccess';
@@ -27,6 +28,7 @@ export default function Projects() {
   const [activeTab, setActiveTab] = useState<ContractTab>('ps');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | ''>('');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { user } = useAuthStore();
   const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
@@ -107,7 +109,12 @@ export default function Projects() {
     status: string;
   };
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'both') {
+      await handleExport('pdf');
+      await handleExport('xlsx');
+      return;
+    }
     const rows: ProjectExportRow[] = filteredProjects.map((p) => ({
       projectName: p.name,
       ref: p.ref,
@@ -132,13 +139,23 @@ export default function Projects() {
       { key: 'status', header: 'Status' },
     ];
 
+    const tabLabel = tabs.find((t) => t.key === activeTab)?.label ?? '';
+    const subtitleParts = [
+      `${filteredProjects.length} project${filteredProjects.length === 1 ? '' : 's'}`,
+      tabLabel,
+      serviceCategoryFilter ? `Category: ${SERVICE_CATEGORY_LABELS[serviceCategoryFilter]}` : null,
+      searchQuery.trim() ? `Search: "${searchQuery.trim()}"` : null,
+    ].filter(Boolean);
+    const subtitle = subtitleParts.join(' · ');
+
     const filename = `Projects.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
     if (format === 'xlsx') {
       await exportXlsx<ProjectExportRow>({ filename, sheetName: 'Projects', columns, rows });
     } else {
       exportPdf<ProjectExportRow>({
         filename,
-        title: 'Projects Export',
+        title: 'Projects',
+        subtitle,
         columns,
         rows,
       });
@@ -210,18 +227,10 @@ export default function Projects() {
         <Button
           variant="secondary"
           className="!min-w-0 !px-4"
-          onClick={() => handleExport('xlsx')}
+          onClick={() => setExportOpen(true)}
         >
           <Download className="h-3.5 w-3.5" />
-          Export XLSX
-        </Button>
-        <Button
-          variant="secondary"
-          className="!min-w-0 !px-4"
-          onClick={() => handleExport('pdf')}
-        >
-          <Download className="h-3.5 w-3.5" />
-          Export PDF
+          Export
         </Button>
       </div>
 
@@ -549,6 +558,13 @@ export default function Projects() {
           )}
         </div>
       )}
+
+      <ExportDialog
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        context="Projects"
+        onExport={handleExport}
+      />
     </div>
   );
 }
