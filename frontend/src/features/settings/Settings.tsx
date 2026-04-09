@@ -228,13 +228,13 @@ export default function Settings() {
                 </Button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px]" style={{ tableLayout: 'fixed' }}>
+                <table className="w-full min-w-[720px]" style={{ tableLayout: 'fixed' }}>
                   <colgroup>
-                    <col style={{ width: '28%' }} />
-                    <col style={{ width: '30%' }} />
-                    <col style={{ width: '18%' }} />
-                    <col style={{ width: '12%' }} />
-                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '24%' }} />  {/* Name */}
+                    <col style={{ width: '27%' }} />  {/* Email */}
+                    <col style={{ width: '16%' }} />  {/* Role */}
+                    <col style={{ width: '11%' }} />  {/* Status */}
+                    <col style={{ width: '22%' }} />  {/* Actions — wide enough for Edit + Remove */}
                   </colgroup>
                   <thead>
                     <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -245,30 +245,53 @@ export default function Settings() {
                   </thead>
                   <tbody>
                     {teamMembers.map((u, i) => (
-                      <tr key={u.id} className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}>
-                        <td className="px-4 py-3 overflow-hidden">
+                      <tr
+                        key={u.id}
+                        className={`border-b border-[var(--border)] align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
+                      >
+                        {/* Name + avatar */}
+                        <td className="px-4 py-3 max-w-0 overflow-hidden">
                           <div className="flex items-center gap-3 min-w-0">
                             <Avatar name={u.name} size="md" />
-                            <span className="text-[0.82rem] font-body font-medium text-[var(--text-primary)] truncate">{u.name}</span>
+                            <span
+                              className="text-[0.82rem] font-body font-medium text-[var(--text-primary)] truncate"
+                              title={u.name}
+                            >
+                              {u.name}
+                            </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 overflow-hidden">
-                          <span className="block text-table-cell truncate" title={u.email}>{u.email}</span>
+                        {/* Email */}
+                        <td className="px-4 py-3 max-w-0 overflow-hidden">
+                          <span
+                            className="block text-[0.78rem] text-[var(--text-secondary)] font-mono truncate"
+                            title={u.email}
+                          >
+                            {u.email}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-[0.7rem] text-[var(--text-muted)] uppercase tracking-wider truncate overflow-hidden">
-                          {u.role.replace('_', ' ')}
+                        {/* Role */}
+                        <td className="px-4 py-3 max-w-0 overflow-hidden">
+                          <span
+                            className="block text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wider truncate"
+                            title={u.role.replace(/_/g, ' ')}
+                          >
+                            {u.role.replace(/_/g, ' ')}
+                          </span>
                         </td>
+                        {/* Status */}
                         <td className="px-4 py-3">
                           <StatusBadge status={u.status === 'active' ? 'active' : 'danger'}>
                             {u.status}
                           </StatusBadge>
                         </td>
+                        {/* Actions */}
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-nowrap">
                             <button
                               type="button"
                               title="Edit user (available when directory API is connected)"
-                              className="px-2.5 py-1 text-[0.7rem] font-medium tracking-wide border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                              className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors whitespace-nowrap"
                               onClick={() => addToast({ type: 'info', message: 'User edit will open when the directory API is connected.' })}
                             >
                               Edit
@@ -276,7 +299,7 @@ export default function Settings() {
                             <button
                               type="button"
                               title="Remove user"
-                              className="px-2.5 py-1 text-[0.7rem] font-medium tracking-wide border border-[var(--border)] text-[var(--status-danger)] hover:border-[var(--status-danger)] transition-colors"
+                              className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border border-[var(--border)] text-[var(--status-danger)] hover:border-[var(--status-danger)] transition-colors whitespace-nowrap"
                               onClick={() => addToast({ type: 'info', message: 'User removal will be wired to the directory API.' })}
                             >
                               Remove

@@ -11,7 +11,6 @@ describe('DatePicker', () => {
 
   it('defaults to type="date"', () => {
     render(<DatePicker label="Date" value="" onChange={() => {}} />);
-    const input = screen.getByLabelText ? screen.queryByRole('textbox') : document.querySelector('input[type="date"]');
     // input[type="date"] is not role="textbox", query directly
     const el = document.querySelector('input[type="date"]') as HTMLInputElement;
     expect(el).not.toBeNull();
