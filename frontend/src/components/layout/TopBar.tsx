@@ -18,8 +18,10 @@ export default function TopBar() {
   const { expiresAt } = useClientAccessStore();
 
   const setFilters = useProjectStore((s) => s.setFilters);
-  const getPinnedProjects = useProjectStore((s) => s.getPinnedProjects);
-  const pinnedProjects = getPinnedProjects(tenantSlug ?? '');
+  // Reactive selector so the dropdown updates immediately when pins change.
+  const pinnedProjects = useProjectStore(
+    (s) => s.pinnedProjectsByTenant[tenantSlug ?? ''] ?? [],
+  );
 
   const [searchValue, setSearchValue] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);

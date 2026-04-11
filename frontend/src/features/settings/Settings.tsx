@@ -227,8 +227,15 @@ export default function Settings() {
                   Invite User
                 </Button>
               </div>
-              <div>
-                <table className="w-full table-fixed">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px]" style={{ tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '24%' }} />  {/* Name */}
+                    <col style={{ width: '27%' }} />  {/* Email */}
+                    <col style={{ width: '16%' }} />  {/* Role */}
+                    <col style={{ width: '11%' }} />  {/* Status */}
+                    <col style={{ width: '22%' }} />  {/* Actions — wide enough for Edit + Remove */}
+                  </colgroup>
                   <thead>
                     <tr style={{ background: 'var(--table-header-bg)' }}>
                       {['Name', 'Email', 'Role', 'Status', 'Actions'].map((h) => (
@@ -238,33 +245,66 @@ export default function Settings() {
                   </thead>
                   <tbody>
                     {teamMembers.map((u, i) => (
-                      <tr key={u.id} className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
+                      <tr
+                        key={u.id}
+                        className={`border-b border-[var(--border)] align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
+                      >
+                        {/* Name + avatar */}
+                        <td className="px-4 py-3 max-w-0 overflow-hidden">
+                          <div className="flex items-center gap-3 min-w-0">
                             <Avatar name={u.name} size="md" />
-                            <span className="text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{u.name}</span>
+                            <span
+                              className="text-[0.82rem] font-body font-medium text-[var(--text-primary)] truncate"
+                              title={u.name}
+                            >
+                              {u.name}
+                            </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-table-cell">{u.email}</td>
-                        <td className="px-4 py-3 text-[0.7rem] text-[var(--text-muted)] uppercase tracking-wider">{u.role.replace('_', ' ')}</td>
+                        {/* Email */}
+                        <td className="px-4 py-3 max-w-0 overflow-hidden">
+                          <span
+                            className="block text-[0.78rem] text-[var(--text-secondary)] font-mono truncate"
+                            title={u.email}
+                          >
+                            {u.email}
+                          </span>
+                        </td>
+                        {/* Role */}
+                        <td className="px-4 py-3 max-w-0 overflow-hidden">
+                          <span
+                            className="block text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wider truncate"
+                            title={u.role.replace(/_/g, ' ')}
+                          >
+                            {u.role.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        {/* Status */}
                         <td className="px-4 py-3">
                           <StatusBadge status={u.status === 'active' ? 'active' : 'danger'}>
                             {u.status}
                           </StatusBadge>
                         </td>
+                        {/* Actions */}
                         <td className="px-4 py-3">
-                          <Button
-                            variant="ghost"
-                            className="!text-[0.55rem]"
-                            onClick={() =>
-                              addToast({
-                                type: 'info',
-                                message: 'User edit will open when the directory API is connected.',
-                              })
-                            }
-                          >
-                            Edit
-                          </Button>
+                          <div className="flex items-center gap-2 flex-nowrap">
+                            <button
+                              type="button"
+                              title="Edit user (available when directory API is connected)"
+                              className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors whitespace-nowrap"
+                              onClick={() => addToast({ type: 'info', message: 'User edit will open when the directory API is connected.' })}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              title="Remove user"
+                              className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border border-[var(--border)] text-[var(--status-danger)] hover:border-[var(--status-danger)] transition-colors whitespace-nowrap"
+                              onClick={() => addToast({ type: 'info', message: 'User removal will be wired to the directory API.' })}
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -281,22 +321,39 @@ export default function Settings() {
               <p className="text-[0.72rem] text-[var(--text-muted)]">
                 Toggles save per tenant in the browser. Delivery rules will use the API later.
               </p>
-              {NOTIFY_LABELS.map((pref) => (
-                <label key={pref} className="flex items-center justify-between py-3 border-b border-[var(--border)] cursor-pointer">
-                  <span className="text-body">{pref}</span>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={notifyPrefs[pref]}
-                      onChange={(e) => updateNotifyPref(pref, e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-10 h-5 bg-[var(--bg-secondary)] border border-[var(--border)] peer-checked:bg-[var(--accent)] peer-checked:border-[var(--accent)] transition-colors cursor-pointer">
-                      <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-[var(--text-primary)] peer-checked:translate-x-5 transition-transform" />
+              {NOTIFY_LABELS.map((pref) => {
+                const on = notifyPrefs[pref];
+                return (
+                  <label key={pref} className="flex items-center justify-between py-3 border-b border-[var(--border)] cursor-pointer select-none">
+                    <span className="text-body">{pref}</span>
+                    <div className="relative shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={(e) => updateNotifyPref(pref, e.target.checked)}
+                        className="sr-only"
+                      />
+                      {/* Track */}
+                      <div
+                        className="w-10 h-[22px] border transition-colors duration-200 cursor-pointer"
+                        style={{
+                          background: on ? 'var(--accent)' : 'var(--bg-secondary)',
+                          borderColor: on ? 'var(--accent)' : 'var(--border)',
+                        }}
+                      >
+                        {/* Thumb */}
+                        <div
+                          className="absolute top-[3px] w-4 h-4 transition-all duration-200"
+                          style={{
+                            left: on ? 'calc(100% - 18px)' : '3px',
+                            background: on ? '#fff' : 'var(--text-muted)',
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                </label>
-              ))}
+                  </label>
+                );
+              })}
             </div>
           )}
 

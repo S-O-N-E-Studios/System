@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
 import { useUiStore } from '@/store/uiStore';
@@ -97,7 +96,14 @@ export default function ClientAccessSettings() {
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed min-w-[720px]">
+        <table className="w-full min-w-[780px]" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '22%' }} />  {/* Client email */}
+            <col style={{ width: '25%' }} />  {/* Projects */}
+            <col style={{ width: '13%' }} />  {/* Expires */}
+            <col style={{ width: '12%' }} />  {/* Status */}
+            <col style={{ width: '28%' }} />  {/* Actions — wide enough for +7 days + Revoke */}
+          </colgroup>
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
               {['Client', 'Projects', 'Expires', 'Status', 'Actions'].map((h) => (
@@ -108,47 +114,86 @@ export default function ClientAccessSettings() {
             </tr>
           </thead>
           <tbody>
-            {grants.map((g, i) => (
-              <tr
-                key={g.id}
-                className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
-              >
-                <td className="px-4 py-3 text-[0.82rem] text-[var(--text-primary)]">{g.clientEmail}</td>
-                <td className="px-4 py-3 text-table-cell">
-                  {g.projectIds.map((pid) => projectName(pid)).join(', ')}
-                </td>
-                <td className="px-4 py-3 text-[0.72rem] font-mono text-[var(--text-secondary)]">
-                  {new Date(g.expiresAt).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge
-                    status={
-                      g.status === 'active' ? 'active' : g.status === 'expired' ? 'review' : 'danger'
-                    }
-                  >
-                    {g.status}
-                  </StatusBadge>
-                </td>
-                <td className="px-4 py-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    className="!text-[0.55rem] !py-1.5"
-                    disabled={g.status !== 'active'}
-                    onClick={() => extend(g.id)}
-                  >
-                    +7 days
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="!text-[0.55rem] !py-1.5 text-[var(--status-danger)]"
-                    disabled={g.status !== 'active'}
-                    onClick={() => revoke(g.id)}
-                  >
-                    Revoke
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {grants.map((g, i) => {
+              const projectNames = g.projectIds.map((pid) => projectName(pid)).join(', ');
+              const isActive = g.status === 'active';
+              return (
+                <tr
+                  key={g.id}
+                  className={`border-b border-[var(--border)] align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
+                >
+                  {/* Client email */}
+                  <td className="px-4 py-3 max-w-0 overflow-hidden">
+                    <span
+                      className="block text-[0.78rem] font-mono text-[var(--text-primary)] truncate"
+                      title={g.clientEmail}
+                    >
+                      {g.clientEmail}
+                    </span>
+                    {g.notes && (
+                      <span className="block text-[0.62rem] text-[var(--text-muted)] truncate mt-0.5" title={g.notes}>
+                        {g.notes}
+                      </span>
+                    )}
+                  </td>
+                  {/* Projects */}
+                  <td className="px-4 py-3 max-w-0 overflow-hidden">
+                    <span
+                      className="block text-[0.78rem] text-[var(--text-secondary)] truncate"
+                      title={projectNames}
+                    >
+                      {projectNames}
+                    </span>
+                    <span className="text-[0.62rem] text-[var(--text-muted)]">
+                      {g.projectIds.length} project{g.projectIds.length !== 1 ? 's' : ''}
+                    </span>
+                  </td>
+                  {/* Expires */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-[0.72rem] font-mono text-[var(--text-secondary)]">
+                      {new Date(g.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  </td>
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    <StatusBadge
+                      status={isActive ? 'active' : g.status === 'expired' ? 'review' : 'danger'}
+                    >
+                      {g.status}
+                    </StatusBadge>
+                  </td>
+                  {/* Actions */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 flex-nowrap">
+                      <button
+                        type="button"
+                        disabled={!isActive}
+                        onClick={() => extend(g.id)}
+                        title={!isActive ? 'Grant is no longer active' : 'Extend access by 7 days'}
+                        className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border transition-colors whitespace-nowrap disabled:opacity-35 disabled:cursor-not-allowed"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                        onMouseEnter={(e) => { if (isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}
+                      >
+                        +7 days
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isActive}
+                        onClick={() => revoke(g.id)}
+                        title={!isActive ? 'Grant is no longer active' : 'Revoke access immediately'}
+                        className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border transition-colors whitespace-nowrap disabled:opacity-35 disabled:cursor-not-allowed"
+                        style={{ borderColor: 'var(--border)', color: 'var(--status-danger)' }}
+                        onMouseEnter={(e) => { if (isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--status-danger)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; }}
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

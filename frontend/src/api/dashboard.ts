@@ -119,8 +119,15 @@ export async function fetchDashboardSummary(): Promise<DashboardSummaryResponse>
     },
   ];
 
-  const now = new Date();
-  const daysFromNow = (d: number) => new Date(now.getTime() + d * 86_400_000).toISOString().split('T')[0];
+  // Use local calendar arithmetic to avoid UTC-vs-local off-by-one for non-UTC users.
+  const daysFromNow = (d: number): string => {
+    const dt = new Date();
+    dt.setDate(dt.getDate() + d);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const upcomingEvents: UpcomingEventSummary[] = [
     {
