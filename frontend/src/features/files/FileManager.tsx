@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
 import { Upload, FileText, FileSpreadsheet, Image, File } from 'lucide-react';
-import type { DocumentType } from '@/types';
+import type { DocumentType, FileCategory, ProjectFile } from '@/types';
 import { formatFileSize } from '@/utils/formatters';
 import EmptyState from '@/components/ui/EmptyState';
 import SuccessAnimation from '@/components/ui/SuccessAnimation';
-import { MOCK_FILE_MANAGER_FILES, type MockFileCard } from '@/mocks/fileManagerFixtures';
-import { downloadMockPlaceholderFile } from '@/utils/mockFileDownload';
+import { filesApi } from '@/api/files';
 
 const FILE_UPLOAD_MODAL_ID = 'file-upload';
 
@@ -38,7 +39,53 @@ const EXTENSION_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'jpg', label: 'JPG' },
 ];
 
-type FileCard = MockFileCard;
+interface FileCard {
+  id: string;
+  name: string;
+  documentType: DocumentType;
+  size: number;
+  date: string;
+  project: string;
+  mimeType: string;
+  blobUrl?: string;
+}
+
+function fileCategoryToDocumentType(category: FileCategory): DocumentType {
+  if (category === 'payment-certificate') return 'payment_certificate';
+  if (category === 'tender-document' || category === 'tender-evaluation') return 'tender_document';
+  if (
+    category === 'tender-drawing' ||
+    category === 'as-built-drawing' ||
+    category === 'preliminary-design' ||
+    category === 'detailed-design'
+  ) {
+    return 'drawings';
+  }
+  if (category === 'digital-survey') return 'digital_survey';
+  if (category === 'geotechnical') return 'geo_technical_report';
+  if (category === 'environmental') return 'environmental_report';
+  return 'tender_document';
+}
+
+function mapProjectFileToFileCard(pf: ProjectFile): FileCard {
+  const uploaded = new Date(pf.createdAt);
+  const dateStr = uploaded.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const size = pf.sizeBytes ?? pf.size;
+  return {
+    id: pf.id,
+    name: pf.originalName,
+    documentType: fileCategoryToDocumentType(pf.category),
+    size,
+    date: dateStr,
+    project: pf.projectId ? `Project ${pf.projectId}` : 'Tenant',
+    mimeType: pf.mimeType,
+    blobUrl: pf.url,
+  };
+}
 
 function getIconForDocType(documentType: DocumentType): typeof FileText {
   switch (documentType) {
@@ -62,14 +109,35 @@ function getFileExtension(name: string): string {
 }
 
 export default function FileManager() {
-  const { openModal, closeModal, addToast } = useUiStore();
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const { openModal, closeModal } = useUiStore();
   const [activeTab, setActiveTab] = useState<'all' | DocumentType>('all');
   const [extensionFilter, setExtensionFilter] = useState('');
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('payment_certificate');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<FileCard[]>([]);
+  const [fetchedFiles, setFetchedFiles] = useState<FileCard[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: filesPage } = useQuery({
+    queryKey: ['files', 'list', tenantSlug],
+    queryFn: () =>
+      filesApi.list({
+        tenantSlug: tenantSlug!,
+        page: 1,
+        pageSize: 200,
+      }),
+    enabled: Boolean(tenantSlug),
+  });
+
+  useEffect(() => {
+    if (!filesPage?.data) {
+      setFetchedFiles([]);
+      return;
+    }
+    setFetchedFiles(filesPage.data.map(mapProjectFileToFileCard));
+  }, [filesPage]);
 
   useEffect(() => {
     if (!uploadSuccess) return;
@@ -80,7 +148,7 @@ export default function FileManager() {
     return () => clearTimeout(t);
   }, [uploadSuccess, closeModal]);
 
-  const allFiles = [...uploadedFiles, ...MOCK_FILE_MANAGER_FILES];
+  const allFiles = [...uploadedFiles, ...fetchedFiles];
 
   const byTab =
     activeTab === 'all' ? allFiles : allFiles.filter((f) => f.documentType === activeTab);
@@ -125,15 +193,7 @@ export default function FileManager() {
   };
 
   const handleDownload = (file: FileCard) => {
-    if (!file.blobUrl) {
-      downloadMockPlaceholderFile({ name: file.name, mimeType: file.mimeType });
-      addToast({
-        type: 'success',
-        message: 'Downloaded mock placeholder (.txt). Real files will use signed URLs from the API.',
-      });
-      return;
-    }
-
+    if (!file.blobUrl) return;
     const a = document.createElement('a');
     a.href = file.blobUrl;
     a.download = file.name;

@@ -1,45 +1,32 @@
-'use strict';
+const NODE_ENV = process.env.NODE_ENV || "development";
 
-/**
- * Centralised environment configuration.
- * All process.env reads happen here — no raw process.env access in controllers/services.
- */
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
 module.exports = {
-  // ── Server ──────────────────────────────────────────────────────────────
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT:     process.env.PORT     || 5000,
+  PORT: process.env.PORT || 5000,
+  NODE_ENV,
+  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
+  DATABASE_URL: process.env.DATABASE_URL || "mongodb://localhost:27017/project360",
 
-  // ── Database ─────────────────────────────────────────────────────────────
-  MONGODB_URI:      process.env.MONGODB_URI,
-  MONGODB_TEST_URI: process.env.MONGODB_TEST_URI,
+  JWT_SECRET,
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || JWT_SECRET,
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || JWT_SECRET + "-refresh",
+  JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "1h",
+  JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
 
-  // ── Auth ─────────────────────────────────────────────────────────────────
-  JWT_SECRET:  process.env.JWT_SECRET  || 'change-me-before-production',
-  JWT_EXPIRE:  process.env.JWT_EXPIRE  || '15m',
-  REFRESH_EXPIRE: process.env.REFRESH_EXPIRE || '7d',
+  EMAIL_PROVIDER: process.env.EMAIL_PROVIDER || "smtp",
+  EMAIL_HOST: process.env.EMAIL_HOST,
+  EMAIL_PORT: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS,
+  EMAIL_FROM: process.env.EMAIL_FROM || "noreply@project360.co.za",
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
 
-  // ── App URL (used in email links) ─────────────────────────────────────────
-  APP_URL: process.env.APP_URL || 'https://app.project360.co.za',
+  STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || "local",
+  AWS_REGION: process.env.AWS_REGION || "af-south-1",
+  AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
 
-  // ── Email / SMTP ──────────────────────────────────────────────────────────
-  // Leave EMAIL_HOST / EMAIL_USER / EMAIL_PASSWORD unset in development to
-  // use the Ethereal test transport (emails captured, never really sent).
-  EMAIL_HOST:     process.env.EMAIL_HOST,
-  EMAIL_PORT:     Number(process.env.EMAIL_PORT) || 587,
-  EMAIL_SECURE:   process.env.EMAIL_SECURE === 'true', // true = port 465 TLS
-  EMAIL_USER:     process.env.EMAIL_USER,
-  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
-  EMAIL_FROM:     process.env.EMAIL_FROM || '"Project 360" <noreply@project360.co.za>',
-
-  // ── CORS ─────────────────────────────────────────────────────────────────
-  ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
-
-  // ── File storage (AWS S3 / Azure Blob) ───────────────────────────────────
-  AWS_ACCESS_KEY_ID:     process.env.AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
-  AWS_REGION:            process.env.AWS_REGION  || 'af-south-1',
-  AWS_S3_BUCKET:         process.env.AWS_S3_BUCKET,
-
-  // ── Google Maps ───────────────────────────────────────────────────────────
-  GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+  isProduction: NODE_ENV === "production",
+  isTest: NODE_ENV === "test",
+  isDevelopment: NODE_ENV === "development",
 };

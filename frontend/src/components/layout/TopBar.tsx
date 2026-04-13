@@ -356,7 +356,7 @@ export default function TopBar() {
                 ref={panelRef}
                 role="dialog"
                 aria-label="Notifications"
-                className="fixed w-[340px] bg-[var(--bg-card)] border border-[var(--border-default)] shadow-2xl z-[200] overflow-hidden"
+                className="fixed w-[340px] max-w-[calc(100vw-2rem)] bg-[var(--bg-card)] border border-[var(--border-default)] shadow-2xl z-[200] overflow-hidden"
                 style={{ top: panelPos.top, right: panelPos.right }}
               >
                 {/* Header */}

@@ -4,7 +4,6 @@ import IDPTable from '@/components/ui/IDPTable';
 import { idpApi } from '@/api/idp';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import type { ExportFormat } from '@/components/ui/ExportDialog';
-import { MOCK_IDP_PROJECTS } from '@/mocks/idpProjects';
 import { formatRands } from '@/utils/formatters';
 
 export default function IDPView() {
@@ -43,7 +42,7 @@ export default function IDPView() {
         mtefYear3: number;
       };
 
-      const rows: Row[] = (projects.length > 0 ? projects : MOCK_IDP_PROJECTS).map((p) => ({
+      const rows: Row[] = projects.map((p) => ({
         idpProjectNo: p.idpProjectNo ?? 'N/A',
         name: p.name ?? 'N/A',
         localMunicipality: p.localMunicipality ?? 'N/A',

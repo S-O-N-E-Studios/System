@@ -271,7 +271,7 @@ export default function Dashboard() {
       </div>
 
       {/* Province map + tenant name */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-8 mb-8">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-4 sm:p-6 lg:p-8 mb-8">
         <h2 className="text-h2 mb-6">{tenantName}</h2>
         <div className="h-[360px] bg-[var(--bg-surface-alt)] border border-dashed border-[var(--border-default)] overflow-hidden">
           <ProvinceGeoJsonMap height="100%" zoom={7} onRegionClick={() => {}} />
@@ -279,7 +279,7 @@ export default function Dashboard() {
       </div>
 
       {/* Department budget bars: vertical bar chart */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-8 mb-8">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-4 sm:p-6 lg:p-8 mb-8">
         <h3 className="text-h3 mb-6">Department Budgets</h3>
         {departments.length === 0 ? (
           <EmptyState
@@ -288,7 +288,8 @@ export default function Dashboard() {
           />
         ) : (
           <>
-            <div className="flex items-end justify-between gap-4 h-[280px]">
+            <div className="overflow-x-auto">
+              <div className="flex items-end justify-between gap-4 h-[280px] min-w-[400px]">
               {departments.map((dept, i) => {
                 const barHeight = maxBudget ? (dept.budget / maxBudget) * 100 : 0;
                 return (
@@ -335,6 +336,7 @@ export default function Dashboard() {
                   </Link>
                 );
               })}
+              </div>
             </div>
             <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[var(--border-default)]">
               <div className="flex items-center gap-2">
@@ -352,7 +354,7 @@ export default function Dashboard() {
 
       {/* Expenditure Gauge row — one dial per department */}
       {departments.length > 0 && (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-8 mb-8">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-4 sm:p-6 lg:p-8 mb-8">
           <h3 className="text-h3 mb-6">Expenditure by Department</h3>
           <div className="flex flex-wrap items-start justify-around gap-6">
             {departments.map((dept) => {
@@ -462,7 +464,7 @@ export default function Dashboard() {
               {tasks.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between px-6 py-3 hover:bg-[var(--accent-sand-glow)] transition-colors"
+                  className="flex flex-wrap items-center justify-between gap-y-1 px-6 py-3 hover:bg-[var(--accent-sand-glow)] transition-colors"
                 >
                   <span className="text-[0.82rem] text-[var(--text-primary)]">{t.title}</span>
                   <StatusBadge status={t.dueStatus}>{t.due}</StatusBadge>

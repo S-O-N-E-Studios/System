@@ -23,6 +23,10 @@ const EVENT_COLORS: Record<CalendarEventType, string> = {
   meeting: 'var(--sienna)',
   deadline: 'var(--status-danger)',
   activity_update: 'var(--text-muted)',
+  stage_advanced: 'var(--accent)',
+  document_approved: 'var(--status-success)',
+  document_rejected: 'var(--status-danger)',
+  variation_approved: 'var(--status-warning)',
   project_complete: 'var(--status-success)',
 };
 
@@ -34,6 +38,10 @@ const EVENT_LABELS: Record<CalendarEventType, string> = {
   meeting: 'Meeting',
   deadline: 'Deadline',
   activity_update: 'Activity',
+  stage_advanced: 'Stage',
+  document_approved: 'Doc approved',
+  document_rejected: 'Doc rejected',
+  variation_approved: 'Variation',
   project_complete: 'Complete',
 };
 

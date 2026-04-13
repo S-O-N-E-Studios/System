@@ -15,6 +15,8 @@ const mockProjects: Project[] = [
     serviceCategory: 'roads_stormwater' as const,
     localMunicipality: 'Emalahleni',
     contractValue: 10_000_000,
+    contractValueOriginal: 1_000_000_000,
+    contractValueAdjusted: 1_000_000_000,
     expenditureToDate: 5_000_000,
     balance: 5_000_000,
     contractTypes: ['professional'],

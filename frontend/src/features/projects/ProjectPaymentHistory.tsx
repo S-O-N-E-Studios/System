@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { paymentsApi, mockPaymentHistory } from '@/api/payments';
+import { paymentsApi } from '@/api/payments';
 import type { PaymentHistoryEntry, PaymentStatus } from '@/types';
 import PaymentHistoryTable from '@/components/ui/PaymentHistoryTable';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
@@ -39,9 +39,7 @@ export default function ProjectPaymentHistory({ projectId }: ProjectPaymentHisto
       });
       setEntries(res.data);
     } catch {
-      const allMock = mockPaymentHistory();
-      const projectMock = allMock.filter((e) => e.projectId === projectId);
-      setEntries(projectMock);
+      setEntries([]);
     } finally {
       setLoading(false);
     }

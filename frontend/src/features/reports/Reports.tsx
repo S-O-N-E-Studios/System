@@ -11,11 +11,8 @@ import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
 import { fetchReportsOverview } from '@/api/reports';
-import { mockPaymentHistory } from '@/api/payments';
 import { useUiStore } from '@/store/uiStore';
 import { buildNarrativePdfBlob, type NarrativePdfSection } from '@/utils/clientExports';
-import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
-import { SERVICE_CATEGORY_LABELS } from '@/types';
 
 type ReportsTab = 'overview' | 'payment-history' | 'payment-forecast';
 
@@ -84,21 +81,10 @@ export default function Reports() {
           value: formatRands(s.totalValue),
         })),
       });
-      sections.push({
-        title: 'Active portfolio snapshot',
-        lines: MOCK_PORTFOLIO_PROJECTS.map((p) => ({
-          label: `${p.name} (${SERVICE_CATEGORY_LABELS[p.serviceCategory]})`,
-          value: `${p.ref} · ${formatRands(p.contractValue)}`,
-        })),
-      });
     } else if (activeTab === 'payment-history') {
-      const entries = mockPaymentHistory();
       sections.push({
         title: 'Payment history',
-        lines: entries.map((e) => ({
-          label: `${e.projectName} · ${e.invoiceNumber}`,
-          value: `${e.paymentDate} · ${formatRands(e.paymentAmount)} · ${e.paymentStatus}`,
-        })),
+        lines: [{ label: 'Data', value: 'Payment history data is loading from the API' }],
       });
     } else {
       const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -317,28 +303,6 @@ export default function Reports() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div className="bg-[var(--bg-card)] border border-[var(--border)] mt-8">
-                <div className="px-6 py-4 border-b border-[var(--border)]">
-                  <h3 className="text-h3">Active portfolio snapshot (mock)</h3>
-                  <p className="text-[0.72rem] text-[var(--text-muted)] mt-1">
-                    Same rows as the projects list fixture; will bind to live portfolio when the API is ready.
-                  </p>
-                </div>
-                <div className="px-6 py-4 divide-y divide-[var(--border)]">
-                  {MOCK_PORTFOLIO_PROJECTS.map((p) => (
-                    <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
-                      <div>
-                        <p className="text-[0.82rem] font-medium text-[var(--text-primary)]">{p.name}</p>
-                        <p className="text-[0.68rem] text-[var(--text-muted)]">
-                          {SERVICE_CATEGORY_LABELS[p.serviceCategory]} · {p.ref}
-                        </p>
-                      </div>
-                      <span className="text-[0.78rem] text-financial">{formatRands(p.contractValue)}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
             </>

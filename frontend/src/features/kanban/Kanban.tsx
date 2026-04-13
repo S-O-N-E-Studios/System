@@ -8,7 +8,7 @@ import { Plus, GripVertical } from 'lucide-react';
 import type { TaskStatus, TaskPriority } from '@/types';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
-import { MOCK_KANBAN_TASKS, type MockKanbanTask } from '@/mocks/kanbanTasks';
+import { tasksApi } from '@/api/tasks';
 
 import {
   DndContext,
@@ -22,7 +22,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
-type KanbanTask = MockKanbanTask;
+interface KanbanTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee: string;
+  dueDate: string;
+}
 
 const columns: { key: TaskStatus; label: string; color: string }[] = [
   { key: 'backlog', label: 'Backlog', color: 'var(--text-muted)' },
@@ -405,8 +412,25 @@ function TaskDetailsModal({ tasks }: { tasks: KanbanTask[] }) {
 }
 
 export default function Kanban() {
-  const [tasks, setTasks] = useState<KanbanTask[]>(MOCK_KANBAN_TASKS);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const { openModal } = useUiStore();
+
+  useEffect(() => {
+    let cancelled = false;
+    tasksApi.list().then((res) => {
+      if (cancelled) return;
+      const mapped: KanbanTask[] = (res.tasks || []).map((t) => ({
+        id: t.id || crypto.randomUUID(),
+        title: t.title || 'Untitled',
+        status: t.status || 'backlog',
+        priority: t.priority || 'medium',
+        assignee: t.assigneeName || 'Unassigned',
+        dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+      }));
+      setTasks(mapped);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -443,9 +467,9 @@ export default function Kanban() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-3 mb-8">
         <h1 className="text-h1">Kanban Board</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select className="bg-transparent border border-[var(--border)] px-3 py-2 text-[0.78rem] font-body text-[var(--text-secondary)] focus:border-[var(--accent)] focus:outline-none">
             <option className="bg-[var(--bg-card)]">Sprint 4: 23 Mar to 3 Apr</option>
             <option className="bg-[var(--bg-card)]">Sprint 3: 9 to 20 Mar</option>

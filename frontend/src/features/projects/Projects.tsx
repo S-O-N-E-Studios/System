@@ -1,13 +1,14 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
-import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
+import { projectsApi } from '@/api/projects';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, Star } from 'lucide-react';
-import { formatRands } from '@/utils/formatters';
+import { formatDate, formatRands } from '@/utils/formatters';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
 import { useAuthStore } from '@/store/authStore';
@@ -22,6 +23,128 @@ const tabs: { key: ContractTab; label: string }[] = [
   { key: 'geo', label: 'Geo-Technical' },
   { key: 'cm', label: 'Construction Management' },
 ];
+
+type PortfolioTableProject = {
+  id: string;
+  name: string;
+  ref: string;
+  serviceCategory: ServiceCategory | '';
+  localMunicipality: string;
+  contractValue: number;
+  expenditure: number;
+  balance: number;
+  status: 'active' | 'review' | 'planning' | 'done' | 'danger';
+  gps: string;
+  attachments: number;
+  geoTecEngineer: string;
+  geoTecReport: string;
+  challenges: string;
+  recommendation: string;
+  ddrStatus: string;
+  contractor: string;
+  startDate: string;
+  completionDate: string;
+  percentComplete: number;
+  constructionStatus: 'on_track' | 'at_risk' | 'delayed' | 'complete';
+};
+
+function normalizeProjectsListResponse(raw: unknown): Record<string, unknown>[] {
+  if (Array.isArray(raw)) return raw as Record<string, unknown>[];
+  if (raw && typeof raw === 'object' && 'projects' in raw) {
+    const projects = (raw as { projects: unknown }).projects;
+    if (Array.isArray(projects)) return projects as Record<string, unknown>[];
+  }
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return normalizeProjectsListResponse((raw as { data: unknown }).data);
+  }
+  return [];
+}
+
+function centsToRands(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n / 100 : 0;
+}
+
+function formatPortfolioDate(value: unknown): string {
+  if (value == null || value === '') return '';
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return formatDate(s);
+  return s;
+}
+
+function gpsFromRaw(raw: Record<string, unknown>): string {
+  const coords = raw.gpsCoordinates;
+  if (typeof coords === 'string') return coords;
+  if (coords && typeof coords === 'object') {
+    const c = coords as { lat?: unknown; lng?: unknown };
+    if (c.lat != null && c.lng != null) return `${c.lat}, ${c.lng}`;
+  }
+  if (typeof raw.gpsFormatted === 'string') return raw.gpsFormatted;
+  const loc = raw.location as { lat?: unknown; lng?: unknown } | undefined;
+  if (loc && loc.lat != null && loc.lng != null) return `${loc.lat}, ${loc.lng}`;
+  return '';
+}
+
+function mapGeoTecReportStatus(raw: unknown): string {
+  const s = String(raw ?? 'pending');
+  if (s === 'submitted' || s === 'in_review' || s === 'pending') return s;
+  return 'pending';
+}
+
+function mapProfessionalStatusBadge(
+  status: unknown,
+  currentStage: unknown,
+): 'active' | 'review' | 'planning' | 'done' | 'danger' {
+  const st = String(status ?? 'active');
+  if (st === 'complete') return 'done';
+  if (st === 'cancelled') return 'danger';
+  if (st === 'on-hold') return 'review';
+  const stage = Number(currentStage);
+  const s = Number.isFinite(stage) ? stage : 1;
+  if (s <= 2) return 'planning';
+  if (s >= 9) return 'review';
+  return 'active';
+}
+
+function mapConstructionStatus(raw: unknown): 'on_track' | 'at_risk' | 'delayed' | 'complete' {
+  const s = String(raw ?? 'on_track');
+  if (s === 'on_track' || s === 'at_risk' || s === 'delayed' || s === 'complete') return s;
+  return 'on_track';
+}
+
+function mapApiProjectToPortfolioRow(raw: Record<string, unknown>): PortfolioTableProject {
+  const contractValue = centsToRands(raw.contractValueAdjusted ?? raw.contractValue);
+  const expenditure = centsToRands(
+    (raw as { totalExpenditure?: unknown }).totalExpenditure ?? raw.expenditureToDate,
+  );
+  const sc = raw.serviceCategory;
+  const serviceCategory: ServiceCategory | '' =
+    typeof sc === 'string' && sc in SERVICE_CATEGORY_LABELS ? (sc as ServiceCategory) : '';
+
+  return {
+    id: String(raw._id ?? raw.id ?? ''),
+    name: String(raw.name ?? ''),
+    ref: String(raw.projectCode ?? raw.refCode ?? raw.ref ?? ''),
+    serviceCategory,
+    localMunicipality: String(raw.localMunicipality ?? ''),
+    contractValue,
+    expenditure,
+    balance: contractValue - expenditure,
+    status: mapProfessionalStatusBadge(raw.status, raw.currentStage),
+    gps: gpsFromRaw(raw),
+    attachments: Number((raw as { attachmentCount?: unknown }).attachmentCount ?? 0) || 0,
+    geoTecEngineer: String(raw.geoTecEngineer ?? ''),
+    geoTecReport: mapGeoTecReportStatus(raw.geoTecReportStatus ?? raw.geoTecReport),
+    challenges: String(raw.challenges ?? ''),
+    recommendation: String(raw.recommendation ?? ''),
+    ddrStatus: String(raw.ddrStatus ?? 'pending'),
+    contractor: String(raw.contractor ?? ''),
+    startDate: formatPortfolioDate(raw.startDate ?? raw.appointmentDate),
+    completionDate: formatPortfolioDate(raw.completionDate),
+    percentComplete: Math.min(100, Math.max(0, Number(raw.percentComplete ?? 0) || 0)),
+    constructionStatus: mapConstructionStatus(raw.constructionStatus),
+  };
+}
 
 export default function Projects() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
@@ -80,19 +203,33 @@ export default function Projects() {
     clearClientTempScope,
   ]);
 
+  const { data: apiProjects = [] } = useQuery({
+    queryKey: ['projects', tenantSlug],
+    queryFn: async () => {
+      const res = await projectsApi.list({ tenantSlug: tenantSlug || '' } as never);
+      return normalizeProjectsListResponse(res);
+    },
+    enabled: Boolean(tenantSlug),
+  });
+
+  const portfolioProjects = useMemo(
+    () => apiProjects.map((p) => mapApiProjectToPortfolioRow(p)),
+    [apiProjects],
+  );
+
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
   };
 
   const filteredProjects = useMemo(
     () =>
-      MOCK_PORTFOLIO_PROJECTS.filter((p) => {
+      portfolioProjects.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
         const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
         const matchesClientScope = !isClientTemp || allowedProjectIds.includes(p.id);
         return matchesSearch && matchesService && matchesClientScope;
       }),
-    [searchQuery, serviceCategoryFilter, isClientTemp, allowedProjectIds]
+    [portfolioProjects, searchQuery, serviceCategoryFilter, isClientTemp, allowedProjectIds],
   );
 
   const showEmpty = filteredProjects.length === 0;
@@ -177,7 +314,7 @@ export default function Projects() {
       </div>
 
       {/* Tab row */}
-      <div className="flex items-center gap-0 border-b border-[var(--border)] mb-6">
+      <div className="flex items-center gap-0 border-b border-[var(--border)] mb-6 overflow-x-auto scrollbar-hidden">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -236,14 +373,14 @@ export default function Projects() {
 
       {/* Professional Services Table */}
       {activeTab === 'ps' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)]">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full table-fixed">
+          <table className="w-full min-w-[900px] table-fixed">
             <colgroup>
               <col className="w-[23%]" />
               <col className="w-[10%]" />
@@ -381,14 +518,14 @@ export default function Projects() {
 
       {/* Geo-Technical Table */}
       {activeTab === 'geo' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)]">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full table-fixed">
+          <table className="w-full min-w-[800px] table-fixed">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
                 {['Project Name', 'Geo-Tec Engineer', 'Project Value', 'Geo-Tec Report', 'Expenditure', 'Challenges', 'Recommendation', 'DDR Status'].map((h) => (
@@ -469,14 +606,14 @@ export default function Projects() {
 
       {/* Construction Management Table */}
       {activeTab === 'cm' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)]">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full table-fixed">
+          <table className="w-full min-w-[800px] table-fixed">
             <thead>
               <tr style={{ background: 'var(--table-header-bg)' }}>
                 {['Project Name', 'Contractor', 'Contract Value', 'Start Date', 'Completion Date', 'Expenditure', '% Complete', 'Status'].map((h) => (

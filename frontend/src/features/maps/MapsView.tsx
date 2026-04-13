@@ -1,11 +1,26 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AtlasMap from '@/components/ui/AtlasMap';
-import { MAP_MOCK_PROJECTS } from '@/mocks/mapProjects';
+import { projectsApi } from '@/api/projects';
 import { formatRands } from '@/utils/formatters';
 import { Search, MapPin, X } from 'lucide-react';
 
+type MapProjectRow = {
+  id: string;
+  name: string;
+  status: 'active' | 'review' | 'planning';
+  contractValue: number;
+  fullAddress: string;
+  hasGps: boolean;
+  lat?: number;
+  lng?: number;
+};
+
 export default function MapsView() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const [projects, setProjects] = useState<MapProjectRow[]>([]);
+
   // Persists on click — stays until another click or the ✕ button
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   // Transient hover — clears when mouse leaves the sidebar row OR the detail card
@@ -28,16 +43,48 @@ export default function MapsView() {
     hoverClearTimer.current = setTimeout(() => setHoveredProjectId(null), 180);
   }, [cancelHoverClear]);
 
+  useEffect(() => {
+    if (!tenantSlug) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { projects: apiProjects } = await projectsApi.list({ limit: 2000 });
+        if (cancelled) return;
+        const mapped: MapProjectRow[] = (apiProjects || []).map((p): MapProjectRow => {
+          const lat = p.location?.lat;
+          const lng = p.location?.lng;
+          const stage = p.currentStage ?? 0;
+          return {
+            id: p.id,
+            name: p.name || 'Untitled',
+            status: stage >= 7 ? 'active' : stage >= 5 ? 'review' : 'planning',
+            contractValue: (p.contractValueAdjusted || p.contractValueOriginal || 0) / 100,
+            fullAddress: p.location?.address || '',
+            hasGps: !!(lat && lng),
+            lat,
+            lng,
+          };
+        });
+        setProjects(mapped);
+      } catch {
+        if (!cancelled) setProjects([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug]);
+
   // The "active" project is the hovered one, falling back to the clicked one
   const activeProjectId = hoveredProjectId ?? selectedProjectId;
 
   const activeProject = useMemo(
-    () => MAP_MOCK_PROJECTS.find((p) => p.id === activeProjectId) ?? null,
-    [activeProjectId],
+    () => projects.find((p) => p.id === activeProjectId) ?? null,
+    [activeProjectId, projects],
   );
 
   const filteredProjects = useMemo(() => {
-    let list = MAP_MOCK_PROJECTS;
+    let list = projects;
     if (statusFilter) list = list.filter((p) => p.status === statusFilter);
     if (addressSearch.trim()) {
       const q = addressSearch.trim().toLowerCase();
@@ -48,20 +95,22 @@ export default function MapsView() {
       );
     }
     return list;
-  }, [statusFilter, addressSearch]);
+  }, [statusFilter, addressSearch, projects]);
 
   const markers = useMemo(
     () =>
-      MAP_MOCK_PROJECTS.filter(
-        (p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number',
-      ).map((p) => ({
-        id: p.id,
-        lat: p.lat as number,
-        lng: p.lng as number,
-        label: p.name,
-        status: p.status,
-      })),
-    [],
+      projects
+        .filter(
+          (p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number',
+        )
+        .map((p) => ({
+          id: p.id,
+          lat: p.lat as number,
+          lng: p.lng as number,
+          label: p.name,
+          status: p.status,
+        })),
+    [projects],
   );
 
   // Only zoom in when a project is explicitly selected (clicked), not on hover
@@ -76,10 +125,10 @@ export default function MapsView() {
   const zoom = selectedProjectId !== null && activeProject?.hasGps ? 14 : 7;
 
   return (
-    <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-20 -mb-12">
-      <div className="flex h-screen">
+    <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-16 lg:-mt-20 -mb-12">
+      <div className="flex flex-col lg:flex-row h-screen">
         {/* ── Sidebar ── */}
-        <div className="w-[320px] bg-[var(--bg-secondary)] border-r border-[var(--border)] overflow-y-auto pt-20 flex flex-col">
+        <div className="w-full lg:w-[320px] max-h-[40vh] lg:max-h-none bg-[var(--bg-secondary)] border-b lg:border-b-0 lg:border-r border-[var(--border)] overflow-y-auto pt-20 flex flex-col">
           {/* Filters */}
           <div className="px-4 py-4 border-b border-[var(--border)] space-y-3">
             <h2 className="text-h3">Projects</h2>
@@ -168,7 +217,7 @@ export default function MapsView() {
         </div>
 
         {/* ── Map area ── */}
-        <div className="flex-1 bg-[var(--bg-primary)] flex items-center justify-center pt-16 relative">
+        <div className="flex-1 min-h-[300px] bg-[var(--bg-primary)] flex items-center justify-center pt-4 lg:pt-16 relative">
           <div className="w-full h-full px-6 lg:px-0 relative">
             <AtlasMap
               markers={markers}
@@ -193,7 +242,7 @@ export default function MapsView() {
             {/* Project detail card — stays as long as hovered or selected */}
             {activeProject && (
               <div
-                className="absolute z-30 top-4 left-4 w-[340px] bg-[var(--bg-surface)] border border-[var(--border-default)] p-5 shadow-lg"
+                className="absolute z-30 top-4 left-4 right-4 lg:right-auto lg:w-[340px] max-w-[calc(100vw-2rem)] bg-[var(--bg-surface)] border border-[var(--border-default)] p-5 shadow-lg"
                 onMouseEnter={cancelHoverClear}
                 onMouseLeave={scheduleHoverClear}
               >

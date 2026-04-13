@@ -13,30 +13,38 @@ export type Permission =
   | 'view_reports'
   | 'view_maps'
   | 'view_files'
-  | 'view_settings';
+  | 'view_settings'
+  | 'view_planning'
+  | 'create_variation_order'
+  | 'approve_documents'
+  | 'upload_media';
+
+const allPermanent: UserRole[] = ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'PM', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'];
+const writers: UserRole[] = ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'PM', 'SUPER_ADMIN'];
+const approvers: UserRole[] = ['CLIENT_APPROVER', 'ORG_ADMIN', 'SUPER_ADMIN'];
 
 const permissionAllowList: Record<Permission, UserRole[]> = {
-  view_dashboard: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_projects: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'CLIENT_TEMP', 'SUPER_ADMIN'],
-  create_project: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'SUPER_ADMIN'],
-  edit_project: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'SUPER_ADMIN'],
-  view_idp: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_services: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_kanban: ['ORG_ADMIN', 'PROJECT_MANAGER', 'SUPER_ADMIN'],
-  view_calendar: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_grants: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_reports: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_maps: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
-  view_files: ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'],
+  view_dashboard: allPermanent,
+  view_projects: [...allPermanent, 'CLIENT_TEMP', 'CLIENT_APPROVER'],
+  create_project: writers,
+  edit_project: [...writers, 'MEMBER'],
+  view_idp: allPermanent,
+  view_services: allPermanent,
+  view_kanban: ['ORG_ADMIN', 'PROJECT_MANAGER', 'PM', 'SUPER_ADMIN'],
+  view_calendar: allPermanent,
+  view_grants: allPermanent,
+  view_reports: allPermanent,
+  view_maps: allPermanent,
+  view_files: [...allPermanent, 'CLIENT_APPROVER'],
   view_settings: ['ORG_ADMIN', 'SUPER_ADMIN'],
+  view_planning: allPermanent,
+  create_variation_order: writers,
+  approve_documents: approvers,
+  upload_media: [...writers, 'MEMBER'],
 };
 
-/**
- * Pure RBAC check used by `useCan` and for unit tests.
- */
 export function canForRole(role: UserRole | undefined, permission: Permission): boolean {
   if (!role) return false;
   if (role === 'SUPER_ADMIN') return true;
   return permissionAllowList[permission].includes(role);
 }
-

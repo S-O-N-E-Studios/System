@@ -19,12 +19,27 @@ export interface FileListParams {
 
 export const filesApi = {
   list: async (params: FileListParams): Promise<PaginatedResponse<ProjectFile>> => {
-    const { tenantSlug, ...query } = params;
-    const res = await apiClient.get<PaginatedResponse<ProjectFile>>(
-      `/${tenantSlug}/files`,
-      { params: query }
-    );
-    return res.data;
+    const { tenantSlug, pageSize, ...rest } = params;
+    const query: Record<string, unknown> = { ...rest };
+    if (pageSize !== undefined) {
+      query.limit = pageSize;
+    }
+    const res = await apiClient.get<
+      ApiResponse<{ files: ProjectFile[]; total: number; page: number; limit: number }>
+    >(`/${tenantSlug}/files`, { params: query });
+    const payload = res.data.data;
+    const files = payload?.files ?? [];
+    const total = payload?.total ?? 0;
+    const page = payload?.page ?? 1;
+    const limit = payload?.limit ?? 20;
+    const resolvedLimit = limit || 20;
+    return {
+      data: files,
+      total,
+      page,
+      pageSize: resolvedLimit,
+      totalPages: Math.max(1, Math.ceil(total / resolvedLimit)),
+    };
   },
 
   /**

@@ -155,7 +155,7 @@ export default function ProjectForm() {
               <span className="group-open:rotate-90 transition-transform inline-block text-[0.65rem]">▶</span>
               GPS Coordinates (optional — derived from address by backend)
             </summary>
-            <div className="grid grid-cols-2 gap-4 mt-3 pl-4 border-l-2 border-[var(--border)]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 pl-4 border-l-2 border-[var(--border)]">
               <FormInput
                 label="Latitude"
                 type="number"

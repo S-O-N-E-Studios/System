@@ -43,6 +43,7 @@ export default function Sidebar() {
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4 shrink-0" />, path: 'dashboard', permission: 'view_dashboard' },
     { label: 'Projects', icon: <FolderKanban className="h-4 w-4 shrink-0" />, path: 'projects', permission: 'view_projects' },
+    { label: 'Multi-Year Planning', icon: <CalendarDays className="h-4 w-4 shrink-0" />, path: 'planning', permission: 'view_planning' },
     { label: 'IDP View', icon: <FileSpreadsheet className="h-4 w-4 shrink-0" />, path: 'idp', permission: 'view_idp' },
     { label: 'Normal Services', icon: <Layers className="h-4 w-4 shrink-0" />, path: 'services', permission: 'view_services' },
     {

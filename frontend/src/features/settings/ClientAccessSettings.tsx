@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
+import { projectsApi } from '@/api/projects';
 import { useUiStore } from '@/store/uiStore';
 import type { TemporaryAccess } from '@/types';
 
@@ -41,11 +41,29 @@ export default function ClientAccessSettings() {
   const { tenantSlug = '' } = useParams<{ tenantSlug: string }>();
   const { addToast } = useUiStore();
   const [grants, setGrants] = useState<TemporaryAccess[]>(() => initialGrants(tenantSlug));
+  const [portfolioProjects, setPortfolioProjects] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { projects } = await projectsApi.list({ limit: 500 });
+        if (!cancelled) {
+          setPortfolioProjects(projects.map((p) => ({ id: p.id, name: p.name })));
+        }
+      } catch {
+        if (!cancelled) setPortfolioProjects([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const projectName = useMemo(() => {
-    const map = new Map(MOCK_PORTFOLIO_PROJECTS.map((p) => [p.id, p.name]));
+    const map = new Map(portfolioProjects.map((p) => [p.id, p.name]));
     return (id: string) => map.get(id) ?? id;
-  }, []);
+  }, [portfolioProjects]);
 
   const extend = (id: string) => {
     setGrants((prev) =>

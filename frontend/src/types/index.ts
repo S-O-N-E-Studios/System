@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Core Domain Types - Project 360 Engineering PM Platform v6.0
+   Core Domain Types - Project 360 Engineering PM Platform v7.0
    Atlas Sahara Design System · Multi-Tenant SaaS
    ═══════════════════════════════════════════════════════════════════════════ */
 
-// v6.0 Project Lifecycle and Service Categories
-export type ProjectStage = 1 | 2 | 3 | 4 | 5 | 6;
+// v7.0 Project Lifecycle — 11 stages (0 to 10)
+export type ProjectStage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 export type ServiceCategory =
   | 'water_sanitation'
@@ -26,12 +26,17 @@ export const SERVICE_CATEGORY_LABELS: Record<ServiceCategory, string> = {
 };
 
 export const STAGE_NAMES: Record<ProjectStage, string> = {
+  0: 'Multi-Year Planning',
   1: 'Inception',
   2: 'Concept and Viability',
   3: 'Design Development',
   4: 'Documentation and Procurement',
-  5: 'Contract Administration and Inspection',
-  6: 'Close-Out',
+  5: 'Tender Stage',
+  6: 'Contractor Appointment',
+  7: 'Construction',
+  8: 'Practical Completion',
+  9: 'Close-Out',
+  10: 'Complete',
 };
 
 // Roles
@@ -40,7 +45,9 @@ export type UserRole =
   | 'ORG_ADMIN'
   | 'DEPT_ADMIN'
   | 'PROJECT_MANAGER'
+  | 'PM'
   | 'MEMBER'
+  | 'CLIENT_APPROVER'
   | 'VIEWER'
   | 'CLIENT_TEMP';
 
@@ -141,7 +148,9 @@ export type ProjectTab =
   | 'construction'
   | 'activities'
   | 'files'
-  | 'funding';
+  | 'funding'
+  | 'variations'
+  | 'media';
 
 export type GeoTecReportStatus = 'submitted' | 'in_review' | 'pending' | 'not_started';
 export type DDRStatus = 'complete' | 'in_review' | 'pending';
@@ -160,6 +169,27 @@ export interface ProjectLocation {
   lng?: number;
 }
 
+export interface ContractValueHistoryEntry {
+  date: string;
+  previousValue: number;
+  newValue: number;
+  variationOrderId?: string;
+  note?: string;
+}
+
+export interface SubConsultant {
+  role: string;
+  name: string;
+  appointedAt?: string;
+}
+
+export interface StageHistoryEntry {
+  stage: number;
+  advancedAt: string;
+  advancedBy: string;
+  documentsSnapshot?: string[];
+}
+
 export interface Project {
   id: string;
   tenantId: string;
@@ -171,7 +201,10 @@ export interface Project {
   serviceCategory?: ServiceCategory;
   localMunicipality?: string;
   idpProjectNo?: string;
+  contractValueOriginal: number;
+  contractValueAdjusted: number;
   contractValue: number;
+  contractValueHistory?: ContractValueHistoryEntry[];
   expenditureToDate: number;
   balance: number;
   location?: ProjectLocation;
@@ -180,6 +213,7 @@ export interface Project {
   projectManager?: string;
   projectManagerId?: string;
   teamMembers?: string[];
+  subConsultants?: SubConsultant[];
   appointmentDate?: string;
   completionDate?: string;
   completionGate?: CompletionGate;
@@ -195,6 +229,8 @@ export interface Project {
   totalEmployees?: number;
   roePercent?: number;
   attachmentCount?: number;
+  stageHistory?: StageHistoryEntry[];
+  linkedMultiYearPlanId?: string;
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
@@ -278,15 +314,50 @@ export type DocumentType =
   | 'environmental_report';
 
 export type FileCategory =
+  | 'scoping-report'
+  | 'appointment-letter'
+  | 'quotation'
+  | 'preliminary-design'
+  | 'preliminary-cost-estimate'
+  | 'preliminary-design-report'
+  | 'detailed-design'
+  | 'detailed-cost-estimate'
+  | 'detailed-design-report'
+  | 'tender-drawing'
+  | 'tender-document'
+  | 'tender-evaluation'
+  | 'pre-commencement'
+  | 'monthly-cash-flow'
+  | 'progress-report'
+  | 'safety-report'
   | 'payment-certificate'
-  | 'tender'
-  | 'drawing'
+  | 'meeting-minutes'
+  | 'variation-certificate'
+  | 'practical-completion'
+  | 'completion-certificate'
+  | 'final-account'
+  | 'as-built-drawing'
+  | 'final-approval'
+  | 'proof-of-payment'
+  | 'site-image'
+  | 'drone-video'
+  | 'activity-image'
   | 'digital-survey'
   | 'geotechnical'
   | 'environmental'
-  | 'proof-of-payment'
-  | 'activity-image'
+  | 'social-facilitation'
+  | 'community-minutes'
   | 'other';
+
+export type ApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected';
+export type MediaType = 'document' | 'image' | 'video';
+
+export interface FileVersionEntry {
+  fileId: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  approvalStatus: ApprovalStatus;
+}
 
 export interface ProjectFile {
   id: string;
@@ -297,6 +368,18 @@ export interface ProjectFile {
   filename?: string;
   storagePath?: string;
   mimeType: string;
+  mediaType?: MediaType;
+  approvalStatus?: ApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  approvalRequiredForStage?: number | null;
+  versionHistory?: FileVersionEntry[];
+  captureDate?: string;
+  captureGPS?: { lat: number; lng: number };
+  mediaDurationSeconds?: number;
+  thumbnailStoragePath?: string;
+  variationOrderId?: string;
   size: number;
   sizeBytes?: number;
   category: FileCategory;
@@ -392,6 +475,10 @@ export type CalendarEventType =
   | 'meeting'
   | 'deadline'
   | 'activity_update'
+  | 'stage_advanced'
+  | 'document_approved'
+  | 'document_rejected'
+  | 'variation_approved'
   | 'project_complete';
 
 export interface CalendarEvent {
@@ -594,6 +681,68 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+// v7.0 — Variation Orders
+export type VariationOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'withdrawn';
+
+export interface VariationOrder {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  variationNumber: string;
+  description: string;
+  reason: string;
+  estimatedAmount: number;
+  approvedAmount?: number;
+  status: VariationOrderStatus;
+  variationCertificateFileId?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// v7.0 — Multi-Year Planning
+export type MultiYearPlanStatus = 'planned' | 'selected_for_inception' | 'active' | 'cancelled';
+
+export interface MultiYearPlan {
+  id: string;
+  tenantId: string;
+  deptId?: string;
+  projectName: string;
+  description?: string;
+  serviceCategory: ServiceCategory;
+  localMunicipality?: string;
+  plannedYear: 1 | 2 | 3 | 4 | 5;
+  financialYear: string;
+  mtef: { year1: number; year2: number; year3: number };
+  funderType: FundingSourceType;
+  estimatedValue: number;
+  status: MultiYearPlanStatus;
+  linkedProjectId?: string;
+  idpProjectNo?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// v7.0 — Stage Approvals
+export interface StageApproval {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  stage: number;
+  documentCategory: string;
+  fileId: string;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  notificationSentAt?: string;
+  createdAt: string;
 }
 
 // Zod Schemas (Form Validation)

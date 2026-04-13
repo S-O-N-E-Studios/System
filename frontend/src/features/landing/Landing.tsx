@@ -176,7 +176,7 @@ function BostonBridgeScene({ className }: { className?: string }) {
 
       {/* ── BRIDGE PIERS (in water) ── */}
       <g className={`bb-slide ${d(4)}`}>
-        {towers.map((t, i) => {
+        {towers.map((_t, i) => {
           const cx = i === 0 ? T1 : T2;
           return (
             <rect key={i} x={cx - 10} y={deckY + 1}

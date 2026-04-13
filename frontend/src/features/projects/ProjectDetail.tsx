@@ -24,7 +24,7 @@ import ProjectActivitySchedule from './ProjectActivitySchedule';
 import ProjectPaymentHistory from './ProjectPaymentHistory';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 import { STAGE_NAMES } from '@/types';
-import type { ProjectFile, ProjectStage } from '@/types';
+import type { Project, ProjectFile, ProjectStage } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
@@ -32,10 +32,11 @@ import { useCan } from '@/rbac/useCan';
 import {
   advanceProjectStage,
   fetchProjectStageStatus,
-  notifyMockStageDocumentUploaded,
   type StageMissingDoc,
 } from '@/api/projectStage';
 import { filesApi } from '@/api/files';
+import { projectsApi } from '@/api/projects';
+import apiClient from '@/api/client';
 
 const detailTabs = [
   'Overview',
@@ -47,71 +48,6 @@ const detailTabs = [
   'Funding Sources',
 ] as const;
 
-/* Mock stage gate status (v6.0) */
-const MOCK_CURRENT_STAGE: ProjectStage = 4;
-
-/* Mock multi-year payment forecast */
-const MOCK_PAYMENT_PLAN = [
-  { year: 2026, q1: 4_500_000, q2: 6_200_000, q3: 5_800_000, q4: 3_500_000 },
-  { year: 2027, q1: 2_800_000, q2: 4_100_000, q3: 3_600_000, q4: 2_200_000 },
-  { year: 2028, q1: 1_500_000, q2: 2_000_000, q3: 0, q4: 0 },
-];
-
-/* Mock documents */
-const MOCK_DOCS = [
-  { id: '1', name: 'PBD.pdf', category: 'payment-certificate', uploadedAt: '12 Jan 2026' },
-  { id: '2', name: 'DA Approval.pdf', category: 'tender', uploadedAt: '15 Jan 2026' },
-  { id: '3', name: 'Tender Document.pdf', category: 'tender', uploadedAt: '20 Jan 2026' },
-  { id: '4', name: 'Site Drawings v3.dwg', category: 'drawing', uploadedAt: '22 Feb 2026' },
-  { id: '5', name: 'Geotechnical Report.pdf', category: 'geotechnical', uploadedAt: '5 Feb 2026' },
-];
-
-/* Mock monthly payment forecast/actual for Construction tab chart */
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MOCK_FORECAST_MONTHLY = MONTHS.map((m, i) => ({
-  month: m,
-  amount: i < 9 ? 4_500_000 + (i % 3) * 500_000 : 2_000_000,
-}));
-const MOCK_ACTUAL_MONTHLY = MONTHS.map((m, i) => ({
-  month: m,
-  amount: Math.round((4_200_000 + (i % 4) * 300_000) * (i < 3 ? 0.9 : 1)),
-}));
-
-/* Mock funding sources */
-const MOCK_FUNDING_SOURCES = [
-  { id: '1', name: 'MIG', total: 25_000_000, disbursed: 9_500_000, remaining: 15_500_000 },
-  { id: '2', name: 'WSIG', total: 12_000_000, disbursed: 4_200_000, remaining: 7_800_000 },
-  { id: '3', name: 'Provincial Budget', total: 8_000_000, disbursed: 1_500_000, remaining: 6_500_000 },
-];
-
-/* Professional Services: stages 1–4 documents flattened */
-const PROF_SERVICES_DOCS = (() => {
-  const out: { documentName: string; category: string; stage: number; uploaded: boolean; fileName?: string }[] = [];
-  ([1, 2, 3, 4] as const).forEach((stage) => {
-    const reqs = STAGE_DOCUMENT_REQUIREMENTS[stage];
-    reqs.forEach((r, i) => {
-      out.push({
-        documentName: r.documentName,
-        category: r.category,
-        stage,
-        uploaded: stage < MOCK_CURRENT_STAGE || (stage === MOCK_CURRENT_STAGE && i < 2),
-        fileName: stage < MOCK_CURRENT_STAGE || (stage === MOCK_CURRENT_STAGE && i < 2)
-          ? `${r.documentName.replace(/\s/g, '-')}.pdf`
-          : undefined,
-      });
-    });
-  });
-  return out;
-})();
-
-/* Geo-Technical related documents */
-const GEO_TECH_DOCS = [
-  { name: 'Geotechnical Investigation Report', category: 'geotechnical', uploaded: true, fileName: 'Geo-Report-R573.pdf' },
-  { name: 'Digital Survey Data', category: 'digital-survey', uploaded: true, fileName: 'Survey-2026-01.dwg' },
-  { name: 'Environmental Impact Assessment', category: 'environmental', uploaded: false },
-  { name: 'Soil Test Results', category: 'geotechnical', uploaded: true, fileName: 'Soil-Tests.pdf' },
-  { name: 'Topographical Survey', category: 'digital-survey', uploaded: false },
-];
 
 function useCountdown(targetDate: string) {
   const [remaining, setRemaining] = useState(() => {
@@ -136,8 +72,12 @@ export default function ProjectDetail() {
   const { tenantSlug, id } = useParams<{ tenantSlug: string; id: string }>();
   const [activeTab, setActiveTab] = useState<typeof detailTabs[number]>('Overview');
   const [stageDrawerOpen, setStageDrawerOpen] = useState<ProjectStage | null>(null);
-  const countdown = useCountdown('2026-11-30');
-  const [currentStage, setCurrentStage] = useState<ProjectStage>(MOCK_CURRENT_STAGE);
+  const [project, setProject] = useState<Project | null>(null);
+  const [, setProjectLoading] = useState(true);
+  const [fundingSources, setFundingSources] = useState<Record<string, unknown>[]>([]);
+
+  const countdown = useCountdown(project?.completionDate || '2026-12-31');
+  const [currentStage, setCurrentStage] = useState<ProjectStage>(1);
   const [stageMissingDocs, setStageMissingDocs] = useState<StageMissingDoc[]>([]);
   const [isStageLoading, setIsStageLoading] = useState(false);
   const [isStageStatusLoaded, setIsStageStatusLoaded] = useState(false);
@@ -157,23 +97,119 @@ export default function ProjectDetail() {
   const pinnedForTenant = useProjectStore((s) =>
     tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,
   );
-  const projectDisplayName = 'R573 Road Rehabilitation';
-  const projectRef = 'PRJ-2026-001';
+  const projectDisplayName = project?.name || 'Loading…';
+  const projectRef = project?.refCode || '';
   const isPinned = Boolean(tenantSlug && id && pinnedForTenant.some((p) => p.id === id));
 
-  const visibleDocs = isClientTemp
-    ? MOCK_DOCS.filter((doc) => doc.category !== 'payment-certificate' && doc.category !== 'proof-of-payment')
-    : MOCK_DOCS;
-
   const [filesByStage, setFilesByStage] = useState<Record<ProjectStage, ProjectFile[]>>({
+    0: [],
     1: [],
     2: [],
     3: [],
     4: [],
     5: [],
     6: [],
+    7: [],
+    8: [],
+    9: [],
+    10: [],
   });
   const [isFilesLoading, setIsFilesLoading] = useState(false);
+
+  const contractValue = project?.contractValueAdjusted || project?.contractValueOriginal || project?.contractValue || 0;
+  const expenditure = project?.expenditureToDate || 0;
+  const balance = project?.balance ?? (contractValue - expenditure);
+  const percentComplete = project?.percentComplete ?? (currentStage ? Math.round((currentStage / 6) * 100) : 0);
+
+  const projectRecord = project as (Project & Record<string, unknown>) | null;
+  const paymentPlan: { year: number; q1: number; q2: number; q3: number; q4: number }[] =
+    (projectRecord?.paymentPlan as { year: number; q1: number; q2: number; q3: number; q4: number }[]) || [];
+  const forecastMonthly: { month: string; amount: number }[] =
+    (projectRecord?.paymentForecast as { month: string; amount: number }[]) || [];
+  const actualMonthly: { month: string; amount: number }[] =
+    (projectRecord?.paymentActual as { month: string; amount: number }[]) || [];
+
+  const profServicesDocs = (() => {
+    const out: { documentName: string; category: string; stage: number; uploaded: boolean; fileName?: string }[] = [];
+    ([1, 2, 3, 4] as const).forEach((stage) => {
+      const reqs = STAGE_DOCUMENT_REQUIREMENTS[stage];
+      const stageFiles = filesByStage[stage] ?? [];
+      reqs.forEach((r) => {
+        const match = stageFiles.find((f) => f.category === r.category);
+        out.push({
+          documentName: r.documentName,
+          category: r.category,
+          stage,
+          uploaded: Boolean(match) || stage < currentStage,
+          fileName: match?.originalName ?? match?.filename ?? undefined,
+        });
+      });
+    });
+    return out;
+  })();
+
+  const geoTechDocs = (() => {
+    const geoCategories = ['geotechnical', 'digital-survey', 'environmental'];
+    const allFiles = Object.values(filesByStage).flat();
+    const geoFiles = allFiles.filter((f) => geoCategories.includes(f.category));
+
+    const docMap = new Map<string, { name: string; category: string; uploaded: boolean; fileName?: string }>();
+    for (const f of geoFiles) {
+      const key = f.originalName || f.filename || f.id;
+      docMap.set(key, {
+        name: f.originalName || f.filename || 'Untitled',
+        category: f.category,
+        uploaded: true,
+        fileName: f.originalName || f.filename,
+      });
+    }
+
+    const reqs = [
+      { name: 'Geotechnical Investigation Report', category: 'geotechnical' },
+      { name: 'Digital Survey Data', category: 'digital-survey' },
+      { name: 'Environmental Impact Assessment', category: 'environmental' },
+    ];
+    for (const r of reqs) {
+      if (![...docMap.values()].some((d) => d.category === r.category)) {
+        docMap.set(r.name, { name: r.name, category: r.category, uploaded: false });
+      }
+    }
+    return [...docMap.values()];
+  })();
+
+  const allProjectFiles = Object.values(filesByStage).flat();
+  const visibleDocs = isClientTemp
+    ? allProjectFiles.filter((f) => f.category !== 'payment-certificate' && f.category !== 'proof-of-payment')
+    : allProjectFiles;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProject() {
+      if (!tenantSlug || !id) return;
+      setProjectLoading(true);
+      try {
+        const res = await projectsApi.getById(id);
+        if (!cancelled) {
+          setProject(res);
+          if (res.currentStage) setCurrentStage(res.currentStage);
+        }
+      } catch {
+        // Keep defaults if API unavailable
+      } finally {
+        if (!cancelled) setProjectLoading(false);
+      }
+    }
+    void loadProject();
+    return () => { cancelled = true; };
+  }, [tenantSlug, id]);
+
+  useEffect(() => {
+    if (!tenantSlug || !id) return;
+    apiClient.get(`/${tenantSlug}/projects/${id}/funding-sources`).then(res => {
+      const data = res.data?.data || res.data;
+      setFundingSources(Array.isArray(data) ? data : data?.fundingSources || []);
+    }).catch(() => {});
+  }, [tenantSlug, id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,7 +254,7 @@ export default function ProjectDetail() {
       // Fetch when user opens the Files tab or opens a stage drawer.
       const shouldFetchAllStages = activeTab === 'Files';
       const targetStages: ProjectStage[] = shouldFetchAllStages
-        ? ([1, 2, 3, 4, 5, 6] as ProjectStage[])
+        ? ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as ProjectStage[])
         : stageDrawerOpen != null
           ? [stageDrawerOpen]
           : [];
@@ -279,12 +315,12 @@ export default function ProjectDetail() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <span className="text-mono">PRJ-2026-001</span>
+        <span className="text-mono">{projectRef}</span>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-h1 mb-1">R573 Road Rehabilitation</h1>
+          <h1 className="text-h1 mb-1">{projectDisplayName}</h1>
           <StatusBadge status="active">Active</StatusBadge>
         </div>
         <div className="flex items-center gap-3">
@@ -343,17 +379,17 @@ export default function ProjectDetail() {
             {[
               {
                 label: 'Contract Value',
-                value: isClientTemp ? '—— Restricted' : formatRands(45_000_000),
+                value: isClientTemp ? '—— Restricted' : formatRands(contractValue),
               },
               {
                 label: 'Expenditure',
-                value: isClientTemp ? '—— Restricted' : formatRands(15_200_000),
+                value: isClientTemp ? '—— Restricted' : formatRands(expenditure),
               },
               {
                 label: 'Balance',
-                value: isClientTemp ? '—— Restricted' : formatRands(29_800_000),
+                value: isClientTemp ? '—— Restricted' : formatRands(balance),
               },
-              { label: '% Complete', value: '38%' },
+              { label: '% Complete', value: `${percentComplete}%` },
             ].map((kpi) => (
               <div key={kpi.label} className="p-5 border border-[var(--border-default)] bg-[var(--bg-surface)]">
                 <p className="text-eyebrow mb-2">{kpi.label}</p>
@@ -452,13 +488,10 @@ export default function ProjectDetail() {
                             (m) => !(m.documentName === documentName && m.category === category),
                           ),
                         );
-                        notifyMockStageDocumentUploaded({ documentName, category });
                         setIsStageLoading(false);
                         setIsStageStatusLoaded(true);
                         return;
                       }
-
-                      notifyMockStageDocumentUploaded({ documentName, category });
 
                       // Reload stage gate status after successful upload.
                       try {
@@ -585,7 +618,14 @@ export default function ProjectDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_PAYMENT_PLAN.map((row, i) => {
+                    {paymentPlan.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-[var(--text-muted)] text-[0.85rem]">
+                          No payment plan data available.
+                        </td>
+                      </tr>
+                    )}
+                    {paymentPlan.map((row, i) => {
                       const total = row.q1 + row.q2 + row.q3 + row.q4;
                       return (
                         <tr
@@ -619,7 +659,7 @@ export default function ProjectDetail() {
                 <div className="mt-4">
                   <ResponsiveContainer width="100%" height={120}>
                     <BarChart
-                      data={MOCK_PAYMENT_PLAN.map((row) => ({
+                      data={paymentPlan.map((row) => ({
                         year: String(row.year),
                         Q1: row.q1,
                         Q2: row.q2,
@@ -668,6 +708,9 @@ export default function ProjectDetail() {
             <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
               <h3 className="text-h3 mb-4">Project Documents</h3>
               <div className="flex flex-col gap-0">
+                {visibleDocs.length === 0 && (
+                  <p className="text-body text-[var(--text-muted)] py-4">No documents uploaded yet.</p>
+                )}
                 {visibleDocs.map((doc) => (
                   <div
                     key={doc.id}
@@ -676,13 +719,13 @@ export default function ProjectDetail() {
                     <div className="flex items-center gap-3">
                       <FileText className="h-4 w-4 text-[var(--accent-periwinkle)]" />
                       <div>
-                        <p className="text-[0.82rem] text-[var(--text-primary)]">{doc.name}</p>
+                        <p className="text-[0.82rem] text-[var(--text-primary)]">{doc.originalName || doc.filename || 'Untitled'}</p>
                         <p className="text-[0.62rem] text-[var(--text-muted)] uppercase tracking-wider">
-                          {doc.category.replace(/-/g, ' ')}
+                          {String(doc.category).replace(/-/g, ' ')}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[0.62rem] text-[var(--text-muted)]">{doc.uploadedAt}</span>
+                    <span className="text-[0.62rem] text-[var(--text-muted)]">{new Date(doc.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                   </div>
                 ))}
               </div>
@@ -699,22 +742,22 @@ export default function ProjectDetail() {
           {/* Location + Key Info */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ProjectLocationMap
-              address="R573, Mbombela, Mpumalanga"
-              lat={-25.4753}
-              lng={30.9694}
-              gpsFormatted="-25.4753, 30.9694"
+              address={project?.location?.address || project?.localMunicipality || 'N/A'}
+              lat={project?.location?.lat ?? -25.4753}
+              lng={project?.location?.lng ?? 30.9694}
+              gpsFormatted={project?.gpsFormatted || (project?.location?.lat != null ? `${project.location.lat}, ${project.location.lng}` : '')}
             />
 
             <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
               <h3 className="text-h3 mb-4">Key Information</h3>
               <div className="flex flex-col gap-3">
                 {[
-                  { label: 'Department', value: 'DPW' },
-                  { label: 'Start Date', value: '15 Jan 2026' },
-                  { label: 'Completion Date', value: '30 Nov 2026' },
-                  { label: 'Project Manager', value: 'Fortune Mabona' },
-                  { label: 'Contractor', value: 'BuildCorp SA' },
-                  { label: 'Geo-Tec Engineer', value: 'Geoscience Ltd' },
+                  { label: 'Department', value: (projectRecord?.department as { name: string } | undefined)?.name || 'N/A' },
+                  { label: 'Start Date', value: project?.startDate ? new Date(project.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A' },
+                  { label: 'Completion Date', value: project?.completionDate ? new Date(project.completionDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A' },
+                  { label: 'Project Manager', value: (typeof project?.projectManager === 'object' ? (project.projectManager as unknown as { fullName: string })?.fullName : project?.projectManager) || 'N/A' },
+                  { label: 'Contractor', value: project?.contractor || 'N/A' },
+                  { label: 'Geo-Tec Engineer', value: project?.geoTecEngineer || 'N/A' },
                 ].map((row) => (
                   <div key={row.label} className="flex items-baseline justify-between py-2 border-b border-[var(--border-default)]">
                     <span className="text-[0.7rem] text-[var(--text-muted)]">{row.label}</span>
@@ -724,7 +767,7 @@ export default function ProjectDetail() {
               </div>
               <div className="mt-6">
                 <p className="text-eyebrow mb-3">Progress</p>
-                <ProgressBar value={38} height={4} />
+                <ProgressBar value={percentComplete} height={4} />
               </div>
             </div>
           </div>
@@ -751,7 +794,7 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="space-y-6">
-              {([1, 2, 3, 4, 5, 6] as ProjectStage[]).map((stage) => {
+              {([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as ProjectStage[]).map((stage) => {
                 const stageFiles = filesByStage[stage] ?? [];
 
                 const stageReqs = STAGE_DOCUMENT_REQUIREMENTS[stage];
@@ -905,7 +948,7 @@ export default function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {PROF_SERVICES_DOCS.map((doc, i) => (
+                {profServicesDocs.map((doc, i) => (
                   <tr
                     key={`${doc.stage}-${doc.documentName}`}
                     className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
@@ -953,7 +996,7 @@ export default function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {GEO_TECH_DOCS.map((doc, i) => (
+                {geoTechDocs.map((doc, i) => (
                   <tr
                     key={doc.name}
                     className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
@@ -990,15 +1033,15 @@ export default function ProjectDetail() {
             {[
               {
                 label: 'Contract Value',
-                value: isClientTemp ? '—— Restricted' : formatRands(45_000_000),
+                value: isClientTemp ? '—— Restricted' : formatRands(contractValue),
               },
               {
                 label: 'Paid to Date',
-                value: isClientTemp ? '—— Restricted' : formatRands(15_200_000),
+                value: isClientTemp ? '—— Restricted' : formatRands(expenditure),
               },
               {
                 label: 'Remaining',
-                value: isClientTemp ? '—— Restricted' : formatRands(29_800_000),
+                value: isClientTemp ? '—— Restricted' : formatRands(balance),
               },
             ].map((kpi) => (
               <div key={kpi.label} className="p-5 border border-[var(--border-default)] bg-[var(--bg-surface)]">
@@ -1016,8 +1059,8 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <PaymentForecastChart
-              forecastData={MOCK_FORECAST_MONTHLY}
-              actualData={MOCK_ACTUAL_MONTHLY}
+              forecastData={forecastMonthly}
+              actualData={actualMonthly}
               title="Expected vs Actual Payments"
               height={320}
             />
@@ -1047,23 +1090,37 @@ export default function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_FUNDING_SOURCES.map((row, i) => (
-                  <tr
-                    key={row.id}
-                    className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{row.name}</td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {isClientTemp ? '—— Restricted' : formatRands(row.total)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {isClientTemp ? '—— Restricted' : formatRands(row.disbursed)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {isClientTemp ? '—— Restricted' : formatRands(row.remaining)}
+                {fundingSources.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-[var(--text-muted)] text-[0.85rem]">
+                      No funding sources available.
                     </td>
                   </tr>
-                ))}
+                )}
+                {fundingSources.map((row, i) => {
+                  const rowId = String(row.id ?? row._id ?? i);
+                  const rowName = String(row.sourceName || row.name || row.source || 'N/A');
+                  const rowTotal = Number(row.total || row.amount || 0);
+                  const rowDisbursed = Number(row.disbursed || 0);
+                  const rowRemaining = row.remaining != null ? Number(row.remaining) : rowTotal - rowDisbursed;
+                  return (
+                  <tr
+                    key={rowId}
+                    className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
+                  >
+                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{rowName}</td>
+                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {isClientTemp ? '—— Restricted' : formatRands(rowTotal)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {isClientTemp ? '—— Restricted' : formatRands(rowDisbursed)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {isClientTemp ? '—— Restricted' : formatRands(rowRemaining)}
+                    </td>
+                  </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
