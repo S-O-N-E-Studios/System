@@ -15,7 +15,7 @@ const getGrant = async (tenant, grantId) => {
   return grant;
 };
 
-const createGrant = async (tenant, data, userId) => {
+const createGrant = async (tenant, data, _userId) => {
   const payload = normalizeDeptId({ ...data });
   const grant = await grantRepo.create({
     ...payload,

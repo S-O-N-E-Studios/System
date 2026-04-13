@@ -52,7 +52,7 @@ const createProject = async (tenant, data, createdBy) => {
   return project;
 };
 
-const updateProject = async (tenant, projectId, updates, requestingUser) => {
+const updateProject = async (tenant, projectId, updates, _requestingUser) => {
   if (updates.status === 'complete') {
     throw Object.assign(
       new Error('Projects cannot be marked complete directly. Advance through the stage gate to complete a project.'),

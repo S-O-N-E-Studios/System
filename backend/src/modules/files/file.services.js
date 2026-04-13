@@ -67,7 +67,7 @@ const registerFile = async (tenant, data, userId) => {
   return file;
 };
 
-const toggleVisibility = async (tenant, fileId, userId) => {
+const toggleVisibility = async (tenant, fileId, _userId) => {
   const file = await fileRepo.findById(fileId, tenant._id);
   if (!file) throw Object.assign(new Error('File not found'), { status: 404 });
 

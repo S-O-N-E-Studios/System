@@ -58,7 +58,7 @@ const getStageStatus = async (req, res) => {
 const advanceStage = async (req, res) => {
   try {
     // Check current stage first to route to the right handler
-    const { projectId } = { projectId: req.params.id };
+    const { projectId: _projectId } = { projectId: req.params.id };
     const Project = require('./project.model');
     const project = await Project.findOne({
       _id:       req.params.id,

@@ -54,17 +54,35 @@ function ConstructionScene({ className }: { className?: string }) {
           @keyframes csPulse   { 0%,100%{opacity:0.3} 50%{opacity:0.8} }
           @keyframes csSwing   { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(2deg)} }
 
+          @keyframes csSunGlow   { 0%,100%{r:30;opacity:0.06} 50%{r:36;opacity:0.10} }
+          @keyframes csDrumSpin  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+          @keyframes csCloudDrift{ from{transform:translateX(0)} to{transform:translateX(820px)} }
+          @keyframes csExcavate  { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(-4deg)} }
+          @keyframes csDustRise  { 0%{opacity:0.4;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-18px) scale(1.6)} }
+          @keyframes csFlicker   { 0%,40%,100%{opacity:0.04} 45%,55%{opacity:0.18} }
+          @keyframes csSpark     { 0%,80%,100%{opacity:0} 85%{opacity:0.7} 90%{opacity:0} 95%{opacity:0.5} }
+
           .cs-fade  { opacity:0; animation:csFadeIn  0.8s ease both }
           .cs-draw  { stroke-dasharray:800; stroke-dashoffset:800; opacity:0; animation:csDraw 1.4s ease both }
           .cs-slide { opacity:0; animation:csSlideUp 0.7s ease both }
           .cs-pulse { animation:csPulse 3s ease-in-out infinite }
           .cs-swing { transform-origin:50% 0%; animation:csSwing 4s ease-in-out infinite }
 
+          .cs-sun-glow  { animation:csSunGlow 6s ease-in-out infinite }
+          .cs-drum-spin { animation:csDrumSpin 5s linear infinite }
+          .cs-cloud     { animation:csCloudDrift 50s linear infinite }
+          .cs-cloud-2   { animation:csCloudDrift 70s linear infinite }
+          .cs-excavate  { animation:csExcavate 3.5s ease-in-out infinite }
+          .cs-dust      { animation:csDustRise 2.5s ease-out infinite }
+          .cs-flicker   { animation:csFlicker 4s ease-in-out infinite }
+          .cs-spark     { animation:csSpark 3s ease infinite }
+
           ${delays}
 
           @media(prefers-reduced-motion:reduce){
             .cs-fade,.cs-draw,.cs-slide{animation:none!important;opacity:1}
             .cs-draw{stroke-dasharray:none;stroke-dashoffset:0}
+            .cs-sun-glow,.cs-drum-spin,.cs-cloud,.cs-cloud-2,.cs-excavate,.cs-dust,.cs-flicker,.cs-spark,.cs-pulse,.cs-swing{animation:none!important}
           }
         `}</style>
       </defs>
@@ -73,11 +91,26 @@ function ConstructionScene({ className }: { className?: string }) {
       <rect width="800" height="400" fill="url(#cs-sky)" />
       <ellipse cx="650" cy="80" rx="180" ry="100" fill="url(#cs-sunset)" className={`cs-fade ${d(0)}`} />
 
-      {/* ── SUN (large, low on horizon) ── */}
+      {/* ── SUN (large, low on horizon, pulsing glow) ── */}
       <g className={`cs-fade ${d(0)}`}>
-        <circle cx="650" cy="95" r="30" fill={gold} opacity="0.08" />
+        <circle cx="650" cy="95" r="30" fill={gold} opacity="0.06" className="cs-sun-glow" />
         <circle cx="650" cy="95" r="18" fill={gold} opacity="0.12" />
         <circle cx="650" cy="95" r="10" fill={gold} opacity="0.18" />
+      </g>
+
+      {/* ── DRIFTING CLOUDS ── */}
+      <g className={`cs-fade ${d(1)}`} opacity="0.08">
+        <g className="cs-cloud" style={{ animationDelay: '-5s' }}>
+          <ellipse cx="-60" cy="55" rx="40" ry="8" fill={bdr} />
+          <ellipse cx="-45" cy="50" rx="25" ry="6" fill={bdr} />
+        </g>
+        <g className="cs-cloud-2" style={{ animationDelay: '-25s' }}>
+          <ellipse cx="-120" cy="90" rx="35" ry="7" fill={bdr} />
+          <ellipse cx="-105" cy="85" rx="22" ry="5" fill={bdr} />
+        </g>
+        <g className="cs-cloud" style={{ animationDelay: '-30s' }}>
+          <ellipse cx="-200" cy="40" rx="30" ry="6" fill={bdr} />
+        </g>
       </g>
 
       {/* ── ROLLING HILLS ── */}
@@ -205,7 +238,7 @@ function ConstructionScene({ className }: { className?: string }) {
         )}
       </g>
 
-      {/* ── EXCAVATOR (foreground left) ── */}
+      {/* ── EXCAVATOR (foreground left, animated arm) ── */}
       <g className={`cs-slide ${d(7)}`}>
         {/* Tracks */}
         <rect x="80" y={groundY - 4} width="42" height="8" rx="3" fill={muted} opacity="0.25" />
@@ -213,26 +246,36 @@ function ConstructionScene({ className }: { className?: string }) {
         {/* Cab */}
         <rect x="88" y={groundY - 18} width="28" height="14" fill={acc} opacity="0.30" />
         <rect x="105" y={groundY - 16} width="8" height="7" fill={gold} opacity="0.08" />
-        {/* Boom */}
-        <line x1="116" y1={groundY - 16} x2="160" y2={groundY - 50} stroke={acc} strokeWidth="1.8" opacity="0.5" />
-        <line x1="160" y1={groundY - 50} x2="175" y2={groundY - 30} stroke={acc} strokeWidth="1.2" opacity="0.4" />
-        {/* Bucket */}
-        <path d="M170,250 L180,250 L182,260 L168,260 Z" fill={acc} opacity="0.35" />
-        {/* Hydraulic cylinders */}
-        <line x1="100" y1={groundY - 14} x2="135" y2={groundY - 38} stroke={gold} strokeWidth="0.6" opacity="0.3" />
+        {/* Boom + arm (pivots at cab joint) */}
+        <g className="cs-excavate" style={{ transformOrigin: '116px 264px' }}>
+          <line x1="116" y1={groundY - 16} x2="160" y2={groundY - 50} stroke={acc} strokeWidth="1.8" opacity="0.5" />
+          <line x1="160" y1={groundY - 50} x2="175" y2={groundY - 30} stroke={acc} strokeWidth="1.2" opacity="0.4" />
+          {/* Bucket */}
+          <path d="M170,250 L180,250 L182,260 L168,260 Z" fill={acc} opacity="0.35" />
+          {/* Hydraulic cylinder */}
+          <line x1="100" y1={groundY - 14} x2="135" y2={groundY - 38} stroke={gold} strokeWidth="0.6" opacity="0.3" />
+        </g>
+        {/* Dust from digging */}
+        <circle cx="175" cy={groundY - 2} r="3" fill={bdr} opacity="0.15" className="cs-dust" style={{ animationDelay: '0s' }} />
+        <circle cx="182" cy={groundY - 4} r="2" fill={bdr} opacity="0.10" className="cs-dust" style={{ animationDelay: '0.8s' }} />
+        <circle cx="168" cy={groundY}     r="2.5" fill={bdr} opacity="0.12" className="cs-dust" style={{ animationDelay: '1.6s' }} />
       </g>
 
-      {/* ── CONCRETE MIXER TRUCK (right foreground) ── */}
+      {/* ── CONCRETE MIXER TRUCK (right foreground, spinning drum) ── */}
       <g className={`cs-slide ${d(8)}`}>
         {/* Truck body */}
         <rect x="560" y={groundY - 14} width="48" height="14" fill={acc} opacity="0.22" />
         {/* Cab */}
         <rect x="608" y={groundY - 16} width="18" height="16" fill={acc} opacity="0.28" />
         <rect x="614" y={groundY - 14} width="8" height="7" fill={gold} opacity="0.07" />
-        {/* Drum */}
+        {/* Drum (static shell) */}
         <ellipse cx="584" cy={groundY - 16} rx="20" ry="11" fill={bdr} opacity="0.15" stroke={acc} strokeWidth="0.6" />
-        <line x1="570" y1={groundY - 20} x2="598" y2={groundY - 12} stroke={acc} strokeWidth="0.4" opacity="0.25" />
-        <line x1="570" y1={groundY - 14} x2="598" y2={groundY - 22} stroke={acc} strokeWidth="0.4" opacity="0.25" />
+        {/* Drum spiral stripes (spinning) */}
+        <g className="cs-drum-spin" style={{ transformOrigin: '584px 264px' }}>
+          <line x1="570" y1={groundY - 20} x2="598" y2={groundY - 12} stroke={acc} strokeWidth="0.4" opacity="0.25" />
+          <line x1="570" y1={groundY - 14} x2="598" y2={groundY - 22} stroke={acc} strokeWidth="0.4" opacity="0.25" />
+          <line x1="574" y1={groundY - 22} x2="594" y2={groundY - 10} stroke={acc} strokeWidth="0.3" opacity="0.15" />
+        </g>
         {/* Wheels */}
         <circle cx="572" cy={groundY} r="4" fill={sec} opacity="0.4" />
         <circle cx="600" cy={groundY} r="4" fill={sec} opacity="0.4" />
@@ -257,6 +300,29 @@ function ConstructionScene({ className }: { className?: string }) {
         {/* Pipe stack */}
         {[[470, groundY - 6], [474, groundY - 6], [472, groundY - 10]] .map(([x, y], i) => (
           <circle key={i} cx={x} cy={y} r="3" fill={bdr} opacity="0.12" stroke={acc} strokeWidth="0.3" />
+        ))}
+      </g>
+
+      {/* ── WELDING SPARKS on building ── */}
+      <g className={`cs-fade ${d(10)}`}>
+        <circle cx="350" cy="145" r="2" fill={gold} className="cs-spark" style={{ animationDelay: '0s' }} />
+        <circle cx="352" cy="143" r="1" fill={gold} className="cs-spark" style={{ animationDelay: '0.3s' }} />
+        <circle cx="348" cy="147" r="1.2" fill={gold} className="cs-spark" style={{ animationDelay: '0.7s' }} />
+        <circle cx="354" cy="146" r="0.8" fill={gold} className="cs-spark" style={{ animationDelay: '1.1s' }} />
+      </g>
+
+      {/* ── FLICKERING WINDOWS (distant buildings come alive) ── */}
+      <g className={`cs-fade ${d(3)}`}>
+        {[
+          [84, 205, 0], [84, 213, 1.2], [88, 221, 2.5],
+          [134, 213, 0.6], [134, 221, 1.8], [138, 229, 3.2],
+          [624, 208, 0.4], [628, 216, 1.5], [624, 224, 2.8],
+          [684, 218, 0.9], [688, 226, 2.1], [684, 234, 3.5],
+        ].map(([x, y, delay], i) => (
+          <rect key={`fl-${i}`} x={x} y={y} width="3" height="3"
+            fill={gold} opacity="0.04"
+            className="cs-flicker"
+            style={{ animationDelay: `${delay}s`, animationDuration: `${3 + (i % 3)}s` }} />
         ))}
       </g>
 

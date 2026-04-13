@@ -1,22 +1,29 @@
-const authService = require('./milestone.services');
+const milestoneService = require('./milestone.services');
+const { sendSuccess, sendCreated } = require('../../utils/apiResponse');
 
-exports.register = async (req, res, next) => {
-
-    try {
-        const user = await authService.register(req.body);
-
-        res.status(201).json({ message: 'User registered successfully', user });    
-    } catch (error) {
-        next(error);
-    }
+const list = async (req, res) => {
+  const milestones = await milestoneService.listMilestones(req.tenant, req.params.projectId);
+  return sendSuccess(res, { milestones });
 };
 
-exports.login = async (req, res, next) => {
-    try{
-        const data = await authService.login(req.body);
-
-        res.status(200).json({ message: 'Login successful', data });
-    }catch (error){
-        next(error);
-    }
+const getOne = async (req, res) => {
+  const ms = await milestoneService.getMilestone(req.tenant, req.params.projectId, req.params.milestoneId);
+  return sendSuccess(res, { milestone: ms });
 };
+
+const create = async (req, res) => {
+  const ms = await milestoneService.createMilestone(req.tenant, req.params.projectId, req.body);
+  return sendCreated(res, { milestone: ms });
+};
+
+const update = async (req, res) => {
+  const ms = await milestoneService.updateMilestone(req.tenant, req.params.projectId, req.params.milestoneId, req.body);
+  return sendSuccess(res, { milestone: ms });
+};
+
+const remove = async (req, res) => {
+  const result = await milestoneService.deleteMilestone(req.tenant, req.params.projectId, req.params.milestoneId);
+  return sendSuccess(res, result);
+};
+
+module.exports = { list, getOne, create, update, remove };

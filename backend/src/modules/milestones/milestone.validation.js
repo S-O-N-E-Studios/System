@@ -1,11 +1,21 @@
+const Joi = require('joi');
 
-// Validation rules for authentication endpoints prevents invalid data from being processed by the controller
+const createMilestoneSchema = Joi.object({
+  title: Joi.string().min(2).max(200).trim().required(),
+  description: Joi.string().max(1000).trim().allow(null, ''),
+  dueDate: Joi.date().iso().allow(null),
+  status: Joi.string().valid('pending', 'completed', 'overdue').default('pending'),
+});
 
-exports.validateRegister = (req, res, next) => {
-    const {email,password} = req.body;
+const updateMilestoneSchema = Joi.object({
+  title: Joi.string().min(2).max(200).trim(),
+  description: Joi.string().max(1000).trim().allow(null, ''),
+  dueDate: Joi.date().iso().allow(null),
+  status: Joi.string().valid('pending', 'completed', 'overdue'),
+  completedAt: Joi.date().iso().allow(null),
+});
 
-    if(!email || !password){
-        return res.status(400).json({ message: 'Email and password are required' });
-    }
-    next();
+module.exports = {
+  createMilestoneSchema,
+  updateMilestoneSchema,
 };

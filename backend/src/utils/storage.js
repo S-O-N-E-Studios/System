@@ -62,12 +62,12 @@ const getS3DownloadPresignedUrl = async (storagePath) => {
 
 //  Azure Blob 
 
-const getAzureUploadPresignedUrl = async (storagePath, mimeType) => {
+const getAzureUploadPresignedUrl = async (_storagePath, _mimeType) => {
   // Stub — implement when STORAGE_PROVIDER=azure (Open Item #11)
   throw new Error('Azure Blob presigned URLs not yet implemented');
 };
 
-const getAzureDownloadPresignedUrl = async (storagePath) => {
+const getAzureDownloadPresignedUrl = async (_storagePath) => {
   throw new Error('Azure Blob presigned URLs not yet implemented');
 };
 

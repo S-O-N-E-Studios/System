@@ -34,7 +34,7 @@ const listActivities = async (tenant, projectId) => {
   }));
 };
 
-const createActivity = async (tenant, projectId, data, createdBy) => {
+const createActivity = async (tenant, projectId, data, _createdBy) => {
   await _assertProject(tenant._id, projectId);
   return activityRepo.create({ ...data, tenantId: tenant._id, projectId });
 };

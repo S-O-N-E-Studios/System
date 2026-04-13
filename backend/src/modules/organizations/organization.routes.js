@@ -1,10 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const authController = require('./organization.controller');
+const ctrl = require('./organization.controller');
+const asyncHandler = require('../../utils/asyncHandler');
+const validate = require('../../middleware/validation.middleware');
+const { requireOrgAdmin, denyClientTemp } = require('../../middleware/rbac.middleware');
+const { updateOrganizationSchema } = require('./organization.validation');
 
-// Define routes for authentication and send them to the controller
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.post('/logout', authController.logout);
+router.use(denyClientTemp);
+
+router.get('/', asyncHandler(ctrl.get));
+
+router.patch('/',
+  requireOrgAdmin,
+  validate(updateOrganizationSchema),
+  asyncHandler(ctrl.update)
+);
 
 module.exports = router;

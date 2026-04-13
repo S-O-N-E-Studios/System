@@ -1,22 +1,14 @@
-const authService = require('./organization.services');
+const orgService = require('./organization.services');
+const { sendSuccess } = require('../../utils/apiResponse');
 
-exports.register = async (req, res, next) => {
-
-    try {
-        const user = await authService.register(req.body);
-
-        res.status(201).json({ message: 'User registered successfully', user });    
-    } catch (error) {
-        next(error);
-    }
+const get = async (req, res) => {
+  const org = await orgService.getOrganization(req.tenant);
+  return sendSuccess(res, { organization: org });
 };
 
-exports.login = async (req, res, next) => {
-    try{
-        const data = await authService.login(req.body);
-
-        res.status(200).json({ message: 'Login successful', data });
-    }catch (error){
-        next(error);
-    }
+const update = async (req, res) => {
+  const org = await orgService.updateOrganization(req.tenant, req.body);
+  return sendSuccess(res, { organization: org });
 };
+
+module.exports = { get, update };

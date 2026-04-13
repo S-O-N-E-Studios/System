@@ -13,8 +13,6 @@
 const authService = require("./auth.services");
 const {
   sendSuccess,
-  sendCreated,
-  sendError,
   sendUnauthorized,
 } = require("../../utils/apiResponse");
 const {

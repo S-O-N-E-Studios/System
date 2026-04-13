@@ -1,51 +1,58 @@
-const User = require('../users/users.model');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const Milestone = require('./milestone.model');
+const Project = require('../projects/project.model');
 
-// register user
-exports.register = async ({name, email, password}) => {
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-
-    if(existingUser) {
-        throw new Error('User already exists');
-
-
-    // hashing the password before saving to the database
-    const hashedPassword = await bcrypt.hash(password, 32);
-
-    // Create new user
-    const user = new User({
-        name,
-        email,
-        password: hashedPassword
-    });
-
-    return user;
-
-    };
-
+const _assertProject = async (tenantId, projectId) => {
+  const project = await Project.findOne({
+    _id: projectId,
+    tenantId,
+    deletedAt: null,
+  }).select('_id');
+  if (!project) throw Object.assign(new Error('Project not found'), { status: 404 });
+  return project;
 };
 
-// login user
-exports.login = async ({ email, password }) => {
+const listMilestones = async (tenant, projectId) => {
+  await _assertProject(tenant._id, projectId);
+  return Milestone.find({ tenantId: tenant._id, projectId }).sort({ dueDate: 1 }).lean();
+};
 
-    const user = await User.findOne({ email });
+const getMilestone = async (tenant, projectId, milestoneId) => {
+  await _assertProject(tenant._id, projectId);
+  const ms = await Milestone.findOne({ _id: milestoneId, tenantId: tenant._id, projectId }).lean();
+  if (!ms) throw Object.assign(new Error('Milestone not found'), { status: 404 });
+  return ms;
+};
 
-    // check if user exists
-    if (!user){
-        throw new Error('Invalid email or password');
-    }
-    // validate the password by comparing the hashed password in the database with the password provided by the user during login using bcrypt's compare function
-    const ismatch = await bcrypt.compare(password, user.password);
+const createMilestone = async (tenant, projectId, data) => {
+  await _assertProject(tenant._id, projectId);
+  return Milestone.create({ ...data, tenantId: tenant._id, projectId });
+};
 
-    if (!ismatch){
-        throw new Error('Invalid credentials');
-    };
+const updateMilestone = async (tenant, projectId, milestoneId, updates) => {
+  await _assertProject(tenant._id, projectId);
+  const ms = await Milestone.findOneAndUpdate(
+    { _id: milestoneId, tenantId: tenant._id, projectId },
+    updates,
+    { new: true, runValidators: true }
+  ).lean();
+  if (!ms) throw Object.assign(new Error('Milestone not found'), { status: 404 });
+  return ms;
+};
 
-    // generate JWT token
-    const token = jwt.sign({ id: user.id, role: user.role, organization: user.Organization }, process.env.JWT_SECRET, { expiresIn: '1d' });
+const deleteMilestone = async (tenant, projectId, milestoneId) => {
+  const ms = await Milestone.findOneAndDelete({
+    _id: milestoneId,
+    tenantId: tenant._id,
+    projectId,
+  });
+  if (!ms) throw Object.assign(new Error('Milestone not found'), { status: 404 });
+  return { deleted: true };
+};
 
-    return { user, token }; // return the user and the token to the controller
-
+module.exports = {
+  listMilestones,
+  getMilestone,
+  createMilestone,
+  updateMilestone,
+  deleteMilestone,
 };

@@ -1,51 +1,28 @@
-const User = require('../users/users.model');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const Tenant = require('../tenants/tenant.model');
 
-// register user
-exports.register = async ({name, email, password}) => {
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-
-    if(existingUser) {
-        throw new Error('User already exists');
-
-
-    // hashing the password before saving to the database
-    const hashedPassword = await bcrypt.hash(password, 32);
-
-    // Create new user
-    const user = new User({
-        name,
-        email,
-        password: hashedPassword
-    });
-
-    return user;
-
-    };
-
+const getOrganization = async (tenant) => {
+  return Tenant.findById(tenant._id).lean();
 };
 
-// login user
-exports.login = async ({ email, password }) => {
+const updateOrganization = async (tenant, updates) => {
+  const allowedFields = [
+    'name', 'primaryContact', 'logoUrl', 'localMunicipalities', 'theme',
+  ];
+  const sanitized = {};
+  for (const key of allowedFields) {
+    if (updates[key] !== undefined) sanitized[key] = updates[key];
+  }
 
-    const user = await User.findOne({ email });
+  const updated = await Tenant.findByIdAndUpdate(tenant._id, sanitized, {
+    new: true,
+    runValidators: true,
+  }).lean();
 
-    // check if user exists
-    if (!user){
-        throw new Error('Invalid email or password');
-    }
-    // validate the password by comparing the hashed password in the database with the password provided by the user during login using bcrypt's compare function
-    const ismatch = await bcrypt.compare(password, user.password);
+  if (!updated) throw Object.assign(new Error('Organisation not found'), { status: 404 });
+  return updated;
+};
 
-    if (!ismatch){
-        throw new Error('Invalid credentials');
-    };
-
-    // generate JWT token
-    const token = jwt.sign({ id: user.id, role: user.role, organization: user.Organization }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    return { user, token }; // return the user and the token to the controller
-
+module.exports = {
+  getOrganization,
+  updateOrganization,
 };

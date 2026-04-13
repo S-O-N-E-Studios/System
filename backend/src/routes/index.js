@@ -29,5 +29,7 @@ router.use('/:tenantSlug/planning', ...tenantStack, require('../modules/planning
 router.use('/:tenantSlug/reports', ...tenantStack, require('../modules/reports/report.routes'));
 router.use('/:tenantSlug/idp', ...tenantStack, require('../modules/idp/idp.routes'));
 router.use('/:tenantSlug/services', ...tenantStack, require('../modules/services-view/servicesView.routes'));
+router.use('/:tenantSlug/organizations', ...tenantStack, require('../modules/organizations/organization.routes'));
+router.use('/:tenantSlug/projects/:projectId/milestones', ...tenantStack, require('../modules/milestones/milestone.routes'));
 
 module.exports = router;

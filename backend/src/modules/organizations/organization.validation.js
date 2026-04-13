@@ -1,11 +1,18 @@
+const Joi = require('joi');
 
-// Validation rules for authentication endpoints prevents invalid data from being processed by the controller
+const updateOrganizationSchema = Joi.object({
+  name: Joi.string().min(2).max(200).trim(),
+  primaryContact: Joi.string().trim().allow(null, ''),
+  logoUrl: Joi.string().uri().allow(null, ''),
+  localMunicipalities: Joi.array().items(Joi.string().trim()),
+  theme: Joi.object({
+    primaryColour: Joi.string().pattern(/^#[0-9a-fA-F]{6}$/),
+    fontHeading: Joi.string().max(60),
+    fontBody: Joi.string().max(60),
+    defaultMode: Joi.string().valid('light', 'dark'),
+  }),
+});
 
-exports.validateRegister = (req, res, next) => {
-    const {email,password} = req.body;
-
-    if(!email || !password){
-        return res.status(400).json({ message: 'Email and password are required' });
-    }
-    next();
+module.exports = {
+  updateOrganizationSchema,
 };

@@ -11,7 +11,7 @@
  *  - slug availability check
  */
 
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const authRepo = require("./auth.repository");
 const { ROLES } = require("../../constants/roles");
 const {
@@ -20,14 +20,10 @@ const {
   verifyRefreshToken,
   generateSecureToken,
   hashToken,
-  inviteTokenExpiry,
-  activationTokenExpiry,
   passwordResetTokenExpiry,
 } = require("../../utils/generateToken");
 const {
   sendPasswordResetEmail,
-  sendInviteEmail,
-  sendClientActivationEmail,
 } = require("../../utils/email");
 
 // Tenant and TemporaryAccess models imported here for org registration and client activation

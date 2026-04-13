@@ -4,7 +4,6 @@
  //  *  used by validation middleware before hitting the controller
 
 const Joi = require('joi');
-const { ROLES } = require("../../constants/roles");
 
 // Reusable field validators
 const email = Joi.string().email().lowercase().required();

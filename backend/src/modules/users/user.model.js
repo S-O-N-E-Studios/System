@@ -8,7 +8,7 @@
 
 
 const mongoose = require('mongoose');
-const bcrypt   = require('bcrypt');
+const bcrypt   = require('bcryptjs');
 const { ROLES } = require('../../constants/roles');
 
 const SALT_ROUNDS = 10; // MVP spec: minimum 10 salt rounds
