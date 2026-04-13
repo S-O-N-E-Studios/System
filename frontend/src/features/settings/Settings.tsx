@@ -19,11 +19,10 @@ import {
   loadNotificationPrefs,
   saveNotificationPrefs,
   NOTIFY_LABELS,
-  loadTeamMembers,
-  saveTeamMembers,
   type NotificationPrefKey,
+  type TeamMember,
 } from '@/utils/tenantSettingsStorage';
-import type { MockSettingsTeamMember } from '@/mocks/settingsTeamMembers';
+import { usersApi } from '@/api/users';
 import ClientAccessSettings from './ClientAccessSettings';
 import InviteUserModal, { INVITE_USER_MODAL_ID, type InviteTenantRole } from './InviteUserModal';
 
@@ -61,7 +60,8 @@ export default function Settings() {
   const [notifyPrefs, setNotifyPrefs] = useState<Record<NotificationPrefKey, boolean>>(() =>
     loadNotificationPrefs(undefined),
   );
-  const [teamMembers, setTeamMembers] = useState<MockSettingsTeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [, setTeamLoading] = useState(false);
 
   useEffect(() => {
     if (!tenantSlug) return;
@@ -71,7 +71,24 @@ export default function Settings() {
     setAddress(g.address);
     setTimezone(g.timezone);
     setNotifyPrefs(loadNotificationPrefs(tenantSlug));
-    setTeamMembers(loadTeamMembers(tenantSlug));
+
+    let cancelled = false;
+    setTeamLoading(true);
+    usersApi.list().then((users) => {
+      if (cancelled) return;
+      setTeamMembers(users.map((u) => ({
+        id: u.id,
+        name: u.fullName || `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        status: 'active' as const,
+      })));
+    }).catch(() => {
+      if (!cancelled) setTeamMembers([]);
+    }).finally(() => {
+      if (!cancelled) setTeamLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [tenantSlug, currentTenant?.name]);
 
   useEffect(() => {
@@ -108,7 +125,7 @@ export default function Settings() {
     addToast({
       type: ok ? 'success' : 'error',
       message: ok
-        ? 'Organisation details saved locally for this tenant (mock until API exists).'
+        ? 'Organisation details saved.'
         : 'Could not save — browser storage may be full or blocked.',
     });
   };
@@ -126,25 +143,25 @@ export default function Settings() {
     });
   };
 
-  const handleInviteUser = (email: string, role: InviteTenantRole) => {
+  const handleInviteUser = async (email: string, role: InviteTenantRole) => {
     if (!tenantSlug) return;
-    const localPart = email.split('@')[0] ?? 'User';
-    const name = localPart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    const newMember: MockSettingsTeamMember = {
-      id: `inv-${Date.now().toString(36)}`,
-      name,
-      email,
-      role,
-      status: 'active',
-    };
-    const next = [...teamMembers, newMember];
-    setTeamMembers(next);
-    saveTeamMembers(tenantSlug, next);
-    closeModal();
-    addToast({
-      type: 'success',
-      message: `Invitation queued for ${email} (mock; no email sent).`,
-    });
+    try {
+      await usersApi.invite({ email, role });
+      const localPart = email.split('@')[0] ?? 'User';
+      const name = localPart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const newMember: TeamMember = {
+        id: `inv-${Date.now().toString(36)}`,
+        name,
+        email,
+        role,
+        status: 'active',
+      };
+      setTeamMembers((prev) => [...prev, newMember]);
+      closeModal();
+      addToast({ type: 'success', message: `Invitation sent to ${email}.` });
+    } catch {
+      addToast({ type: 'error', message: `Failed to invite ${email}. Please try again.` });
+    }
   };
 
   return (
@@ -282,7 +299,7 @@ export default function Settings() {
                         {/* Status */}
                         <td className="px-4 py-3">
                           <StatusBadge status={u.status === 'active' ? 'active' : 'danger'}>
-                            {u.status}
+                            {u.status === 'active' ? 'Active' : 'Suspended'}
                           </StatusBadge>
                         </td>
                         {/* Actions */}
@@ -290,9 +307,9 @@ export default function Settings() {
                           <div className="flex items-center gap-2 flex-nowrap">
                             <button
                               type="button"
-                              title="Edit user (available when directory API is connected)"
+                              title="Edit user"
                               className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors whitespace-nowrap"
-                              onClick={() => addToast({ type: 'info', message: 'User edit will open when the directory API is connected.' })}
+                              onClick={() => addToast({ type: 'info', message: 'User editing coming soon.' })}
                             >
                               Edit
                             </button>
@@ -300,7 +317,7 @@ export default function Settings() {
                               type="button"
                               title="Remove user"
                               className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border border-[var(--border)] text-[var(--status-danger)] hover:border-[var(--status-danger)] transition-colors whitespace-nowrap"
-                              onClick={() => addToast({ type: 'info', message: 'User removal will be wired to the directory API.' })}
+                              onClick={() => addToast({ type: 'info', message: 'User removal coming soon.' })}
                             >
                               Remove
                             </button>

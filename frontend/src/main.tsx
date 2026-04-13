@@ -13,26 +13,19 @@ import {
 } from '@/utils/customAccentColors';
 import { syncAppFavicon } from '@/utils/syncAppFavicon';
 
-// Hydrate auth session on load (cookie-based refresh tokens on real backend).
-// When using mock auth, don't auto-login; keep the existing "login-first" dev flow.
-const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
+// Hydrate auth session on load via cookie-based refresh tokens.
+useAuthStore.getState().setLoading(true);
 
-if (useMockAuth) {
-  useAuthStore.getState().setLoading(false);
-} else {
-  useAuthStore.getState().setLoading(true);
-
-  void (async () => {
-    try {
-      const tokens = await authApi.refreshToken();
-      const user = await authApi.getMe();
-      useAuthStore.getState().login(user, tokens);
-    } catch {
-      useAuthStore.getState().logout();
-      useAuthStore.getState().setLoading(false);
-    }
-  })();
-}
+void (async () => {
+  try {
+    const tokens = await authApi.refreshToken();
+    const user = await authApi.getMe();
+    useAuthStore.getState().login(user, tokens);
+  } catch {
+    useAuthStore.getState().logout();
+    useAuthStore.getState().setLoading(false);
+  }
+})();
 
 const queryClient = new QueryClient({
   defaultOptions: {

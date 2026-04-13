@@ -1,8 +1,5 @@
 import apiClient from './client';
-import { authMock } from './authMock';
 import type { User, AuthTokens, ApiResponse } from '@/types';
-
-const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
 
 interface LoginRequest {
   email: string;
@@ -58,7 +55,6 @@ function mapBackendUser(raw: Record<string, unknown>): User {
 
 export const authApi = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.login(data);
     const res = await apiClient.post('/auth/login', data);
     const body = res.data?.data || res.data;
     const user = mapBackendUser(body.user || body);
@@ -69,7 +65,6 @@ export const authApi = {
   },
 
   registerOrg: async (data: RegisterOrgRequest): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.registerOrg(data);
     const payload = {
       fullName: `${data.adminFirstName} ${data.adminLastName}`,
       email: data.adminEmail,
@@ -89,13 +84,11 @@ export const authApi = {
   },
 
   checkSlug: async (slugVal: string): Promise<CheckSlugResponse> => {
-    if (useMockAuth) return authMock.checkSlug(slugVal);
     const res = await apiClient.get<ApiResponse<CheckSlugResponse>>(`/auth/check-slug/${slugVal}`);
     return res.data.data;
   },
 
   acceptInvite: async (token: string, password: string): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.acceptInvite(token, password);
     const res = await apiClient.post(`/auth/accept-invite/${token}`, { fullName: 'Invited User', password });
     const body = res.data?.data || res.data;
     const user = mapBackendUser(body.user || body);
@@ -106,7 +99,6 @@ export const authApi = {
   },
 
   clientActivate: async (token: string, data: { password: string }): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.clientActivate(token, data.password);
     const res = await apiClient.post(`/auth/client-activate/${token}`, { password: data.password });
     const body = res.data?.data || res.data;
     const user = mapBackendUser(body.user || body);
@@ -117,12 +109,10 @@ export const authApi = {
   },
 
   changePassword: async (data: { currentPassword: string; newPassword: string }): Promise<void> => {
-    if (useMockAuth) return authMock.changePassword();
     await apiClient.post('/auth/change-password', data);
   },
 
   refreshToken: async (refreshToken?: string): Promise<AuthTokens> => {
-    if (useMockAuth) return authMock.refreshToken();
     const res = refreshToken
       ? await apiClient.post('/auth/refresh', { refreshToken })
       : await apiClient.post('/auth/refresh');
@@ -131,7 +121,6 @@ export const authApi = {
   },
 
   getMe: async (): Promise<User> => {
-    if (useMockAuth) return authMock.getMe();
     const res = await apiClient.get('/auth/me');
     const body = res.data?.data || res.data;
     return mapBackendUser(body);

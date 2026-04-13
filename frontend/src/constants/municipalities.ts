@@ -1,4 +1,3 @@
-/** Sample local municipalities for provincial government registration (mock / UX until API provides list). */
 export const LIMPOPO_LOCAL_MUNICIPALITIES: { id: string; name: string }[] = [
   { id: 'capricorn', name: 'Capricorn District Municipality' },
   { id: 'mopani', name: 'Mopani District Municipality' },

@@ -1,44 +1,24 @@
 import { Link } from 'react-router-dom';
 
 /**
- * Scenic illustration of the Leonard P. Zakim Bunker Hill Memorial Bridge
- * spanning the Charles River, Boston. Diamond-profile cable-stayed towers,
- * city skyline backdrop, rippling water, and a car driving across.
+ * Panoramic construction site with tower cranes, a building rising, excavator,
+ * rolling hills, and an African sunset — representing engineering delivery.
  */
-function BostonBridgeScene({ className }: { className?: string }) {
-  const acc   = 'var(--accent)';
+function ConstructionScene({ className }: { className?: string }) {
+  const acc  = 'var(--accent)';
   const muted = 'var(--text-muted)';
-  const sec   = 'var(--text-secondary)';
-  const bdr   = 'var(--border-default)';
-  const gold  = 'var(--gold)';
-  const aLt   = 'var(--accent-light)';
-  const mono  = 'var(--font-mono)';
+  const sec  = 'var(--text-secondary)';
+  const bdr  = 'var(--border-default)';
+  const gold = 'var(--gold)';
+  const aLt  = 'var(--accent-light)';
+  const mono = 'var(--font-mono)';
 
-  const towerTop = 42;
-  const deckY    = 178;
-  const waterY   = 215;
+  const groundY = 280;
+  const horizonY = 260;
 
-  const T1 = 265;
-  const T2 = 535;
-
-  const towers = [T1, T2].map(cx => ({
-    topL:  [cx - 12, towerTop]    as [number, number],
-    topR:  [cx + 12, towerTop]    as [number, number],
-    deckL: [cx - 6,  deckY]       as [number, number],
-    deckR: [cx + 6,  deckY]       as [number, number],
-    baseL: [cx - 16, waterY + 6]  as [number, number],
-    baseR: [cx + 16, waterY + 6]  as [number, number],
-  }));
-
-  const t1Left  = [100, 125, 150, 175, 200, 225, 250];
-  const t1Right = [290, 320, 350, 380];
-  const t2Left  = [420, 450, 480, 510];
-  const t2Right = [550, 575, 600, 625, 650, 675, 700];
-
-  const d = (n: number) => `bb-d${n}`;
-
+  const d = (n: number) => `cs-d${n}`;
   const delays = Array.from({ length: 20 }, (_, i) =>
-    `.bb-d${i}{animation-delay:${(i * 0.2).toFixed(1)}s}`,
+    `.cs-d${i}{animation-delay:${(i * 0.18).toFixed(2)}s}`,
   ).join('\n');
 
   return (
@@ -50,382 +30,264 @@ function BostonBridgeScene({ className }: { className?: string }) {
       aria-hidden
     >
       <defs>
-        <linearGradient id="bb-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={acc}  stopOpacity="0.14" />
-          <stop offset="55%"  stopColor={aLt}  stopOpacity="0.06" />
-          <stop offset="100%" stopColor={gold}  stopOpacity="0.04" />
+        <linearGradient id="cs-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={acc}  stopOpacity="0.18" />
+          <stop offset="40%"  stopColor={gold} stopOpacity="0.12" />
+          <stop offset="70%"  stopColor={aLt}  stopOpacity="0.06" />
+          <stop offset="100%" stopColor={gold} stopOpacity="0.03" />
         </linearGradient>
 
-        <linearGradient id="bb-water" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={acc} stopOpacity="0.10" />
-          <stop offset="100%" stopColor={acc} stopOpacity="0.03" />
+        <linearGradient id="cs-ground" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={acc}  stopOpacity="0.06" />
+          <stop offset="100%" stopColor={acc}  stopOpacity="0.02" />
         </linearGradient>
 
-        <pattern id="bb-ripple" width="80" height="10" patternUnits="userSpaceOnUse">
-          <path d="M0,5 Q20,2 40,5 Q60,8 80,5" stroke={acc} strokeWidth="0.3" fill="none" opacity="0.22" />
-        </pattern>
+        <linearGradient id="cs-sunset" x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%"   stopColor={gold} stopOpacity="0.15" />
+          <stop offset="100%" stopColor={acc}  stopOpacity="0.04" />
+        </linearGradient>
 
         <style>{`
-          @keyframes bbFadeIn  { from{opacity:0}                            to{opacity:1} }
-          @keyframes bbDraw    { from{stroke-dashoffset:1200;opacity:0}     to{stroke-dashoffset:0;opacity:1} }
-          @keyframes bbSlideUp { from{opacity:0;transform:translateY(6px)}  to{opacity:1;transform:translateY(0)} }
-          @keyframes bbRipple  { 0%,100%{transform:translateX(0)} 50%{transform:translateX(8px)} }
-          @keyframes bbTwinkle { 0%,100%{opacity:0.15} 50%{opacity:0.7} }
+          @keyframes csFadeIn  { from{opacity:0}                           to{opacity:1} }
+          @keyframes csDraw    { from{stroke-dashoffset:800;opacity:0}    to{stroke-dashoffset:0;opacity:1} }
+          @keyframes csSlideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes csPulse   { 0%,100%{opacity:0.3} 50%{opacity:0.8} }
+          @keyframes csSwing   { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(2deg)} }
 
-          .bb-fade  { opacity:0; animation:bbFadeIn  0.8s ease both }
-          .bb-draw  { stroke-dasharray:1200; stroke-dashoffset:1200; opacity:0; animation:bbDraw 1.2s ease both }
-          .bb-slide { opacity:0; animation:bbSlideUp 0.7s ease both }
-          .bb-ripple-move { animation:bbRipple 8s ease-in-out infinite }
-          .bb-twinkle     { animation:bbTwinkle 3s ease-in-out infinite }
+          .cs-fade  { opacity:0; animation:csFadeIn  0.8s ease both }
+          .cs-draw  { stroke-dasharray:800; stroke-dashoffset:800; opacity:0; animation:csDraw 1.4s ease both }
+          .cs-slide { opacity:0; animation:csSlideUp 0.7s ease both }
+          .cs-pulse { animation:csPulse 3s ease-in-out infinite }
+          .cs-swing { transform-origin:50% 0%; animation:csSwing 4s ease-in-out infinite }
 
           ${delays}
 
           @media(prefers-reduced-motion:reduce){
-            .bb-fade,.bb-draw,.bb-slide{animation:none!important;opacity:1}
-            .bb-draw{stroke-dasharray:none;stroke-dashoffset:0}
+            .cs-fade,.cs-draw,.cs-slide{animation:none!important;opacity:1}
+            .cs-draw{stroke-dasharray:none;stroke-dashoffset:0}
           }
         `}</style>
       </defs>
 
-      {/* ── SKY ── */}
-      <rect width="800" height="400" fill="url(#bb-sky)" />
+      {/* ── SKY + SUNSET GLOW ── */}
+      <rect width="800" height="400" fill="url(#cs-sky)" />
+      <ellipse cx="650" cy="80" rx="180" ry="100" fill="url(#cs-sunset)" className={`cs-fade ${d(0)}`} />
 
-      {/* ── STARS ── */}
-      <g className={`bb-fade ${d(0)}`}>
-        {([[100,22],[195,50],[320,16],[445,36],[565,20],[660,48],[755,28],[52,55],[490,10],[720,58]] as [number,number][]).map(
-          ([x, y], i) => (
-            <circle key={i} cx={x} cy={y} r={0.7 + (i % 3) * 0.35}
-              fill={acc} className="bb-twinkle"
-              style={{ animationDelay: `${i * 0.55}s` }} />
-          ),
-        )}
+      {/* ── SUN (large, low on horizon) ── */}
+      <g className={`cs-fade ${d(0)}`}>
+        <circle cx="650" cy="95" r="30" fill={gold} opacity="0.08" />
+        <circle cx="650" cy="95" r="18" fill={gold} opacity="0.12" />
+        <circle cx="650" cy="95" r="10" fill={gold} opacity="0.18" />
       </g>
 
-      {/* ── MOON ── */}
-      <g className={`bb-fade ${d(0)}`}>
-        <circle cx="680" cy="48" r="18" fill={aLt} opacity="0.12" />
-        <circle cx="680" cy="48" r="11" fill={gold} opacity="0.06" />
-        <circle cx="682" cy="46" r="7"  fill={gold} opacity="0.10" />
+      {/* ── ROLLING HILLS ── */}
+      <g className={`cs-slide ${d(1)}`}>
+        <path d={`M 0,${horizonY} Q 100,220 200,${horizonY - 15} Q 320,240 440,${horizonY - 5} Q 560,225 680,${horizonY - 20} Q 750,245 800,${horizonY} V 400 H 0 Z`}
+          fill={muted} opacity="0.06" />
+        <path d={`M 0,${horizonY + 8} Q 150,${horizonY - 5} 300,${horizonY + 10} Q 450,${horizonY - 2} 600,${horizonY + 12} Q 700,${horizonY + 2} 800,${horizonY + 10} V 400 H 0 Z`}
+          fill={muted} opacity="0.04" />
       </g>
 
-      {/* ── SKYLINE — CHARLESTOWN (left) ── */}
-      <g className={`bb-slide ${d(1)}`}>
-        <path d={[
-          `M 0,${waterY}`,
-          'L 0,192 10,192 10,186 20,186 20,190',
-          '28,190 28,180 35,180 35,184',
-          '44,184 44,174 50,174 50,170 54,170 54,176',
-          '64,176 64,172 70,172 70,180',
-          '82,180 82,184 96,184 96,176 102,176 102,180',
-          '110,180 110,167 114,162 118,167 118,180',
-          '130,180 130,186 155,186 155,192 205,192',
-          `205,${waterY} Z`,
-        ].join(' ')}
-          fill={muted} opacity="0.10" />
+      {/* ── GROUND PLANE ── */}
+      <g className={`cs-fade ${d(2)}`}>
+        <rect x="0" y={groundY} width="800" height={400 - groundY} fill="url(#cs-ground)" />
+        <line x1="0" y1={groundY} x2="800" y2={groundY} stroke={acc} strokeWidth="0.5" opacity="0.12" />
       </g>
 
-      {/* ── SKYLINE — DOWNTOWN BOSTON (right) ── */}
-      <g className={`bb-slide ${d(1)}`}>
-        <path d={[
-          `M 595,${waterY}`,
-          'L 595,194 608,194 608,182 614,182 614,176 620,176',
-          '620,170 626,170 626,162 630,157 634,162 634,170',
-          '640,170 640,160 644,160 644,152 650,152 650,146',
-          '654,143 658,146 658,152 664,152 664,160',
-          '670,160 670,142 674,137 678,137 678,140',
-          '682,140 682,150 688,150 688,157',
-          '696,157 696,150 702,150 702,140',
-          '706,132 710,132 710,144 716,144 716,157',
-          '724,157 724,164 732,164 732,170 740,170 740,174',
-          '750,174 750,180 758,180 758,184 768,184 768,188',
-          '778,188 778,192 800,192',
-          `800,${waterY} Z`,
-        ].join(' ')}
-          fill={muted} opacity="0.10" />
-
-        {([[630,160],[636,164],[644,156],[650,150],[658,150],
-          [670,148],[674,140],[678,144],[682,152],[696,154],
-          [706,136],[710,148],[724,160],[732,166],[740,172],
-          [634,168],[648,158],[656,148],[666,156],[688,154],
-          [702,146],[714,152],[734,168]] as [number,number][]).map(([x, y], i) => (
-          <rect key={i} x={x} y={y} width="2" height="1.5"
-            fill={gold} opacity={0.10 + (i % 4) * 0.03} />
-        ))}
-      </g>
-
-      {/* ── WATER ── */}
-      <g className={`bb-fade ${d(2)}`}>
-        <rect x="0" y={waterY} width="800" height={400 - waterY} fill="url(#bb-water)" />
-        <line x1="0" y1={waterY} x2="800" y2={waterY}
-          stroke={acc} strokeWidth="0.5" opacity="0.18" />
-      </g>
-
-      {/* ── WATER RIPPLES ── */}
-      <g className={`bb-fade bb-ripple-move ${d(3)}`}>
-        <rect x="-10" y={waterY + 6} width="820" height={400 - waterY - 6}
-          fill="url(#bb-ripple)" opacity="0.55" />
-      </g>
-
-      {/* ── SOFT GLOW ON WATER (under tower piers) ── */}
-      <g className={`bb-fade ${d(8)}`}>
-        {[T1, T2].map((cx, i) => (
-          <ellipse key={i} cx={cx} cy={waterY + 15} rx="20" ry="6"
-            fill={acc} opacity="0.03" />
-        ))}
-      </g>
-
-      {/* ── BRIDGE PIERS (in water) ── */}
-      <g className={`bb-slide ${d(4)}`}>
-        {towers.map((_t, i) => {
-          const cx = i === 0 ? T1 : T2;
-          return (
-            <rect key={i} x={cx - 10} y={deckY + 1}
-              width="20" height={waterY - deckY + 10}
-              fill={bdr} stroke={acc} strokeWidth="0.5" opacity="0.30" rx="1" />
-          );
-        })}
-      </g>
-
-      {/* ── APPROACH RAMPS ── */}
-      <g className={`bb-fade ${d(3)}`}>
-        <path d={`M 0,${deckY + 16} L 80,${deckY} 80,${deckY + 6} 0,${deckY + 22} Z`}
-          fill={bdr} opacity="0.22" />
-        <line x1="0" y1={deckY + 16} x2="80" y2={deckY}
-          stroke={acc} strokeWidth="1" opacity="0.45" />
-
-        <path d={`M 720,${deckY} L 800,${deckY + 16} 800,${deckY + 22} 720,${deckY + 6} Z`}
-          fill={bdr} opacity="0.22" />
-        <line x1="720" y1={deckY} x2="800" y2={deckY + 16}
-          stroke={acc} strokeWidth="1" opacity="0.45" />
-      </g>
-
-      {/* ── BRIDGE DECK ── */}
-      <g className={`bb-fade ${d(4)}`}>
-        <rect x="80" y={deckY} width="640" height="6"
-          fill={bdr} stroke={acc} strokeWidth="0.5" opacity="0.40" rx="0.5" />
-        <line x1="80" y1={deckY + 0.5} x2="720" y2={deckY + 0.5}
-          stroke={gold} strokeWidth="1.2" opacity="0.45" />
-        {Array.from({ length: 32 }, (_, i) => 80 + i * 20).filter(x => x < 710).map(x => (
-          <line key={x} x1={x} y1={deckY + 3} x2={x + 12} y2={deckY + 3}
-            stroke={gold} strokeWidth="0.4" opacity="0.28" />
-        ))}
-        <line x1="80" y1={deckY - 1.5} x2="720" y2={deckY - 1.5}
-          stroke={acc} strokeWidth="0.3" opacity="0.20" />
-        <line x1="80" y1={deckY + 7.5} x2="720" y2={deckY + 7.5}
-          stroke={acc} strokeWidth="0.3" opacity="0.20" />
-      </g>
-
-      {/* ── LAMPPOSTS ── */}
-      <g className={`bb-fade ${d(5)}`}>
-        {[120, 180, 240, 330, 400, 470, 560, 620, 680].map(x => (
-          <g key={x}>
-            <line x1={x} y1={deckY - 1} x2={x} y2={deckY - 10}
-              stroke={acc} strokeWidth="0.35" opacity="0.25" />
-            <circle cx={x} cy={deckY - 11} r="1"
-              fill={gold} opacity="0.20" />
+      {/* ── DISTANT COMPLETED BUILDINGS (background skyline) ── */}
+      <g className={`cs-slide ${d(2)}`}>
+        {[[80, 190, 30, 70], [130, 200, 22, 60], [620, 195, 28, 65], [680, 205, 20, 55], [720, 210, 24, 50]] .map(([x, y, w, h], i) => (
+          <g key={`bldg-${i}`}>
+            <rect x={x} y={y} width={w} height={h} fill={bdr} opacity="0.12" />
+            {Array.from({ length: Math.floor(h / 8) }, (_, j) =>
+              Array.from({ length: Math.floor(w / 7) }, (_, k) => (
+                <rect key={`w${j}-${k}`} x={x + 2 + k * 7} y={y + 3 + j * 8} width="3" height="3"
+                  fill={gold} opacity={0.06 + (j + k) % 3 * 0.02} />
+              ))
+            )}
           </g>
         ))}
       </g>
 
-      {/* ── TOWER LEGS BELOW DECK (A-frame into piers) ── */}
-      {towers.map((t, ti) => (
-        <g key={`legs-${ti}`}>
-          <line className={`bb-draw ${d(5)}`}
-            x1={t.deckL[0]} y1={deckY} x2={t.baseL[0]} y2={t.baseL[1]}
-            stroke={acc} strokeWidth="2.2" />
-          <line className={`bb-draw ${d(5)}`}
-            x1={t.deckR[0]} y1={deckY} x2={t.baseR[0]} y2={t.baseR[1]}
-            stroke={acc} strokeWidth="2.2" />
+      {/* ── TOWER CRANE 1 (main, left-center) ── */}
+      <g className={`cs-draw ${d(3)}`}>
+        <line x1="280" y1={groundY} x2="280" y2="48" stroke={acc} strokeWidth="2.5" />
+        <line x1="276" y1={groundY} x2="276" y2="55" stroke={acc} strokeWidth="0.8" opacity="0.5" />
+        <line x1="284" y1={groundY} x2="284" y2="55" stroke={acc} strokeWidth="0.8" opacity="0.5" />
+        {[90, 130, 170, 210, 250].map(y => (
+          <g key={y}>
+            <line x1="276" y1={y} x2="284" y2={y} stroke={acc} strokeWidth="0.4" opacity="0.35" />
+            <line x1="276" y1={y} x2="284" y2={y - 8} stroke={acc} strokeWidth="0.3" opacity="0.2" />
+          </g>
+        ))}
+      </g>
+      {/* Crane jib */}
+      <g className={`cs-fade ${d(5)}`}>
+        <line x1="200" y1="50" x2="380" y2="50" stroke={acc} strokeWidth="1.5" />
+        <line x1="280" y1="40" x2="200" y2="50" stroke={acc} strokeWidth="0.6" opacity="0.6" />
+        <line x1="280" y1="40" x2="380" y2="50" stroke={acc} strokeWidth="0.6" opacity="0.6" />
+        <line x1="280" y1="40" x2="340" y2="50" stroke={acc} strokeWidth="0.4" opacity="0.4" />
+        <rect x="277" y="36" width="6" height="6" fill={aLt} stroke={acc} strokeWidth="0.5" opacity="0.7" />
+        {/* Counter-jib weight */}
+        <rect x="200" y="46" width="10" height="8" fill={bdr} opacity="0.25" />
+        {/* Hook cable + block (swinging) */}
+        <g className="cs-swing" style={{ transformOrigin: '340px 50px' }}>
+          <line x1="340" y1="50" x2="340" y2="120" stroke={acc} strokeWidth="0.5" opacity="0.4" />
+          <rect x="336" y="118" width="8" height="5" fill={acc} opacity="0.35" />
         </g>
-      ))}
+        {/* Crane light */}
+        <circle cx="280" cy="38" r="1.5" fill={gold} opacity="0.5" className="cs-pulse" />
+      </g>
 
-      {/* ── TOWER COLUMNS ABOVE DECK ── */}
-      {towers.map((t, ti) => (
-        <g key={`cols-${ti}`}>
-          <line className={`bb-draw ${d(6)}`}
-            x1={t.deckL[0]} y1={deckY} x2={t.topL[0]} y2={towerTop}
-            stroke={acc} strokeWidth="2.6" />
-          <line className={`bb-draw ${d(6)}`}
-            x1={t.deckR[0]} y1={deckY} x2={t.topR[0]} y2={towerTop}
-            stroke={acc} strokeWidth="2.6" />
+      {/* ── TOWER CRANE 2 (shorter, right) ── */}
+      <g className={`cs-draw ${d(4)}`}>
+        <line x1="520" y1={groundY} x2="520" y2="80" stroke={acc} strokeWidth="2" />
+        <line x1="517" y1={groundY} x2="517" y2="85" stroke={acc} strokeWidth="0.6" opacity="0.4" />
+        <line x1="523" y1={groundY} x2="523" y2="85" stroke={acc} strokeWidth="0.6" opacity="0.4" />
+        {[120, 160, 200, 240].map(y => (
+          <line key={y} x1="517" y1={y} x2="523" y2={y} stroke={acc} strokeWidth="0.35" opacity="0.3" />
+        ))}
+      </g>
+      <g className={`cs-fade ${d(6)}`}>
+        <line x1="460" y1="82" x2="580" y2="82" stroke={acc} strokeWidth="1.2" />
+        <line x1="520" y1="74" x2="460" y2="82" stroke={acc} strokeWidth="0.5" opacity="0.5" />
+        <line x1="520" y1="74" x2="580" y2="82" stroke={acc} strokeWidth="0.5" opacity="0.5" />
+        <rect x="517" y="70" width="6" height="6" fill={aLt} stroke={acc} strokeWidth="0.4" opacity="0.6" />
+        <g className="cs-swing" style={{ transformOrigin: '555px 82px' }}>
+          <line x1="555" y1="82" x2="555" y2="140" stroke={acc} strokeWidth="0.4" opacity="0.35" />
+          <rect x="551" y="138" width="8" height="4" fill={acc} opacity="0.3" />
         </g>
-      ))}
+        <circle cx="520" cy="72" r="1.2" fill={gold} opacity="0.4" className="cs-pulse" style={{ animationDelay: '1.5s' }} />
+      </g>
 
-      {/* ── TOWER CROSSBARS + CAPS ── */}
-      <g className={`bb-fade ${d(7)}`}>
-        {towers.map((t, ti) => {
-          const cx = ti === 0 ? T1 : T2;
-          return (
-            <g key={ti}>
-              <line x1={t.topL[0] - 2} y1={towerTop} x2={t.topR[0] + 2} y2={towerTop}
-                stroke={acc} strokeWidth="1.2" opacity="0.85" />
-              <line x1={cx - 9} y1={110} x2={cx + 9} y2={110}
-                stroke={acc} strokeWidth="0.65" opacity="0.45" />
-              <line x1={cx - 7} y1={145} x2={cx + 7} y2={145}
-                stroke={acc} strokeWidth="0.5" opacity="0.35" />
-              <rect x={t.topL[0] - 3} y={towerTop - 3} width="6" height="4"
-                fill={aLt} stroke={acc} strokeWidth="0.6" opacity="0.80" rx="0.5" />
-              <rect x={t.topR[0] - 3} y={towerTop - 3} width="6" height="4"
-                fill={aLt} stroke={acc} strokeWidth="0.6" opacity="0.80" rx="0.5" />
-              <circle cx={cx} cy={towerTop - 4} r="1.2" fill={gold} opacity="0.5">
-                <animate attributeName="opacity"
-                  values="0.25;0.75;0.25" dur="2s" repeatCount="indefinite" />
-              </circle>
+      {/* ── BUILDING UNDER CONSTRUCTION (center) ── */}
+      <g className={`cs-slide ${d(4)}`}>
+        {/* Main structure */}
+        <rect x="300" y="130" width="80" height={groundY - 130} fill={bdr} opacity="0.18" stroke={acc} strokeWidth="0.5" />
+        {/* Floors */}
+        {[145, 165, 185, 205, 225, 245, 265].map(y => (
+          <line key={y} x1="300" y1={y} x2="380" y2={y} stroke={acc} strokeWidth="0.6" opacity="0.25" />
+        ))}
+        {/* Window grid */}
+        {[145, 165, 185, 205, 225].map(y =>
+          [308, 322, 336, 350, 364].map(x => (
+            <rect key={`${x}-${y}`} x={x} y={y + 3} width="6" height="10" fill={gold} opacity="0.05" stroke={acc} strokeWidth="0.2" />
+          ))
+        )}
+        {/* Scaffolding on right side */}
+        <g opacity="0.30">
+          <line x1="380" y1="130" x2="380" y2={groundY} stroke={acc} strokeWidth="0.8" />
+          <line x1="395" y1="145" x2="395" y2={groundY} stroke={acc} strokeWidth="0.8" />
+          {[145, 165, 185, 205, 225, 245, 265].map(y => (
+            <g key={y}>
+              <line x1="380" y1={y} x2="395" y2={y} stroke={acc} strokeWidth="0.5" />
+              <line x1="380" y1={y} x2="395" y2={y + 20} stroke={acc} strokeWidth="0.25" />
             </g>
-          );
-        })}
+          ))}
+        </g>
+        {/* Top unfinished floors (exposed rebar) */}
+        <rect x="300" y="125" width="80" height="8" fill={bdr} opacity="0.10" stroke={acc} strokeWidth="0.3" strokeDasharray="2,2" />
+        {[310, 330, 350, 370].map(x => (
+          <line key={x} x1={x} y1="125" x2={x} y2="118" stroke={acc} strokeWidth="0.4" opacity="0.3" />
+        ))}
       </g>
 
-      {/* ── STAY CABLES — Tower 1 left fan ── */}
-      {t1Left.map((x, i) => (
-        <line key={`t1l${i}`} className={`bb-draw ${d(8 + Math.floor(i / 2))}`}
-          x1={towers[0].topL[0]} y1={towerTop + 3} x2={x} y2={deckY}
-          stroke={acc} strokeWidth={i === 0 ? '0.65' : '0.32'} />
-      ))}
-
-      {/* ── STAY CABLES — Tower 1 right fan ── */}
-      {t1Right.map((x, i) => (
-        <line key={`t1r${i}`} className={`bb-draw ${d(8 + Math.floor(i / 2))}`}
-          x1={towers[0].topR[0]} y1={towerTop + 3} x2={x} y2={deckY}
-          stroke={acc} strokeWidth="0.32" />
-      ))}
-
-      {/* ── STAY CABLES — Tower 2 left fan ── */}
-      {t2Left.map((x, i) => (
-        <line key={`t2l${i}`} className={`bb-draw ${d(8 + Math.floor(i / 2))}`}
-          x1={towers[1].topL[0]} y1={towerTop + 3} x2={x} y2={deckY}
-          stroke={acc} strokeWidth="0.32" />
-      ))}
-
-      {/* ── STAY CABLES — Tower 2 right fan ── */}
-      {t2Right.map((x, i) => (
-        <line key={`t2r${i}`} className={`bb-draw ${d(8 + Math.floor(i / 2))}`}
-          x1={towers[1].topR[0]} y1={towerTop + 3} x2={x} y2={deckY}
-          stroke={acc} strokeWidth={i === t2Right.length - 1 ? '0.65' : '0.32'} />
-      ))}
-
-      {/* ── CABLE GLOW PULSES ── */}
-      {[...t1Left, ...t2Right].map((x, i) => {
-        const isLeft = i < t1Left.length;
-        const anchor = isLeft ? towers[0].topL : towers[1].topR;
-        return (
-          <line key={`glow${i}`}
-            x1={anchor[0]} y1={towerTop + 3} x2={x} y2={deckY}
-            stroke={acc} strokeWidth="3" opacity="0">
-            <animate attributeName="opacity"
-              values="0;0.08;0"
-              dur={`${2.4 + (i % 4) * 0.35}s`}
-              begin={`${5.0 + i * 0.22}s`}
-              repeatCount="indefinite" />
-          </line>
-        );
-      })}
-
-      {/* ── ANIMATED CAR (left → right) ── */}
-      <g opacity="0">
-        <animate attributeName="opacity"
-          to="1" dur="0.001s" begin="3.5s" fill="freeze" />
-        <animateMotion
-          dur="9s"
-          repeatCount="indefinite"
-          begin="3.5s"
-          calcMode="linear"
-          path="M -40,194 L 80,178 L 720,178 L 840,194"
-        />
-
-        {/* headlight beam (pointing right) */}
-        <polygon points="13,-6 13,-4 48,-8 48,-2"
-          fill={gold} opacity="0.03" />
-        {/* body */}
-        <rect x="-12" y="-8" width="24" height="5" rx="1.5"
-          fill={gold} opacity="0.70" />
-        {/* cabin — shifted left so hood extends to the right (front) */}
-        <path d="M-10,-8 L-7,-12.5 L3,-12.5 L6,-8"
-          fill={gold} opacity="0.55" stroke={acc} strokeWidth="0.3" />
-        {/* windshield (right slope) */}
-        <line x1="3" y1="-12" x2="6" y2="-8"
-          stroke={acc} strokeWidth="0.4" opacity="0.45" />
-        {/* rear window (left slope) */}
-        <line x1="-7" y1="-12" x2="-10" y2="-8"
-          stroke={acc} strokeWidth="0.3" opacity="0.35" />
-        {/* wheels */}
-        <circle cx="-7" cy="-2.5" r="2" fill={sec} />
-        <circle cx="7"  cy="-2.5" r="2" fill={sec} />
-        <circle cx="-7" cy="-2.5" r="0.8" fill={muted} opacity="0.4" />
-        <circle cx="7"  cy="-2.5" r="0.8" fill={muted} opacity="0.4" />
-        {/* headlight (right/front) */}
-        <rect x="11.5" y="-7.2" width="1.5" height="2" rx="0.5"
-          fill={gold} opacity="0.85" />
-        {/* taillight (left/rear) */}
-        <rect x="-13" y="-7" width="1.5" height="1.5" rx="0.5"
-          fill={acc} opacity="0.40" />
+      {/* ── SMALLER BUILDING (left of main) ── */}
+      <g className={`cs-slide ${d(5)}`}>
+        <rect x="210" y="190" width="55" height={groundY - 190} fill={bdr} opacity="0.14" stroke={acc} strokeWidth="0.4" />
+        {[205, 220, 235, 250, 265].map(y => (
+          <line key={y} x1="210" y1={y} x2="265" y2={y} stroke={acc} strokeWidth="0.4" opacity="0.2" />
+        ))}
+        {[205, 220, 235, 250].map(y =>
+          [216, 228, 240, 252].map(x => (
+            <rect key={`s${x}-${y}`} x={x} y={y + 2} width="5" height="9" fill={gold} opacity="0.04" />
+          ))
+        )}
       </g>
 
-      {/* ── SECOND CAR (right → left, facing left) ── */}
-      <g opacity="0">
-        <animate attributeName="opacity"
-          to="1" dur="0.001s" begin="7s" fill="freeze" />
-        <animateMotion
-          dur="10s"
-          repeatCount="indefinite"
-          begin="7s"
-          calcMode="linear"
-          path="M 840,194 L 720,178 L 80,178 L -40,194"
-        />
-
-        {/* headlight beam (pointing left) */}
-        <polygon points="-13,-6 -13,-4 -48,-8 -48,-2"
-          fill={acc} opacity="0.02" />
-        {/* body */}
-        <rect x="-10" y="-7.5" width="20" height="4.5" rx="1.2"
-          fill={acc} opacity="0.50" />
-        {/* cabin — shifted right so hood extends to the left (front) */}
-        <path d="M-5,-7.5 L-2,-11 L6,-11 L9,-7.5"
-          fill={acc} opacity="0.40" stroke={acc} strokeWidth="0.25" />
-        {/* windshield (left slope) */}
-        <line x1="-2" y1="-10.5" x2="-5" y2="-7.5"
-          stroke={acc} strokeWidth="0.3" opacity="0.4" />
-        {/* rear window (right slope) */}
-        <line x1="6" y1="-10.5" x2="9" y2="-7.5"
-          stroke={acc} strokeWidth="0.25" opacity="0.3" />
-        {/* wheels */}
-        <circle cx="-6" cy="-2.5" r="1.8" fill={sec} />
-        <circle cx="6"  cy="-2.5" r="1.8" fill={sec} />
-        {/* headlight (left/front) */}
-        <rect x="-11.5" y="-6.5" width="1.2" height="1.5" rx="0.4"
-          fill={gold} opacity="0.70" />
-        {/* taillight (right/rear) */}
-        <rect x="10" y="-6.5" width="1.2" height="1.3" rx="0.4"
-          fill={acc} opacity="0.35" />
+      {/* ── EXCAVATOR (foreground left) ── */}
+      <g className={`cs-slide ${d(7)}`}>
+        {/* Tracks */}
+        <rect x="80" y={groundY - 4} width="42" height="8" rx="3" fill={muted} opacity="0.25" />
+        <rect x="82" y={groundY - 2} width="38" height="4" rx="2" fill={bdr} opacity="0.15" />
+        {/* Cab */}
+        <rect x="88" y={groundY - 18} width="28" height="14" fill={acc} opacity="0.30" />
+        <rect x="105" y={groundY - 16} width="8" height="7" fill={gold} opacity="0.08" />
+        {/* Boom */}
+        <line x1="116" y1={groundY - 16} x2="160" y2={groundY - 50} stroke={acc} strokeWidth="1.8" opacity="0.5" />
+        <line x1="160" y1={groundY - 50} x2="175" y2={groundY - 30} stroke={acc} strokeWidth="1.2" opacity="0.4" />
+        {/* Bucket */}
+        <path d="M170,250 L180,250 L182,260 L168,260 Z" fill={acc} opacity="0.35" />
+        {/* Hydraulic cylinders */}
+        <line x1="100" y1={groundY - 14} x2="135" y2={groundY - 38} stroke={gold} strokeWidth="0.6" opacity="0.3" />
       </g>
 
-      {/* ── BRIDGE LABEL ── */}
-      <g className={`bb-fade ${d(14)}`}>
-        <text x="400" y={waterY + 50} textAnchor="middle" fill={muted}
-          style={{ fontFamily: mono, fontSize: '5.5px', letterSpacing: '0.22em',
+      {/* ── CONCRETE MIXER TRUCK (right foreground) ── */}
+      <g className={`cs-slide ${d(8)}`}>
+        {/* Truck body */}
+        <rect x="560" y={groundY - 14} width="48" height="14" fill={acc} opacity="0.22" />
+        {/* Cab */}
+        <rect x="608" y={groundY - 16} width="18" height="16" fill={acc} opacity="0.28" />
+        <rect x="614" y={groundY - 14} width="8" height="7" fill={gold} opacity="0.07" />
+        {/* Drum */}
+        <ellipse cx="584" cy={groundY - 16} rx="20" ry="11" fill={bdr} opacity="0.15" stroke={acc} strokeWidth="0.6" />
+        <line x1="570" y1={groundY - 20} x2="598" y2={groundY - 12} stroke={acc} strokeWidth="0.4" opacity="0.25" />
+        <line x1="570" y1={groundY - 14} x2="598" y2={groundY - 22} stroke={acc} strokeWidth="0.4" opacity="0.25" />
+        {/* Wheels */}
+        <circle cx="572" cy={groundY} r="4" fill={sec} opacity="0.4" />
+        <circle cx="600" cy={groundY} r="4" fill={sec} opacity="0.4" />
+        <circle cx="618" cy={groundY} r="4" fill={sec} opacity="0.4" />
+      </g>
+
+      {/* ── CONSTRUCTION FENCE (foreground) ── */}
+      <g className={`cs-fade ${d(6)}`}>
+        {Array.from({ length: 20 }, (_, i) => 20 + i * 38).map(x => (
+          <line key={x} x1={x} y1={groundY + 2} x2={x} y2={groundY + 16} stroke={acc} strokeWidth="0.4" opacity="0.12" />
+        ))}
+        <line x1="20" y1={groundY + 6} x2="780" y2={groundY + 6} stroke={acc} strokeWidth="0.3" opacity="0.10" />
+        <line x1="20" y1={groundY + 12} x2="780" y2={groundY + 12} stroke={acc} strokeWidth="0.3" opacity="0.10" />
+      </g>
+
+      {/* ── MATERIAL STACKS (foreground detail) ── */}
+      <g className={`cs-slide ${d(9)}`}>
+        {/* Steel beams */}
+        {[430, 432, 434].map(y => (
+          <rect key={y} x="420" y={y + groundY - 440} width="30" height="1.5" fill={acc} opacity="0.2" />
+        ))}
+        {/* Pipe stack */}
+        {[[470, groundY - 6], [474, groundY - 6], [472, groundY - 10]] .map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="3" fill={bdr} opacity="0.12" stroke={acc} strokeWidth="0.3" />
+        ))}
+      </g>
+
+      {/* ── SAFETY CONES ── */}
+      <g className={`cs-fade ${d(10)}`}>
+        {[155, 410, 540].map(x => (
+          <g key={x}>
+            <polygon points={`${x},${groundY} ${x-2.5},${groundY} ${x-1.2},${groundY - 6} ${x + 1.2},${groundY - 6}`}
+              fill={acc} opacity="0.35" />
+            <line x1={x - 1} y1={groundY - 3} x2={x + 1} y2={groundY - 3} stroke={gold} strokeWidth="0.6" opacity="0.4" />
+          </g>
+        ))}
+      </g>
+
+      {/* ── SCENE LABEL ── */}
+      <g className={`cs-fade ${d(14)}`}>
+        <text x="400" y={groundY + 40} textAnchor="middle" fill={muted}
+          style={{ fontFamily: mono, fontSize: '5px', letterSpacing: '0.22em',
                    textTransform: 'uppercase' as const }}>
-          Leonard P. Zakim Bunker Hill Memorial Bridge
+          Engineering Project Management Platform
         </text>
-        <text x="400" y={waterY + 63} textAnchor="middle" fill={acc}
-          style={{ fontFamily: mono, fontSize: '4.5px', letterSpacing: '0.14em' }}>
-          BOSTON, MASSACHUSETTS
+        <text x="400" y={groundY + 52} textAnchor="middle" fill={acc}
+          style={{ fontFamily: mono, fontSize: '4px', letterSpacing: '0.16em' }}>
+          PLANNING · DESIGN · CONSTRUCTION · DELIVERY
         </text>
       </g>
-
-      {/* ── WATER-LINE SHIMMER ── */}
-      <line x1="0" y1={waterY} x2="800" y2={waterY}
-        stroke={gold} strokeWidth="0.6" opacity="0">
-        <animate attributeName="opacity"
-          values="0;0.08;0" dur="4s" begin="2s" repeatCount="indefinite" />
-        <animateTransform attributeName="transform"
-          type="translate" from="0,0" to="0,0.5"
-          dur="4s" begin="2s" repeatCount="indefinite" />
-      </line>
 
       {/* ── SUBTLE BORDER ── */}
       <rect x="5" y="5" width="790" height="390"
         stroke={muted} strokeWidth="0.35" opacity="0.12" rx="2"
-        className={`bb-fade ${d(0)}`} />
+        className={`cs-fade ${d(0)}`} />
     </svg>
   );
 }
@@ -484,7 +346,7 @@ export default function Landing() {
           className="text-[0.62rem] uppercase tracking-[0.22em] text-[var(--text-muted)]"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
-          v6.0 · MVP
+          v7.0 · MVP
         </span>
       </div>
 
@@ -496,7 +358,7 @@ export default function Landing() {
           className="w-full max-w-[640px] mb-10"
           style={{ filter: 'drop-shadow(0 16px 40px rgba(0,0,0,0.08))' }}
         >
-          <BostonBridgeScene className="w-full aspect-[2/1]" />
+          <ConstructionScene className="w-full aspect-[2/1]" />
         </div>
 
         {/* IQ emblem */}
@@ -560,8 +422,8 @@ export default function Landing() {
         {/* Feature micro-list */}
         <div className="mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {[
-            'Multi-tenant SaaS',
-            '6-Stage Lifecycle',
+            'Multi-Tenant SaaS',
+            '11-Stage Lifecycle',
             'Grant Tracking',
             'Payment Forecasts',
             'Atlas Sahara UI',
@@ -585,15 +447,12 @@ export default function Landing() {
         aria-hidden
       />
 
-      {/* Bottom env note */}
       <footer className="relative z-10 shrink-0 py-4 text-center">
         <p
           className="text-[var(--text-muted)] opacity-60"
           style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.14em' }}
         >
-          MOCK DATA ACTIVE · SET{' '}
-          <span className="text-[var(--text-secondary)]">VITE_USE_MOCK_AUTH=false</span>{' '}
-          FOR API
+          © {new Date().getFullYear()} PROJECT 360 · ENGINEERING · DELIVERY · CONTROL
         </p>
       </footer>
     </div>
