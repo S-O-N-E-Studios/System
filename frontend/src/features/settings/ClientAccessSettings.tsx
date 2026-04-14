@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { projectsApi } from '@/api/projects';
@@ -19,7 +19,7 @@ export default function ClientAccessSettings() {
   const [loading, setLoading] = useState(true);
   const [portfolioProjects, setPortfolioProjects] = useState<{ id: string; name: string }[]>([]);
 
-  const loadGrants = () => {
+  const loadGrants = useCallback(() => {
     if (!tenantSlug) return;
     setLoading(true);
     clientAccessApi
@@ -27,11 +27,11 @@ export default function ClientAccessSettings() {
       .then(setGrants)
       .catch(() => setGrants([]))
       .finally(() => setLoading(false));
-  };
+  }, [tenantSlug]);
 
   useEffect(() => {
     loadGrants();
-  }, [tenantSlug]);
+  }, [loadGrants]);
 
   useEffect(() => {
     let cancelled = false;

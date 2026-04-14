@@ -91,8 +91,9 @@ export default function Settings() {
       if (url) {
         setTenant({ ...ct, logo: url });
       } else {
-        const { logo: _removed, ...rest } = ct;
-        setTenant(rest);
+        const next = { ...ct };
+        delete next.logo;
+        setTenant(next);
       }
     },
     [tenantSlug, setTenant],
