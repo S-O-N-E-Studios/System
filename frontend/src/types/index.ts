@@ -80,6 +80,8 @@ export interface User {
   tenants: TenantSummary[];
   temporaryAccessId?: string;
   lastLoginAt?: string;
+  /** From API member list; false means suspended for this account. */
+  isActive?: boolean;
 }
 
 export interface AuthTokens {
@@ -818,6 +820,27 @@ export const projectSchema = z.object({
 });
 
 export type ProjectFormData = z.infer<typeof projectSchema>;
+
+/** Provincial orgs require municipality + IDP reference; private firms omit those requirements. */
+export function projectFormSchemaForOrgType(orgType: OrgType) {
+  return projectSchema.superRefine((data, ctx) => {
+    if (orgType !== 'provincial_gov') return;
+    if (!data.localMunicipality?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Local municipality is required for provincial government organisations',
+        path: ['localMunicipality'],
+      });
+    }
+    if (!data.idpProjectNo?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'IDP project number is required for provincial government organisations',
+        path: ['idpProjectNo'],
+      });
+    }
+  });
+}
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),

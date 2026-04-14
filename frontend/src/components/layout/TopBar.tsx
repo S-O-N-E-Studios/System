@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Search, Bell, Menu, X, Sun, Moon, ArrowRight, Clock } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
+import Avatar from '@/components/ui/Avatar';
 import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import ClientAccessBanner from '@/components/ui/ClientAccessBanner';
@@ -315,9 +316,12 @@ export default function TopBar() {
           {currentTenant && (
             <button
               onClick={() => navigate(`/${tenantSlug}/settings`)}
-              className="hidden md:block text-[0.7rem] font-body font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors tracking-wider uppercase"
+              className="hidden md:flex items-center gap-2 text-[0.7rem] font-body font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors tracking-wider uppercase"
             >
-              {currentTenant.name}
+              {currentTenant.logo ? (
+                <Avatar name={currentTenant.name} src={currentTenant.logo} size="sm" />
+              ) : null}
+              <span>{currentTenant.name}</span>
             </button>
           )}
 

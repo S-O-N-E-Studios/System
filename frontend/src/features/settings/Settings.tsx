@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTenantStore } from '@/store/tenantStore';
 import { useUiStore } from '@/store/uiStore';
@@ -23,18 +23,22 @@ import {
   type TeamMember,
 } from '@/utils/tenantSettingsStorage';
 import { usersApi } from '@/api/users';
+import { organizationApi, type OrganizationPatch } from '@/api/organization';
 import ClientAccessSettings from './ClientAccessSettings';
 import InviteUserModal, { INVITE_USER_MODAL_ID, type InviteTenantRole } from './InviteUserModal';
 
 const DEFAULT_PERIWINKLE = '#C0642C';
 const DEFAULT_SAND = '#B89040';
 
+/** Only `<col />` children — no whitespace/comments inside `<colgroup>` (React DOM nesting). */
+const USERS_TABLE_COL_WIDTHS = ['24%', '27%', '16%', '11%', '22%'] as const;
+
 type SettingsTab = 'General' | 'Users' | 'Client access' | 'Notifications' | 'Appearance';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('General');
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
-  const { currentTenant } = useTenantStore();
+  const { currentTenant, setTenant } = useTenantStore();
   const { theme, toggleTheme, openModal, addToast, closeModal } = useUiStore();
   const { user } = useAuthStore();
   const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
@@ -63,33 +67,101 @@ export default function Settings() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [, setTeamLoading] = useState(false);
 
+  const [smtpEnabled, setSmtpEnabled] = useState(false);
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpAuthUser, setSmtpAuthUser] = useState('');
+  const [smtpAuthPass, setSmtpAuthPass] = useState('');
+  const [smtpAuthPassSet, setSmtpAuthPassSet] = useState(false);
+  const [smtpFromName, setSmtpFromName] = useState('');
+  const [smtpFromAddress, setSmtpFromAddress] = useState('');
+  const [smtpReplyTo, setSmtpReplyTo] = useState('');
+  const [smtpClearPassword, setSmtpClearPassword] = useState(false);
+
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const orgLogoInputRef = useRef<HTMLInputElement>(null);
+
+  const syncOrgLogoToShell = useCallback(
+    (url: string | null | undefined) => {
+      if (!tenantSlug) return;
+      const ct = useTenantStore.getState().currentTenant;
+      if (ct?.slug !== tenantSlug) return;
+      if (url) {
+        setTenant({ ...ct, logo: url });
+      } else {
+        const { logo: _removed, ...rest } = ct;
+        setTenant(rest);
+      }
+    },
+    [tenantSlug, setTenant],
+  );
+
   useEffect(() => {
     if (!tenantSlug) return;
     const g = loadOrgGeneral(tenantSlug);
-    setOrgName(g.orgName || currentTenant?.name || '');
-    setPrimaryContact(g.primaryContact);
     setAddress(g.address);
     setTimezone(g.timezone);
     setNotifyPrefs(loadNotificationPrefs(tenantSlug));
 
     let cancelled = false;
     setTeamLoading(true);
-    usersApi.list().then((users) => {
-      if (cancelled) return;
-      setTeamMembers(users.map((u) => ({
-        id: u.id,
-        name: u.fullName || `${u.firstName} ${u.lastName}`,
-        email: u.email,
-        role: u.role,
-        status: 'active' as const,
-      })));
-    }).catch(() => {
-      if (!cancelled) setTeamMembers([]);
-    }).finally(() => {
+
+    Promise.all([
+      organizationApi
+        .get()
+        .then((org) => {
+          if (cancelled) return;
+          setOrgName(org.name || currentTenant?.name || '');
+          setPrimaryContact(org.primaryContact || '');
+          setOrgLogoUrl(org.logoUrl ?? null);
+          syncOrgLogoToShell(org.logoUrl ?? null);
+          const oe = org.outboundEmail;
+          if (oe) {
+            setSmtpEnabled(Boolean(oe.enabled));
+            setSmtpHost(oe.host || '');
+            setSmtpPort(String(oe.port ?? 587));
+            setSmtpSecure(Boolean(oe.secure));
+            setSmtpAuthUser(oe.authUser || '');
+            setSmtpAuthPass('');
+            setSmtpClearPassword(false);
+            setSmtpAuthPassSet(Boolean(oe.authPassSet));
+            setSmtpFromName(oe.fromName || '');
+            setSmtpFromAddress(oe.fromAddress || '');
+            setSmtpReplyTo(oe.replyTo || '');
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setOrgName(g.orgName || currentTenant?.name || '');
+          setPrimaryContact(g.primaryContact);
+        }),
+      usersApi
+        .list()
+        .then((users) => {
+          if (cancelled) return;
+          setTeamMembers(
+            users.map((u) => ({
+              id: u.id,
+              name: u.fullName || `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+              email: u.email,
+              role: u.role,
+              status: (u.isActive === false ? 'suspended' : 'active') as TeamMember['status'],
+            })),
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setTeamMembers([]);
+        }),
+    ]).finally(() => {
       if (!cancelled) setTeamLoading(false);
     });
-    return () => { cancelled = true; };
-  }, [tenantSlug, currentTenant?.name]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug, currentTenant?.name, syncOrgLogoToShell]);
 
   useEffect(() => {
     if (activeTab === 'Client access' && tenantRole !== 'ORG_ADMIN') {
@@ -114,20 +186,61 @@ export default function Settings() {
     applyAndPersist({ periwinkleHex: DEFAULT_PERIWINKLE, sandHex: DEFAULT_SAND });
   };
 
-  const handleSaveGeneral = () => {
+  const handleSaveGeneral = async () => {
     if (!tenantSlug) return;
-    const ok = saveOrgGeneral(tenantSlug, {
-      orgName,
-      primaryContact,
-      address,
-      timezone,
-    });
-    addToast({
-      type: ok ? 'success' : 'error',
-      message: ok
-        ? 'Organisation details saved.'
-        : 'Could not save — browser storage may be full or blocked.',
-    });
+    try {
+      if (tenantRole === 'ORG_ADMIN') {
+        await organizationApi.update({ name: orgName, primaryContact });
+      }
+      const ok = saveOrgGeneral(tenantSlug, {
+        orgName,
+        primaryContact,
+        address,
+        timezone,
+      });
+      addToast({
+        type: ok ? 'success' : 'error',
+        message: ok
+          ? tenantRole === 'ORG_ADMIN'
+            ? 'Organisation profile saved (server and local extras).'
+            : 'Local preferences saved.'
+          : tenantRole === 'ORG_ADMIN'
+            ? 'Profile saved on server; local extras could not be written to browser storage.'
+            : 'Could not save — browser storage may be full or blocked.',
+      });
+    } catch {
+      addToast({ type: 'error', message: 'Could not save organisation profile on the server.' });
+    }
+  };
+
+  const handleSaveOutboundEmail = async () => {
+    if (!tenantSlug || tenantRole !== 'ORG_ADMIN') return;
+    try {
+      const outboundEmail: NonNullable<OrganizationPatch['outboundEmail']> = {
+        enabled: smtpEnabled,
+        host: smtpHost.trim() || '',
+        port: Number(smtpPort) || 587,
+        secure: smtpSecure,
+        authUser: smtpAuthUser.trim() || '',
+        fromName: smtpFromName.trim() || '',
+        fromAddress: smtpFromAddress.trim() || '',
+        replyTo: smtpReplyTo.trim() || '',
+      };
+      if (smtpAuthPass.trim()) {
+        outboundEmail.authPass = smtpAuthPass.trim();
+      } else if (smtpClearPassword) {
+        outboundEmail.authPass = '';
+      }
+      const org = await organizationApi.update({ outboundEmail });
+      setSmtpAuthPass('');
+      setSmtpClearPassword(false);
+      if (org.outboundEmail) {
+        setSmtpAuthPassSet(Boolean(org.outboundEmail.authPassSet));
+      }
+      addToast({ type: 'success', message: 'Email delivery settings saved.' });
+    } catch {
+      addToast({ type: 'error', message: 'Could not save email delivery settings.' });
+    }
   };
 
   const updateNotifyPref = (key: NotificationPrefKey, checked: boolean) => {
@@ -143,22 +256,40 @@ export default function Settings() {
     });
   };
 
+  const handleOrgLogoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || tenantRole !== 'ORG_ADMIN') return;
+    setLogoUploading(true);
+    try {
+      const org = await organizationApi.uploadLogo(file);
+      const url = org.logoUrl ?? null;
+      setOrgLogoUrl(url);
+      syncOrgLogoToShell(url ?? undefined);
+      addToast({ type: 'success', message: 'Organisation logo updated.' });
+    } catch {
+      addToast({ type: 'error', message: 'Could not upload logo. Use JPEG, PNG, WebP, or GIF (max 2MB).' });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const handleInviteUser = async (email: string, role: InviteTenantRole) => {
     if (!tenantSlug) return;
     try {
       await usersApi.invite({ email, role });
-      const localPart = email.split('@')[0] ?? 'User';
-      const name = localPart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-      const newMember: TeamMember = {
-        id: `inv-${Date.now().toString(36)}`,
-        name,
-        email,
-        role,
-        status: 'active',
-      };
-      setTeamMembers((prev) => [...prev, newMember]);
       closeModal();
       addToast({ type: 'success', message: `Invitation sent to ${email}.` });
+      const users = await usersApi.list();
+      setTeamMembers(
+        users.map((u) => ({
+          id: u.id,
+          name: u.fullName || `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+          email: u.email,
+          role: u.role,
+          status: (u.isActive === false ? 'suspended' : 'active') as TeamMember['status'],
+        })),
+      );
     } catch {
       addToast({ type: 'error', message: `Failed to invite ${email}. Please try again.` });
     }
@@ -194,7 +325,8 @@ export default function Settings() {
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
               <h3 className="text-h3">Organisation Settings</h3>
               <p className="text-[0.72rem] text-[var(--text-muted)]">
-                Values persist in <span className="font-mono">localStorage</span> per tenant until the settings API is available.
+                Organisation name and contact sync to the server for administrators. Address and timezone stay in{' '}
+                <span className="font-mono">localStorage</span> until those fields are added to the API.
               </p>
               <FormInput
                 label="Organisation Name"
@@ -204,9 +336,40 @@ export default function Settings() {
               />
               <div>
                 <label className="text-eyebrow text-[var(--text-muted)] mb-2 block">Logo</label>
-                <div className="h-20 w-20 border border-dashed border-[var(--border-strong)] flex items-center justify-center">
-                  <Avatar name={orgName || currentTenant?.name || 'S'} size="xl" />
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="h-20 w-20 border border-dashed border-[var(--border-strong)] flex items-center justify-center shrink-0 overflow-hidden rounded-sm">
+                    <Avatar
+                      name={orgName || currentTenant?.name || 'S'}
+                      src={orgLogoUrl ?? undefined}
+                      size="xl"
+                    />
+                  </div>
+                  {tenantRole === 'ORG_ADMIN' && (
+                    <>
+                      <input
+                        ref={orgLogoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="sr-only"
+                        onChange={(ev) => void handleOrgLogoSelected(ev)}
+                      />
+                      <Button
+                        variant="secondary"
+                        type="button"
+                        isLoading={logoUploading}
+                        disabled={logoUploading}
+                        onClick={() => orgLogoInputRef.current?.click()}
+                      >
+                        Upload logo
+                      </Button>
+                    </>
+                  )}
                 </div>
+                {tenantRole !== 'ORG_ADMIN' && (
+                  <p className="text-[0.68rem] text-[var(--text-muted)] mt-2">
+                    Only organisation administrators can change the logo.
+                  </p>
+                )}
               </div>
               <FormInput
                 label="Primary Contact"
@@ -226,9 +389,109 @@ export default function Settings() {
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
               />
-              <Button variant="primary" onClick={handleSaveGeneral} disabled={!tenantSlug}>
+              <Button variant="primary" onClick={() => void handleSaveGeneral()} disabled={!tenantSlug}>
                 Save Changes
               </Button>
+
+              {tenantRole === 'ORG_ADMIN' && (
+                <div className="pt-8 mt-8 border-t border-[var(--border)] space-y-5">
+                  <h4 className="text-[0.85rem] font-medium uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    Email delivery (organisation)
+                  </h4>
+                  <p className="text-[0.72rem] text-[var(--text-muted)] leading-relaxed">
+                    Use your own mail server for invitations, password reset (for members of this organisation), and
+                    client access emails. When disabled, the platform mail settings from the server environment are used.
+                  </p>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={smtpEnabled}
+                      onChange={(e) => setSmtpEnabled(e.target.checked)}
+                      className="rounded border-[var(--border)]"
+                    />
+                    <span className="text-[0.78rem] text-[var(--text-primary)]">Send mail via organisation SMTP</span>
+                  </label>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormInput
+                      label="SMTP host"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      placeholder="mail.yourorganisation.gov.za"
+                    />
+                    <FormInput
+                      label="Port"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(e.target.value)}
+                      placeholder="587"
+                    />
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={smtpSecure}
+                      onChange={(e) => setSmtpSecure(e.target.checked)}
+                      className="rounded border-[var(--border)]"
+                    />
+                    <span className="text-[0.72rem] text-[var(--text-muted)]">Use TLS implicit (port 465)</span>
+                  </label>
+                  <FormInput
+                    label="SMTP username (optional)"
+                    value={smtpAuthUser}
+                    onChange={(e) => setSmtpAuthUser(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <div>
+                    <FormInput
+                      label="SMTP password"
+                      type="password"
+                      value={smtpAuthPass}
+                      onChange={(e) => {
+                        setSmtpAuthPass(e.target.value);
+                        setSmtpClearPassword(false);
+                      }}
+                      placeholder={smtpAuthPassSet ? '•••••••• (leave blank to keep)' : 'Optional'}
+                      autoComplete="new-password"
+                    />
+                    {smtpAuthPassSet && (
+                      <button
+                        type="button"
+                        className="mt-2 text-[0.68rem] text-[var(--status-danger)] hover:underline"
+                        onClick={() => {
+                          setSmtpClearPassword(true);
+                          setSmtpAuthPass('');
+                        }}
+                      >
+                        Clear saved password
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormInput
+                      label="From name"
+                      value={smtpFromName}
+                      onChange={(e) => setSmtpFromName(e.target.value)}
+                      placeholder={orgName || 'Organisation name'}
+                    />
+                    <FormInput
+                      label="From email"
+                      type="email"
+                      value={smtpFromAddress}
+                      onChange={(e) => setSmtpFromAddress(e.target.value)}
+                      placeholder="noreply@yourorganisation.gov.za"
+                    />
+                  </div>
+                  <FormInput
+                    label="Reply-To (optional)"
+                    type="email"
+                    value={smtpReplyTo}
+                    onChange={(e) => setSmtpReplyTo(e.target.value)}
+                    placeholder="pmo@yourorganisation.gov.za"
+                  />
+                  <Button variant="secondary" type="button" onClick={() => void handleSaveOutboundEmail()}>
+                    Save email delivery
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -246,13 +509,7 @@ export default function Settings() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px]" style={{ tableLayout: 'fixed' }}>
-                  <colgroup>
-                    <col style={{ width: '24%' }} />  {/* Name */}
-                    <col style={{ width: '27%' }} />  {/* Email */}
-                    <col style={{ width: '16%' }} />  {/* Role */}
-                    <col style={{ width: '11%' }} />  {/* Status */}
-                    <col style={{ width: '22%' }} />  {/* Actions — wide enough for Edit + Remove */}
-                  </colgroup>
+                  <colgroup>{USERS_TABLE_COL_WIDTHS.map((w) => (<col key={w} style={{ width: w }} />))}</colgroup>
                   <thead>
                     <tr style={{ background: 'var(--table-header-bg)' }}>
                       {['Name', 'Email', 'Role', 'Status', 'Actions'].map((h) => (
@@ -263,7 +520,7 @@ export default function Settings() {
                   <tbody>
                     {teamMembers.map((u, i) => (
                       <tr
-                        key={u.id}
+                        key={u.id ? String(u.id) : `${u.email}-${i}`}
                         className={`border-b border-[var(--border)] align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
                       >
                         {/* Name + avatar */}

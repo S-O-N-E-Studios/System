@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import type { ScheduleActivity, SupportingImage } from '@/types';
+import type { Activity, ScheduleActivity, ScheduleActivityStatus, SupportingImage } from '@/types';
 import { formatDate } from '@/utils/formatters';
 import GanttChart from '@/components/ui/GanttChart';
 import ActivityImageUploader from '@/components/ui/ActivityImageUploader';
@@ -8,23 +8,42 @@ import { Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { uploadActivityImage, removeActivityImage } from '@/api/activityImages';
+import { activitiesApi } from '@/api/activities';
+import { projectsApi } from '@/api/projects';
 
-const MOCK_ACTIVITIES: (ScheduleActivity & { expectedFunds: number; actualFunds: number })[] = [
-  { id: '1', name: 'Excavation', startDate: '2026-01-15', endDate: '2026-03-15', status: 'on_track', expectedFunds: 100, actualFunds: 95 },
-  { id: '2', name: 'Steel', startDate: '2026-02-01', endDate: '2026-04-30', status: 'on_track', expectedFunds: 100, actualFunds: 100 },
-  { id: '3', name: 'Concrete', startDate: '2026-03-01', endDate: '2026-06-30', status: 'at_risk', expectedFunds: 100, actualFunds: 85 },
-  { id: '4', name: 'Road Base', startDate: '2026-05-01', endDate: '2026-08-31', status: 'on_track', expectedFunds: 100, actualFunds: 0 },
-  { id: '5', name: 'Surfacing', startDate: '2026-07-01', endDate: '2026-10-31', status: 'complete', expectedFunds: 100, actualFunds: 0 },
-  { id: '6', name: 'Handover', startDate: '2026-10-01', endDate: '2026-11-30', status: 'on_track', expectedFunds: 100, actualFunds: 0 },
-];
+type ScheduleRow = ScheduleActivity & { expectedFunds: number; actualFunds: number };
 
-const MOCK_PROJECT = {
-  name: 'R573 Road Rehabilitation',
-  refCode: 'PRJ-2026-001',
-  startDate: '2026-01-15',
-  completionDate: '2026-11-30',
-  progress: 38,
+type ProjectScheduleMeta = {
+  name: string;
+  refCode: string;
+  startDate: string;
+  completionDate: string;
+  progress: number;
 };
+
+function mapActivityStatus(s: string): ScheduleActivityStatus {
+  if (s === 'at_risk' || s === 'at-risk') return 'at_risk';
+  if (s === 'delayed') return 'delayed';
+  if (s === 'complete') return 'complete';
+  if (s === 'on-track' || s === 'on_track') return 'on_track';
+  return 'on_track';
+}
+
+function activityToScheduleRow(a: Activity): ScheduleRow {
+  return {
+    id: a.id,
+    name: a.name,
+    startDate: a.startDate.slice(0, 10),
+    endDate: a.endDate.slice(0, 10),
+    status: mapActivityStatus(a.status),
+    expectedFunds: a.expectedFunds ?? 0,
+    actualFunds: a.actualFunds ?? 0,
+  };
+}
+
+function maxIsoDate(dates: string[]): string {
+  return dates.reduce((a, b) => (a >= b ? a : b), dates[0] || '');
+}
 
 function useCountdown(targetDate: string) {
   const [remaining, setRemaining] = useState(() => {
@@ -49,26 +68,91 @@ function useCountdown(targetDate: string) {
 }
 
 export default function ProjectActivitySchedule() {
-  const activities = MOCK_ACTIVITIES;
-  const project = MOCK_PROJECT;
   const { tenantSlug, id: projectId } = useParams<{ tenantSlug: string; id: string }>();
   const { user } = useAuthStore();
   const { addToast } = useUiStore();
-  const countdown = useCountdown(project.completionDate);
+
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<Activity[]>([]);
+  const [projectMeta, setProjectMeta] = useState<ProjectScheduleMeta | null>(null);
+  const [imagesByActivityId, setImagesByActivityId] = useState<Record<string, SupportingImage[]>>({});
+
+  const scheduleActivities = useMemo(() => rows.map(activityToScheduleRow), [rows]);
 
   const tenantRole =
     user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
   const isClientTemp = tenantRole === 'CLIENT_TEMP';
 
+  useEffect(() => {
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([projectsApi.getById(projectId), activitiesApi.list(projectId)])
+      .then(([p, acts]) => {
+        if (cancelled) return;
+        setRows(acts);
+        const actStarts = acts.map((a) => a.startDate.slice(0, 10));
+        const actEnds = acts.map((a) => a.endDate.slice(0, 10));
+        const start =
+          p.startDate?.slice(0, 10) ??
+          (actStarts.length ? actStarts.reduce((a, b) => (a <= b ? a : b)) : new Date().toISOString().slice(0, 10));
+        const endFromProject = p.completionDate?.slice(0, 10);
+        const endFromActs = actEnds.length ? maxIsoDate(actEnds) : '';
+        const completionDate = endFromProject || endFromActs || start;
+        setProjectMeta({
+          name: p.name,
+          refCode: p.refCode,
+          startDate: start,
+          completionDate,
+          progress: p.percentComplete ?? 0,
+        });
+        setImagesByActivityId(
+          Object.fromEntries(acts.map((a) => [a.id, [...(a.supportingImages ?? [])]])),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          addToast({ type: 'error', message: 'Could not load project schedule.' });
+          setRows([]);
+          setProjectMeta(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, addToast]);
+
+  const project = projectMeta;
+  const countdown = useCountdown(project?.completionDate ?? new Date().toISOString().slice(0, 10));
+
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const selectedActivity = useMemo(
-    () => activities.find((a) => a.id === selectedActivityId) ?? null,
-    [activities, selectedActivityId]
+    () => rows.find((a) => a.id === selectedActivityId) ?? null,
+    [rows, selectedActivityId],
   );
 
-  const [imagesByActivityId, setImagesByActivityId] = useState<Record<string, SupportingImage[]>>(
-    () => ({})
-  );
+  if (loading) {
+    return (
+      <div className="p-8 text-[0.82rem] text-[var(--text-muted)] border border-[var(--border-default)] bg-[var(--bg-surface)]">
+        Loading schedule…
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="p-8 text-[0.82rem] text-[var(--text-muted)] border border-[var(--border-default)] bg-[var(--bg-surface)]">
+        Project could not be loaded.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -110,12 +194,18 @@ export default function ProjectActivitySchedule() {
       </div>
 
       {/* Gantt chart */}
-      <GanttChart
-        activities={activities}
-        startMonth={new Date(project.startDate)}
-        endMonth={new Date(project.completionDate)}
-        onActivityClick={(activityId) => setSelectedActivityId(activityId)}
-      />
+      {scheduleActivities.length === 0 ? (
+        <div className="p-6 text-[0.82rem] text-[var(--text-muted)] border border-[var(--border-default)] bg-[var(--bg-surface)]">
+          No activities yet for this project.
+        </div>
+      ) : (
+        <GanttChart
+          activities={scheduleActivities}
+          startMonth={new Date(project.startDate)}
+          endMonth={new Date(project.completionDate)}
+          onActivityClick={(activityId) => setSelectedActivityId(activityId)}
+        />
+      )}
 
       {selectedActivityId && selectedActivity && (
         <ActivityImageUploader
@@ -151,18 +241,6 @@ export default function ProjectActivitySchedule() {
                       type: 'error',
                       message: 'Image upload failed. Please try again.',
                     });
-                    // Backend may be stubbed early in dev; keep UI functional by
-                    // optimistically adding the image entry.
-                    const newImage: SupportingImage = {
-                      fileId: crypto.randomUUID(),
-                      uploadedBy: user?.email ?? 'unknown',
-                      uploadedAt: new Date().toISOString(),
-                      caption,
-                    };
-                    setImagesByActivityId((prev) => ({
-                      ...prev,
-                      [activityId]: [...(prev[activityId] ?? []), newImage],
-                    }));
                   }
                 }
           }
@@ -189,13 +267,6 @@ export default function ProjectActivitySchedule() {
                       type: 'error',
                       message: 'Image removal failed. Please try again.',
                     });
-                    // Keep UI in sync for MVP even if backend is unavailable.
-                    setImagesByActivityId((prev) => ({
-                      ...prev,
-                      [activityId]: (prev[activityId] ?? []).filter(
-                        (img) => img.fileId !== imageId
-                      ),
-                    }));
                   }
                 }
           }
@@ -211,14 +282,14 @@ export default function ProjectActivitySchedule() {
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
               <th className="text-table-header text-left px-4 py-3">Activity</th>
-              <th className="text-table-header text-right px-4 py-3">Expected (R'000)</th>
-              <th className="text-table-header text-right px-4 py-3">Actual (R'000)</th>
+              <th className="text-table-header text-right px-4 py-3">Expected (R&apos;000)</th>
+              <th className="text-table-header text-right px-4 py-3">Actual (R&apos;000)</th>
               <th className="text-table-header text-right px-4 py-3">Variance</th>
               <th className="text-table-header text-left px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
-            {activities.map((act, i) => {
+            {scheduleActivities.map((act, i) => {
               const variance = act.actualFunds - act.expectedFunds;
               const isOver = variance > 0;
               const isUnder = variance < 0 && act.actualFunds > 0;

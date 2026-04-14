@@ -3,9 +3,10 @@ import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useEffect, useState } from 'react';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import type { TenantSummary } from '@/types';
+import type { OrgType, TenantSummary } from '@/types';
 import { clientAccessCheck } from '@/api/clientAccess';
 import { useClientAccessStore } from '@/store/clientAccessStore';
+import { organizationApi } from '@/api/organization';
 
 /** Role for the tenant in the current URL (not tenants[0]). */
 function tenantAccessForSlug(
@@ -60,6 +61,28 @@ export function TenantGuard() {
       clearTenant();
     };
   }, [user, tenantSlug, setTenant, clearTenant]);
+
+  useEffect(() => {
+    if (!tenantSlug || !user?.tenants.some((t) => t.slug === tenantSlug)) return;
+    let cancelled = false;
+    organizationApi
+      .get()
+      .then((org) => {
+        if (cancelled) return;
+        const ct = useTenantStore.getState().currentTenant;
+        if (!ct || ct.slug !== tenantSlug) return;
+        const ot = org.orgType as OrgType | undefined;
+        if (ot && ct.orgType !== ot) {
+          setTenant({ ...ct, orgType: ot });
+        }
+      })
+      .catch(() => {
+        /* non-fatal: sidebar / forms fall back until organisation can be loaded */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug, user, setTenant]);
 
   if (!user) {
     return <Navigate to="/" replace />;

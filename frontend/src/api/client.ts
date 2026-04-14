@@ -1,14 +1,37 @@
 import axios from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useUiStore } from '@/store/uiStore';
+import { getApiBaseUrl } from './apiBaseUrl';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: getApiBaseUrl(),
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+/**
+ * Do not chain access-token refresh for these requests:
+ * - `/auth/refresh` itself (avoid nested handling / loops)
+ * - Public auth routes that legitimately return 401 (wrong password, validation, etc.)
+ */
+function skipAccessTokenRefresh(config: InternalAxiosRequestConfig | undefined): boolean {
+  const u = String(config?.url ?? '');
+  if (!u) return false;
+  if (u.includes('/auth/refresh')) return true;
+  const publicAuth = [
+    '/auth/login',
+    '/auth/register-org',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/auth/accept-invite',
+    '/auth/client-activate',
+  ];
+  return publicAuth.some((p) => u.includes(p));
+}
 
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
@@ -19,6 +42,10 @@ apiClient.interceptors.request.use((config) => {
   const slug = useTenantStore.getState().getSlug();
   if (slug) {
     config.headers['X-Tenant-Slug'] = slug;
+  }
+
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
   }
 
   return config;
@@ -44,7 +71,11 @@ const processQueue = (error: unknown) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    if (error.response?.status === 401 && skipAccessTokenRefresh(originalRequest)) {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -58,16 +89,17 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshToken = useAuthStore.getState().refreshToken;
-        const refreshUrl = `${import.meta.env.VITE_API_BASE_URL || '/api'}/auth/refresh`;
+        const refreshUrl = `${getApiBaseUrl()}/auth/refresh`;
 
-        // Real backend: refresh token stored in httpOnly cookie, so the body can be omitted.
-        const { data } = refreshToken
-          ? await axios.post(refreshUrl, { refreshToken })
-          : await axios.post(refreshUrl);
+        // Cookie-based refresh must send credentials; body optional when refresh JWT is only in httpOnly cookie.
+        const { data: raw } = refreshToken
+          ? await axios.post(refreshUrl, { refreshToken }, { withCredentials: true })
+          : await axios.post(refreshUrl, {}, { withCredentials: true });
 
+        const body = raw?.data ?? raw;
         useAuthStore.getState().refreshTokens({
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
+          accessToken: body.accessToken,
+          refreshToken: body.refreshToken,
         });
 
         processQueue(null);
@@ -75,7 +107,7 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
         useAuthStore.getState().logout();
-        window.location.href = '/';
+        // Avoid full-page navigation to `/` when already on login — that re-ran bootstrap and spammed POST /auth/refresh.
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

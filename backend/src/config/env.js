@@ -22,6 +22,9 @@ module.exports = {
   EMAIL_FROM: process.env.EMAIL_FROM || "noreply@project360.co.za",
   SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
 
+  /** Optional: encrypts per-tenant SMTP passwords at rest (set in production). */
+  TENANT_SMTP_ENCRYPTION_KEY: process.env.TENANT_SMTP_ENCRYPTION_KEY,
+
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || "local",
   AWS_REGION: process.env.AWS_REGION || "af-south-1",
   AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,

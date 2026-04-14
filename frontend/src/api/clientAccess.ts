@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { TemporaryAccess, TemporaryAccessStatus } from '@/types';
+import type { TemporaryAccess, TemporaryAccessStatus, AccessExtension } from '@/types';
 
 function extractStringArray(value: unknown): string[] | null {
   if (!value) return null;
@@ -13,6 +13,34 @@ function extractExpiresAt(value: unknown): string | null {
   return null;
 }
 
+/** Axios `response.data` → inner `data` payload from `sendSuccess`. */
+function unwrapApiBody(axiosData: unknown): unknown {
+  if (axiosData && typeof axiosData === 'object' && 'data' in axiosData) {
+    return (axiosData as { data: unknown }).data;
+  }
+  return axiosData;
+}
+
+function mapAccessRow(raw: Record<string, unknown>): TemporaryAccess {
+  const projectIds = (Array.isArray(raw.projectIds) ? raw.projectIds : []).map((id) => String(id));
+  return {
+    id: String(raw._id ?? raw.id ?? ''),
+    tenantId: String(raw.tenantId ?? ''),
+    grantedBy: String(raw.grantedBy ?? ''),
+    clientEmail: String(raw.clientEmail ?? ''),
+    projectIds,
+    expiresAt: raw.expiresAt ? new Date(raw.expiresAt as string).toISOString() : '',
+    grantedAt: raw.createdAt ? new Date(raw.createdAt as string).toISOString() : '',
+    status: (raw.status as TemporaryAccess['status']) || 'pending',
+    extensionHistory: Array.isArray(raw.extensionHistory)
+      ? (raw.extensionHistory as AccessExtension[])
+      : [],
+    notes: typeof raw.notes === 'string' ? raw.notes : undefined,
+    revokedAt: raw.revokedAt ? new Date(raw.revokedAt as string).toISOString() : undefined,
+    revokedBy: raw.revokedBy ? String(raw.revokedBy) : undefined,
+  };
+}
+
 export async function clientAccessCheck(params: {
   tenantSlug: string;
   projectId: string;
@@ -21,17 +49,11 @@ export async function clientAccessCheck(params: {
   expiresAt: string | null;
 }> {
   const res = await apiClient.get<unknown>(
-    `/${params.tenantSlug}/projects/${params.projectId}/client-access-check`
+    `/${params.tenantSlug}/projects/${params.projectId}/client-access-check`,
   );
 
-  const payload: unknown = (res as { data: unknown }).data;
-  const body: unknown =
-    payload && typeof payload === 'object' && 'data' in payload
-      ? (payload as { data: unknown }).data
-      : payload;
-
-  const bodyRecord =
-    body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+  const body = unwrapApiBody(res.data);
+  const bodyRecord = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
 
   const allowedProjectIds =
     extractStringArray(bodyRecord?.allowedProjectIds) ??
@@ -47,6 +69,29 @@ export async function clientAccessCheck(params: {
   return { allowedProjectIds, expiresAt };
 }
 
+export const clientAccessApi = {
+  list: async (tenantSlug: string, status?: TemporaryAccessStatus): Promise<TemporaryAccess[]> => {
+    const res = await apiClient.get(`/${tenantSlug}/client-access`, {
+      params: status ? { status } : undefined,
+    });
+    const payload = unwrapApiBody(res.data);
+    const rows =
+      payload && typeof payload === 'object' && 'access' in (payload as object)
+        ? (payload as { access: unknown }).access
+        : payload;
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r) => mapAccessRow(r as Record<string, unknown>));
+  },
+
+  extend: async (tenantSlug: string, id: string, expiresAt: string): Promise<void> => {
+    await apiClient.patch(`/${tenantSlug}/client-access/${id}/extend`, { expiresAt });
+  },
+
+  revoke: async (tenantSlug: string, id: string): Promise<void> => {
+    await apiClient.patch(`/${tenantSlug}/client-access/${id}/revoke`);
+  },
+};
+
 export async function fetchClientAccessGrants(params: {
   tenantSlug: string;
   status?: TemporaryAccessStatus;
@@ -55,20 +100,7 @@ export async function fetchClientAccessGrants(params: {
   allowedProjectIds: string[];
   expiresAt: string | null;
 }> {
-  const res = await apiClient.get<unknown>(`/${params.tenantSlug}/client-access`, {
-    params: { status: params.status ?? 'active' },
-  });
-
-  const axiosData: unknown = (res as { data: unknown }).data;
-  const payload: unknown =
-    axiosData && typeof axiosData === 'object' && 'data' in axiosData
-      ? (axiosData as { data: unknown }).data
-      : axiosData;
-
-  const grants: TemporaryAccess[] = Array.isArray(payload)
-    ? payload.filter(Boolean).map((g) => g as TemporaryAccess)
-    : [];
-
+  const grants = await clientAccessApi.list(params.tenantSlug, params.status ?? 'active');
   const allowedProjectIds = grants.flatMap((g) => g.projectIds ?? []);
   const sortedExpiry = grants
     .map((g) => g.expiresAt)

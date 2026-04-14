@@ -14,7 +14,6 @@ export async function uploadActivityImage(params: {
   await apiClient.post(
     `/${params.tenantSlug}/projects/${params.projectId}/activities/${params.activityId}/images`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
   );
 }
 

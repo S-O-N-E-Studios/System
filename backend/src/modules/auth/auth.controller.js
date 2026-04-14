@@ -128,6 +128,12 @@ const checkSlug = async (req, res) => {
   return sendSuccess(res, result);
 };
 
+//  GET /auth/me — session user (no tenant slug required)
+const getMe = async (req, res) => {
+  const user = await authService.getSessionUser(req.user.sub);
+  return sendSuccess(res, { user });
+};
+
 module.exports = {
   login,
   registerOrg,
@@ -139,4 +145,5 @@ module.exports = {
   logout,
   changePassword,
   checkSlug,
+  getMe,
 };

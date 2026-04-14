@@ -43,7 +43,7 @@ Set these in the Vercel dashboard:
 
 | Variable | Value |
 |----------|-------|
-| `VITE_API_BASE_URL` | `https://api.project360.co.za/api` |
+| `VITE_API_BASE_URL` | `https://api.project360.co.za/api/v1` |
 | `VITE_USE_MOCK_AUTH` | `false` |
 | `VITE_MAP_PROVIDER` | `osm` (or `google`) |
 | `VITE_GOOGLE_MAPS_API_KEY` | Your key (if using Google Maps) |

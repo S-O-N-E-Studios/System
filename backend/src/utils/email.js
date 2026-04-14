@@ -1,75 +1,125 @@
-
-//  * Handles all transactional email for auth flows:
-//  *  - Password reset
-//  *  - Team invitation (accept-invite)
-//  *  - Client temporary access activation
-//  *  - Client access expiry warning (24-hour notice)
-
+//  * Transactional email for auth flows:
+//  *  - Password reset (uses member org SMTP when configured, else platform)
+//  *  - Team invitation (always tenant-scoped → org SMTP when enabled)
+//  *  - Client temporary access activation / expiry notices
+//  *
+//  * Platform delivery: SMTP (your own relay) or legacy SendGrid env.
+//  * Per-organisation: Tenant.outboundEmail — your mail server, no third-party API required.
 
 const nodemailer = require('nodemailer');
-const env        = require('../config/env');
+const env = require('../config/env');
+const { decryptTenantSmtpPassword } = require('./tenantSmtpCrypto');
 
-// Transporter
+/** Singleton transporter for platform-level email (no tenant context). */
+let platformTransporter;
 
-let transporter;
-
-const getTransporter = () => {
-  if (transporter) return transporter;
-
-  if (env.EMAIL_PROVIDER === 'sendgrid') {
-    transporter = nodemailer.createTransport({
+const createPlatformTransport = () => {
+  if (env.EMAIL_PROVIDER === 'sendgrid' && env.SENDGRID_API_KEY) {
+    return nodemailer.createTransport({
       host: 'smtp.sendgrid.net',
       port: 587,
-      auth: {
-        user: 'apikey',
-        pass: env.SENDGRID_API_KEY,
-      },
-    });
-  } else {
-    // Default: SMTP (works with Mailtrap in dev, or any SMTP in prod)
-    transporter = nodemailer.createTransport({
-      host: env.EMAIL_HOST,
-      port: env.EMAIL_PORT,
-      secure: env.EMAIL_PORT === 465,
-      auth: {
-        user: env.EMAIL_USER,
-        pass: env.EMAIL_PASSWORD,
-      },
+      auth: { user: 'apikey', pass: env.SENDGRID_API_KEY },
     });
   }
-
-  return transporter;
+  return nodemailer.createTransport({
+    host: env.EMAIL_HOST,
+    port: env.EMAIL_PORT,
+    secure: env.EMAIL_PORT === 465,
+    auth:
+      env.EMAIL_USER || env.EMAIL_PASSWORD
+        ? { user: env.EMAIL_USER || '', pass: env.EMAIL_PASSWORD || '' }
+        : undefined,
+  });
 };
 
-// Base send──
+const getPlatformTransporter = () => {
+  if (platformTransporter) return platformTransporter;
+  platformTransporter = createPlatformTransport();
+  return platformTransporter;
+};
 
 /**
- * Send an email.
- * In test environment, logs instead of sending.
- *
- * @param {Object} options - { to, subject, html, text? }
+ * Build a transporter + From header from tenant.outboundEmail when enabled.
+ * Returns null if tenant mail is not usable (falls back to platform).
  */
-const sendEmail = async ({ to, subject, html, text }) => {
+const resolveTenantOutbound = (tenant) => {
+  const oe = tenant && tenant.outboundEmail;
+  if (!oe || !oe.enabled || !oe.host || !oe.fromAddress) return null;
+
+  const pass = decryptTenantSmtpPassword(oe.authPassEncrypted);
+  const needsAuth = Boolean(oe.authUser) || Boolean(pass);
+  if (needsAuth && !oe.authUser) return null;
+
+  const transport = nodemailer.createTransport({
+    host: oe.host,
+    port: oe.port || 587,
+    secure: Boolean(oe.secure),
+    auth: oe.authUser ? { user: oe.authUser, pass: pass || '' } : undefined,
+  });
+
+  const name = (oe.fromName && String(oe.fromName).trim()) || tenant.name || 'Project 360';
+  const from = `"${name.replace(/"/g, '')}" <${oe.fromAddress}>`;
+  const replyTo = oe.replyTo || undefined;
+
+  return { transport, from, replyTo };
+};
+
+const resolveMailer = (tenant) => {
+  const tenantMail = tenant ? resolveTenantOutbound(tenant) : null;
+  if (tenantMail) {
+    return {
+      transport: tenantMail.transport,
+      from: tenantMail.from,
+      replyTo: tenantMail.replyTo,
+    };
+  }
+  return {
+    transport: getPlatformTransporter(),
+    from: `"Project 360" <${env.EMAIL_FROM}>`,
+    replyTo: undefined,
+  };
+};
+
+/**
+ * Send an email. Pass `tenant` when the message is on behalf of an organisation
+ * that configured outboundEmail (in-house SMTP).
+ */
+const sendEmail = async ({ to, subject, html, text, tenant }) => {
   if (env.isTest) {
+    // eslint-disable-next-line no-console
     console.log(`[EMAIL TEST] To: ${to} | Subject: ${subject}`);
     return;
   }
 
+  const { transport, from, replyTo } = resolveMailer(tenant);
+
   const mailOptions = {
-    from:    `"Project 360" <${env.EMAIL_FROM}>`,
+    from,
     to,
     subject,
     html,
-    text: text || html.replace(/<[^>]+>/g, ''), // plain text fallback
+    text: text || html.replace(/<[^>]+>/g, ''),
+    ...(replyTo ? { replyTo } : {}),
   };
 
-  await getTransporter().sendMail(mailOptions);
+  try {
+    await transport.sendMail(mailOptions);
+  } catch (err) {
+    // If the organisation relay fails, retry once on the platform mailer so users are not stuck.
+    if (tenant) {
+      const fallback = resolveMailer(null);
+      await fallback.transport.sendMail({
+        ...mailOptions,
+        from: fallback.from,
+        replyTo: undefined,
+      });
+      return;
+    }
+    throw err;
+  }
 };
 
-// Auth email templates 
-
-
-const sendPasswordResetEmail = async (to, resetToken) => {
+const sendPasswordResetEmail = async (to, resetToken, { tenant } = {}) => {
   const resetUrl = `${env.CLIENT_URL}/reset-password/${resetToken}`;
 
   await sendEmail({
@@ -81,11 +131,11 @@ const sendPasswordResetEmail = async (to, resetToken) => {
       <p><a href="${resetUrl}">${resetUrl}</a></p>
       <p>If you did not request this, you can safely ignore this email.</p>
     `,
+    tenant,
   });
 };
 
-
-const sendInviteEmail = async (to, inviteToken, { orgName, invitedByName, role }) => {
+const sendInviteEmail = async (to, inviteToken, { orgName, invitedByName, role }, tenant) => {
   const acceptUrl = `${env.CLIENT_URL}/invite/${inviteToken}`;
 
   await sendEmail({
@@ -96,16 +146,16 @@ const sendInviteEmail = async (to, inviteToken, { orgName, invitedByName, role }
       <p>Click the link below to accept your invitation and create your account. This link expires in <strong>72 hours</strong>.</p>
       <p><a href="${acceptUrl}">${acceptUrl}</a></p>
     `,
+    tenant,
   });
 };
 
-
-const sendClientActivationEmail = async (to, activationToken, { orgName, projectNames, expiresAt }) => {
+const sendClientActivationEmail = async (to, activationToken, { orgName, projectNames, expiresAt }, tenant) => {
   const activateUrl = `${env.CLIENT_URL}/client-access/${activationToken}`;
-  const expiryDate  = new Date(expiresAt).toLocaleDateString('en-ZA', {
-    day:   'numeric',
+  const expiryDate = new Date(expiresAt).toLocaleDateString('en-ZA', {
+    day: 'numeric',
     month: 'long',
-    year:  'numeric',
+    year: 'numeric',
   });
 
   const projectList = Array.isArray(projectNames) && projectNames.length > 0
@@ -123,16 +173,16 @@ const sendClientActivationEmail = async (to, activationToken, { orgName, project
       <p><a href="${activateUrl}">${activateUrl}</a></p>
       <p>After activating, you can log in at <a href="${env.CLIENT_URL}">${env.CLIENT_URL}</a> using this email address.</p>
     `,
+    tenant,
   });
 };
 
-
-const sendClientAccessExpiryWarning = async (to, { orgName, projectNames, expiresAt }) => {
+const sendClientAccessExpiryWarning = async (to, { orgName, projectNames, expiresAt }, tenant) => {
   const expiryDate = new Date(expiresAt).toLocaleString('en-ZA', {
-    day:    'numeric',
-    month:  'long',
-    year:   'numeric',
-    hour:   '2-digit',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
   });
 
@@ -149,6 +199,7 @@ const sendClientAccessExpiryWarning = async (to, { orgName, projectNames, expire
       <p>Access expires: <strong>${expiryDate}</strong></p>
       <p>If you need an extension, please contact the organisation that granted your access.</p>
     `,
+    tenant,
   });
 };
 

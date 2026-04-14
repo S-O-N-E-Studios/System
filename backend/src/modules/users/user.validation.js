@@ -4,7 +4,7 @@ const { ROLES } = require('../../constants/roles');
 
 const updateProfileSchema = Joi.object({
   fullName:  Joi.string().min(2).max(100).trim(),
-  avatarUrl: Joi.string().uri().allow(null, ''),
+  avatarUrl: Joi.string().trim().allow(null, ''),
 });
  
 const inviteUserSchema = Joi.object({

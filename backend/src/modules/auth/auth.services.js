@@ -385,7 +385,24 @@ const forgotPassword = async (email) => {
     passwordResetExpiresAt: expiresAt,
   });
 
-  await sendPasswordResetEmail(email, rawToken);
+  /** Prefer the first organisation (membership order) that sends mail via its own relay. */
+  let mailTenant = null;
+  const memberships = user.tenants || [];
+  if (memberships.length > 0) {
+    const ids = memberships.map((m) => m.tenantId);
+    const tenants = await Tenant.find({ _id: { $in: ids } });
+    const byId = new Map(tenants.map((t) => [t._id.toString(), t]));
+    for (const m of memberships) {
+      const t = byId.get(m.tenantId.toString());
+      const oe = t?.outboundEmail;
+      if (t && oe?.enabled && oe.host && oe.fromAddress) {
+        mailTenant = t;
+        break;
+      }
+    }
+  }
+
+  await sendPasswordResetEmail(email, rawToken, { tenant: mailTenant });
 };
 
 //  Reset Password
@@ -437,6 +454,16 @@ const checkSlugAvailability = async (slug) => {
   return { available: !existing };
 };
 
+/** Current user for GET /auth/me (no tenant context). */
+const getSessionUser = async (userId) => {
+  const UserModel = getUserModel();
+  const user = await UserModel.findById(userId);
+  if (!user || !user.isActive) {
+    throw Object.assign(new Error('User not found'), { status: 404 });
+  }
+  return user.toSafeObject();
+};
+
 // Lazy import to avoid circular deps
 let User;
 const getUserModel = () => {
@@ -448,6 +475,7 @@ module.exports = {
   login,
   logout,
   refreshTokens,
+  getSessionUser,
   registerOrg,
   acceptInvite,
   activateClientAccess,

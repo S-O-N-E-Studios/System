@@ -72,5 +72,6 @@ router.post(
   validate(changePasswordSchema),
   asyncHandler(controller.changePassword),
 );
+router.get("/me", authenticate, asyncHandler(controller.getMe));
 
 module.exports = router;

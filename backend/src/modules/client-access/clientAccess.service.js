@@ -45,11 +45,16 @@ const grantAccess = async (tenant, data, userId) => {
     .select('name')
     .lean();
 
-  await sendClientActivationEmail(data.clientEmail, rawToken, {
-    orgName: tenant.name,
-    projectNames: projects.map((p) => p.name),
-    expiresAt: data.expiresAt,
-  });
+  await sendClientActivationEmail(
+    data.clientEmail,
+    rawToken,
+    {
+      orgName:      tenant.name,
+      projectNames: projects.map((p) => p.name),
+      expiresAt:    data.expiresAt,
+    },
+    tenant
+  );
 
   const safe = doc.toObject();
   delete safe.activationTokenHash;

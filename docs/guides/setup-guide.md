@@ -67,7 +67,7 @@ cp frontend/.env.example frontend/.env
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `VITE_API_BASE_URL` | `http://localhost:5000/api` | Backend API |
+| `VITE_API_BASE_URL` | `http://localhost:5000/api/v1` | Backend API (`/api/v1` prefix) |
 | `VITE_USE_MOCK_AUTH` | (unset = mock) | Set `false` to use real backend auth |
 | `VITE_MAP_PROVIDER` | `osm` | `osm` (free) or `google` (needs API key) |
 
@@ -150,7 +150,7 @@ By default the frontend uses mock authentication for offline development. To use
 
 ```
 VITE_USE_MOCK_AUTH=false
-VITE_API_BASE_URL=http://localhost:5000/api
+VITE_API_BASE_URL=http://localhost:5000/api/v1
 ```
 
 3. Restart the frontend dev server

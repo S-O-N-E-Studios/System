@@ -19,6 +19,7 @@ useAuthStore.getState().setLoading(true);
 void (async () => {
   try {
     const tokens = await authApi.refreshToken();
+    useAuthStore.getState().refreshTokens(tokens);
     const user = await authApi.getMe();
     useAuthStore.getState().login(user, tokens);
   } catch {

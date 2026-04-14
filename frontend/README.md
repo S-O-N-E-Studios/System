@@ -21,7 +21,7 @@ Mock auth is on by default. Set `VITE_USE_MOCK_AUTH=false` in `.env` to use the 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_BASE_URL` | `http://localhost:5000/api` | Backend API base URL |
+| `VITE_API_BASE_URL` | `http://localhost:5000/api/v1` | Backend API base URL (must match `/api/v1` mount) |
 | `VITE_USE_MOCK_AUTH` | (unset = true) | Set `false` to use real backend auth |
 | `VITE_MAP_PROVIDER` | `osm` | Map tile provider: `osm` or `google` |
 | `VITE_GOOGLE_MAPS_API_KEY` | — | Required when `VITE_MAP_PROVIDER=google` |

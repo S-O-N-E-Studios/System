@@ -1,10 +1,13 @@
 import { create } from 'zustand';
+import type { OrgType } from '@/types';
 
 interface CurrentTenant {
   id: string;
   slug: string;
   name: string;
   logo?: string;
+  /** From organisation API; drives provincial vs private UI. */
+  orgType?: OrgType;
   plan: 'starter' | 'professional' | 'enterprise';
 }
 

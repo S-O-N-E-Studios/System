@@ -239,7 +239,7 @@ Each module follows the pattern: `model → repository → service → controlle
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_BASE_URL` | `http://localhost:5000/api` | Backend API base |
+| `VITE_API_BASE_URL` | `http://localhost:5000/api/v1` | Backend API base (must include `/v1`) |
 | `VITE_USE_MOCK_AUTH` | (unset = true) | Set `false` for real auth |
 | `VITE_MAP_PROVIDER` | `osm` | `osm` or `google` |
 | `VITE_GOOGLE_MAPS_API_KEY` | — | Required if map provider is `google` |

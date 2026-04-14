@@ -154,7 +154,7 @@ export default function DepartmentView() {
       try {
         const [deptRes, listResult] = await Promise.all([
           apiClient.get<DepartmentApiEnvelope>(`/${slug}/departments/${deptId}`),
-          projectsApi.list({ deptId, limit: 500 }).catch(() => ({ projects: [] as Project[], total: 0 })),
+          projectsApi.list({ deptId, limit: 100 }).catch(() => ({ projects: [] as Project[], total: 0 })),
         ]);
 
         const payload = deptRes.data?.data?.department;

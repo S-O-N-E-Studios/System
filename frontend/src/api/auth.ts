@@ -39,6 +39,7 @@ function mapBackendUser(raw: Record<string, unknown>): User {
     fullName: (raw.fullName || '') as string,
     role: (raw.role || 'MEMBER') as User['role'],
     avatarUrl: (raw.avatarUrl || undefined) as string | undefined,
+    isActive: raw.isActive === false ? false : true,
     tenants: Array.isArray(raw.tenants)
       ? raw.tenants.map((t: Record<string, unknown>) => ({
           id: (t.tenantId || t.id || '') as string,
@@ -121,8 +122,12 @@ export const authApi = {
   },
 
   getMe: async (): Promise<User> => {
-    const res = await apiClient.get('/auth/me');
-    const body = res.data?.data || res.data;
-    return mapBackendUser(body);
+    const res = await apiClient.get<ApiResponse<{ user: Record<string, unknown> }>>('/auth/me');
+    const body = res.data?.data ?? res.data;
+    const raw =
+      body && typeof body === 'object' && 'user' in body
+        ? (body as { user: Record<string, unknown> }).user
+        : (body as Record<string, unknown>);
+    return mapBackendUser(raw);
   },
 };

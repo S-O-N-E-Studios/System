@@ -25,7 +25,12 @@ const app = express();
 
 //  Security headers 
 
-app.use(helmet());
+app.use(
+  helmet({
+    // Default `same-origin` blocks <img src="http://api:5000/uploads/..."> from the SPA on another port.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
 
 //  CORS 
 
@@ -90,6 +95,10 @@ app.use(cookieParser());
 if (!env.isTest) {
   app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 }
+
+//  Public uploaded images (avatars, org logos)
+const { UPLOAD_ROOT } = require('./utils/savePublicImage');
+app.use('/uploads', express.static(UPLOAD_ROOT));
 
 //  Routes 
 

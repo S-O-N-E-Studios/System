@@ -10,6 +10,13 @@ router.use(denyClientTemp);
 
 router.get('/', asyncHandler(ctrl.get));
 
+router.post(
+  '/logo',
+  requireOrgAdmin,
+  ctrl.logoUpload.single('file'),
+  asyncHandler(ctrl.uploadLogo),
+);
+
 router.patch('/',
   requireOrgAdmin,
   validate(updateOrganizationSchema),

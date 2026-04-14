@@ -16,6 +16,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useTenantStore } from '@/store/tenantStore';
 import { useUiStore } from '@/store/uiStore';
 import { useProjectStore } from '@/store/projectStore';
 import Avatar from '@/components/ui/Avatar';
@@ -33,6 +34,7 @@ interface NavItem {
 export default function Sidebar() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { user } = useAuthStore();
+  const orgType = useTenantStore((s) => s.currentTenant?.orgType);
   const { sidebarMobileOpen, setSidebarMobileOpen } = useUiStore();
   const can = useCan();
 
@@ -66,6 +68,9 @@ export default function Sidebar() {
   ];
 
   const filteredNav = navItems.filter((item) => {
+    if (orgType === 'private_firm' && (item.path === 'planning' || item.path === 'idp')) {
+      return false;
+    }
     if (!item.permission) return true;
     // If auth isn't ready yet, don't hide everything.
     if (!user) return true;

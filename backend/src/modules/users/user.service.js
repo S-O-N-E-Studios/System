@@ -138,11 +138,16 @@ const inviteUser = async (tenantId, invitedBy, { email, role, deptId }) => {
 
   // Send email
   const inviter = await userRepo.findById(invitedBy);
-  await sendInviteEmail(email, rawToken, {
-    orgName:        tenant.name,
-    invitedByName:  inviter?.fullName || 'A team member',
-    role,
-  });
+  await sendInviteEmail(
+    email,
+    rawToken,
+    {
+      orgName:       tenant.name,
+      invitedByName: inviter?.fullName || 'A team member',
+      role,
+    },
+    tenant
+  );
 
   return { invited: true, email };
 };

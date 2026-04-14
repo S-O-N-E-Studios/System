@@ -1,5 +1,18 @@
+const multer = require('multer');
 const userService = require('./user.service');
 const { sendSuccess, sendCreated } = require('../../utils/apiResponse');
+const { saveTenantImage, publicUrlFromReq } = require('../../utils/savePublicImage');
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) {
+      return cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed'));
+    }
+    cb(null, true);
+  },
+});
 
 const getMe = async (req, res) => {
   const user = await userService.getCurrentUserProfile(
@@ -13,6 +26,22 @@ const getMe = async (req, res) => {
 const updateMe = async (req, res) => {
   const user = await userService.updateProfile(req.user.sub, req.body);
   return sendSuccess(res, { user });
+};
+
+const uploadMyAvatar = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded (use field name "file")' });
+  }
+  const webPath = await saveTenantImage({
+    tenantSlug: req.tenant.slug,
+    subDir:     'avatars',
+    baseName:   `${req.user.sub}-${Date.now()}`,
+    mimeType:   req.file.mimetype,
+    buffer:     req.file.buffer,
+  });
+  const avatarUrl = publicUrlFromReq(req, webPath);
+  const user = await userService.updateProfile(req.user.sub, { avatarUrl });
+  return sendSuccess(res, { user, avatarUrl });
 };
 
 const listMembers = async (req, res) => {
@@ -57,6 +86,8 @@ const removeMember = async (req, res) => {
 module.exports = {
   getMe,
   updateMe,
+  uploadMyAvatar,
+  avatarUpload,
   listMembers,
   getMember,
   inviteUser,
