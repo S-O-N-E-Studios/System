@@ -8,7 +8,6 @@ const projectService = require('./project.service');
 const {
   sendSuccess,
   sendCreated,
-  sendError,
   sendStageGateFailed,
 } = require('../../utils/apiResponse');
 
@@ -57,25 +56,7 @@ const getStageStatus = async (req, res) => {
  */
 const advanceStage = async (req, res) => {
   try {
-    // Check current stage first to route to the right handler
-    const { projectId: _projectId } = { projectId: req.params.id };
-    const Project = require('./project.model');
-    const project = await Project.findOne({
-      _id:       req.params.id,
-      tenantId:  req.tenant._id,
-      deletedAt: null,
-    }).select('currentStage');
-
-    if (!project) {
-      return sendError(res, 'NOT_FOUND', 'Project not found', 404);
-    }
-
-    let result;
-    if (project.currentStage === 6) {
-      result = await projectService.completeProject(req.tenant, req.params.id, req.user.sub);
-    } else {
-      result = await projectService.advanceStage(req.tenant, req.params.id, req.user.sub);
-    }
+    const result = await projectService.advanceStage(req.tenant, req.params.id, req.user.sub);
 
     return sendSuccess(res, result, result.completed ? 'Project completed' : `Advanced to Stage ${result.newStage}`);
   } catch (err) {

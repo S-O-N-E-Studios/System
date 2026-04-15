@@ -39,6 +39,10 @@ const validateClientAccess = async (req, res, next) => {
       return sendUnauthorized(res, "Your temporary access has been revoked.");
     }
 
+    if (!req.tenant || access.tenantId.toString() !== req.tenant._id.toString()) {
+      return sendUnauthorized(res, "Your temporary access is not valid for this tenant.");
+    }
+
     if (new Date() > access.expiresAt) {
       // Mark as expired in DB (best-effort — don't block the 401 response)
       TemporaryAccess.findByIdAndUpdate(access._id, {

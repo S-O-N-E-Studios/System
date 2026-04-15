@@ -17,6 +17,9 @@ import ProgressBar from '@/components/ui/ProgressBar';
 import StageTimeline from '@/components/ui/StageTimeline';
 import StageDocumentDrawer from '@/components/ui/StageDocumentDrawer';
 import PaymentForecastChart from '@/components/ui/PaymentForecastChart';
+import ApprovalStatusBadge from '@/components/ui/ApprovalStatusBadge';
+import VariationOrderDrawer from '@/components/ui/VariationOrderDrawer';
+import MediaGallery from '@/components/ui/MediaGallery';
 import { formatRands } from '@/utils/formatters';
 import { ArrowLeft, Edit, FileText, Clock, Check, X, Star } from 'lucide-react';
 import ProjectLocationMap from '@/components/ui/ProjectLocationMap';
@@ -37,6 +40,10 @@ import {
 import { filesApi } from '@/api/files';
 import { projectsApi } from '@/api/projects';
 import apiClient from '@/api/client';
+import { stageApprovalsApi } from '@/api/stageApprovals';
+import { variationsApi } from '@/api/variations';
+import { mediaApi } from '@/api/media';
+import type { ApprovalStatus, StageApproval, VariationOrder } from '@/types';
 
 const detailTabs = [
   'Overview',
@@ -46,6 +53,8 @@ const detailTabs = [
   'Activity Schedule',
   'Files',
   'Funding Sources',
+  'Variation Orders',
+  'Media',
 ] as const;
 
 
@@ -66,6 +75,11 @@ function useCountdown(targetDate: string) {
   const minutes = Math.floor((remaining % 3_600_000) / 60_000);
   const seconds = Math.floor((remaining % 60_000) / 1_000);
   return { days, hours, minutes, seconds, isExpired: remaining <= 0 };
+}
+
+function entityId<T extends { id?: string; _id?: string }>(entity: T | null | undefined): string {
+  if (!entity) return '';
+  return entity.id || entity._id || '';
 }
 
 export default function ProjectDetail() {
@@ -93,6 +107,9 @@ export default function ProjectDetail() {
   const isClientTemp = tenantRole === 'CLIENT_TEMP';
   const can = useCan();
   const canEditProject = can('edit_project');
+  const canCreateVariation = can('create_variation_order');
+  const canUploadMedia = can('upload_media');
+  const canApproveDocuments = Boolean(user?.canApproveDocuments) || can('approve_documents');
   const togglePinnedProject = useProjectStore((s) => s.togglePinnedProject);
   const pinnedForTenant = useProjectStore((s) =>
     tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,
@@ -115,6 +132,13 @@ export default function ProjectDetail() {
     10: [],
   });
   const [isFilesLoading, setIsFilesLoading] = useState(false);
+  const [approvals, setApprovals] = useState<StageApproval[]>([]);
+  const [, setIsApprovalsLoading] = useState(false);
+  const [variations, setVariations] = useState<VariationOrder[]>([]);
+  const [isVariationDrawerOpen, setIsVariationDrawerOpen] = useState(false);
+  const [selectedVariation, setSelectedVariation] = useState<VariationOrder | null>(null);
+  const [mediaItems, setMediaItems] = useState<ProjectFile[]>([]);
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
 
   const contractValue = project?.contractValueAdjusted || project?.contractValueOriginal || project?.contractValue || 0;
   const expenditure = project?.expenditureToDate || 0;
@@ -299,7 +323,77 @@ export default function ProjectDetail() {
     };
   }, [activeTab, stageDrawerOpen, tenantSlug, id, isClientTemp]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadApprovals() {
+      if (!id) return;
+      if (!(activeTab === 'Files' || stageDrawerOpen != null)) return;
+      setIsApprovalsLoading(true);
+      try {
+        const list = await stageApprovalsApi.list(id);
+        if (!cancelled) setApprovals(list);
+      } catch {
+        if (!cancelled) setApprovals([]);
+      } finally {
+        if (!cancelled) setIsApprovalsLoading(false);
+      }
+    }
+    void loadApprovals();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeTab, stageDrawerOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadVariations() {
+      if (!id || activeTab !== 'Variation Orders') return;
+      try {
+        const list = await variationsApi.list(id);
+        if (!cancelled) setVariations(list);
+      } catch {
+        if (!cancelled) setVariations([]);
+      }
+    }
+    void loadVariations();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMedia() {
+      if (!id || activeTab !== 'Media') return;
+      setIsMediaLoading(true);
+      try {
+        const payload = await mediaApi.list(id, { page: 1, limit: 200 });
+        if (!cancelled) setMediaItems(payload.media);
+      } catch {
+        if (!cancelled) setMediaItems([]);
+      } finally {
+        if (!cancelled) setIsMediaLoading(false);
+      }
+    }
+    void loadMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeTab]);
+
   const completedStages: ProjectStage[] = [];
+  const approvalForFile = (fileId?: string) =>
+    approvals.find((a) => entityId(a as StageApproval & { _id?: string }) === fileId || a.fileId === fileId);
+
+  const reloadApprovals = async () => {
+    if (!id) return;
+    try {
+      const list = await stageApprovalsApi.list(id);
+      setApprovals(list);
+    } catch {
+      // Ignore approval refresh errors.
+    }
+  };
 
   if (!tenantSlug || !id) {
     return <Navigate to="/" replace />;
@@ -433,8 +527,14 @@ export default function ProjectDetail() {
 
                   const stageFiles = filesByStage[stageDrawerOpen] ?? [];
                   const matchingFiles = stageFiles.filter((f) => f.category === r.category);
+                  const firstFile = matchingFiles[0];
                   const firstFileName =
-                    matchingFiles[0]?.originalName ?? matchingFiles[0]?.filename ?? undefined;
+                    firstFile?.originalName ?? firstFile?.filename ?? undefined;
+                  const firstFileId = entityId(firstFile as ProjectFile & { _id?: string });
+                  const fileApprovalStatus =
+                    (firstFile?.approvalStatus as ApprovalStatus | undefined) ||
+                    approvalForFile(firstFileId)?.approvalStatus ||
+                    'not_required';
 
                   const localKey = `${id}|${stageDrawerOpen}|${r.documentName}|${r.category}`;
                   const localUpload = localStageUploads[localKey];
@@ -446,7 +546,9 @@ export default function ProjectDetail() {
                     documentName: r.documentName,
                     category: r.category,
                     uploaded,
+                    fileId: firstFileId || undefined,
                     fileName,
+                    approvalStatus: fileApprovalStatus,
                   };
                 })
               }
@@ -525,6 +627,29 @@ export default function ProjectDetail() {
                       }
                     }
               }
+              canApproveDocuments={canApproveDocuments}
+              onApproveDocument={async (fileId) => {
+                if (!id) return;
+                const approval = approvals.find((a) => a.fileId === fileId);
+                const approvalId = entityId(approval as StageApproval & { _id?: string });
+                if (!approvalId) return;
+                await stageApprovalsApi.approve(id, approvalId);
+                await Promise.all([reloadApprovals(), fetchProjectStageStatus({ tenantSlug, projectId: id }).then((status) => {
+                  setCurrentStage(status.currentStage);
+                  setStageMissingDocs(status.missing);
+                }).catch(() => undefined)]);
+              }}
+              onRejectDocument={async (fileId, reason) => {
+                if (!id) return;
+                const approval = approvals.find((a) => a.fileId === fileId);
+                const approvalId = entityId(approval as StageApproval & { _id?: string });
+                if (!approvalId) return;
+                await stageApprovalsApi.reject(id, approvalId, reason);
+                await Promise.all([reloadApprovals(), fetchProjectStageStatus({ tenantSlug, projectId: id }).then((status) => {
+                  setCurrentStage(status.currentStage);
+                  setStageMissingDocs(status.missing);
+                }).catch(() => undefined)]);
+              }}
               onAdvanceStage={
                 isClientTemp
                   ? undefined
@@ -876,7 +1001,7 @@ export default function ProjectDetail() {
                                 {matchingFiles.length > 0 && (
                                   <div className="mt-3 space-y-2">
                                     {matchingFiles.map((file) => (
-                                      <div key={file.id} className="flex items-center justify-between gap-4">
+                                      <div key={entityId(file as ProjectFile & { _id?: string })} className="flex items-center justify-between gap-4">
                                         <div className="min-w-0">
                                           <p className="text-[0.78rem] text-[var(--text-primary)] truncate">
                                             {file.originalName || file.filename || 'Untitled file'}
@@ -884,34 +1009,60 @@ export default function ProjectDetail() {
                                           <p className="text-[0.6rem] text-[var(--text-muted)]">
                                             Uploaded {new Date(file.createdAt).toLocaleDateString('en-GB')}
                                           </p>
+                                          <div className="mt-1">
+                                            <ApprovalStatusBadge status={file.approvalStatus || 'not_required'} />
+                                          </div>
                                         </div>
-                                        <label className="flex items-center gap-2 shrink-0">
-                                          <input
-                                            type="checkbox"
-                                            checked={file.clientVisible}
-                                            disabled={isProofOfPayment}
-                                            onChange={async (e) => {
-                                              try {
-                                                await filesApi.setVisibility({
-                                                  tenantSlug,
-                                                  fileId: file.id,
-                                                  clientVisible: e.target.checked,
-                                                });
-                                                setFilesByStage((prev) => ({
-                                                  ...prev,
-                                                  [stage]: prev[stage].map((f) =>
-                                                    f.id === file.id ? { ...f, clientVisible: e.target.checked } : f
-                                                  ),
-                                                }));
-                                              } catch {
-                                                // Ignore; UI will refresh next fetch.
-                                              }
-                                            }}
-                                          />
-                                          <span className="text-[0.7rem] text-[var(--text-muted)]">
-                                            Client Visible
-                                          </span>
-                                        </label>
+                                        <div className="flex flex-col items-end gap-2 shrink-0">
+                                          <label className="flex items-center gap-2 shrink-0">
+                                            <input
+                                              type="checkbox"
+                                              checked={file.clientVisible}
+                                              disabled={isProofOfPayment}
+                                              onChange={async (e) => {
+                                                try {
+                                                  await filesApi.setVisibility({
+                                                    tenantSlug,
+                                                    fileId: entityId(file as ProjectFile & { _id?: string }),
+                                                    clientVisible: e.target.checked,
+                                                  });
+                                                  setFilesByStage((prev) => ({
+                                                    ...prev,
+                                                    [stage]: prev[stage].map((f) =>
+                                                      entityId(f as ProjectFile & { _id?: string }) === entityId(file as ProjectFile & { _id?: string })
+                                                        ? { ...f, clientVisible: e.target.checked }
+                                                        : f
+                                                    ),
+                                                  }));
+                                                } catch {
+                                                  // Ignore; UI will refresh next fetch.
+                                                }
+                                              }}
+                                            />
+                                            <span className="text-[0.7rem] text-[var(--text-muted)]">
+                                              Client Visible
+                                            </span>
+                                          </label>
+                                          {canApproveDocuments && file.approvalStatus === 'pending' && (
+                                            <div className="flex items-center gap-2">
+                                              <Button
+                                                variant="secondary"
+                                                className="!py-1 !px-2 text-[11px]"
+                                                onClick={async () => {
+                                                  const approval = approvals.find(
+                                                    (a) => a.fileId === entityId(file as ProjectFile & { _id?: string }),
+                                                  );
+                                                  const approvalId = entityId(approval as StageApproval & { _id?: string });
+                                                  if (!approvalId || !id) return;
+                                                  await stageApprovalsApi.approve(id, approvalId);
+                                                  await reloadApprovals();
+                                                }}
+                                              >
+                                                Approve
+                                              </Button>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -1124,6 +1275,155 @@ export default function ProjectDetail() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'Variation Orders' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+              <p className="text-eyebrow mb-1">Original Contract Value</p>
+              <p className="text-currency">{formatRands(project?.contractValueOriginal || 0)}</p>
+            </div>
+            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+              <p className="text-eyebrow mb-1">Total Variations</p>
+              <p className="text-currency">
+                {formatRands(
+                  variations
+                    .filter((v) => v.status === 'approved')
+                    .reduce((sum, v) => sum + (v.approvedAmount ?? 0), 0),
+                )}
+              </p>
+            </div>
+            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+              <p className="text-eyebrow mb-1">Adjusted Contract Value</p>
+              <p className="text-currency">{formatRands(project?.contractValueAdjusted || 0)}</p>
+            </div>
+          </div>
+
+          <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-h3">Variation Orders</h3>
+              {canCreateVariation && (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setSelectedVariation(null);
+                    setIsVariationDrawerOpen(true);
+                  }}
+                >
+                  New Variation Order
+                </Button>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-[0.85rem]">
+                <thead>
+                  <tr className="border-b border-[var(--border-default)]">
+                    <th className="text-left py-2">VO Number</th>
+                    <th className="text-left py-2">Description</th>
+                    <th className="text-right py-2">Estimated</th>
+                    <th className="text-right py-2">Approved</th>
+                    <th className="text-left py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variations.map((vo) => (
+                    <tr
+                      key={entityId(vo as VariationOrder & { _id?: string })}
+                      className="border-b border-[var(--border-default)] hover:bg-[var(--bg-surface-alt)] cursor-pointer"
+                      onClick={() => {
+                        setSelectedVariation(vo);
+                        setIsVariationDrawerOpen(true);
+                      }}
+                    >
+                      <td className="py-2">{vo.variationNumber}</td>
+                      <td className="py-2 max-w-[280px] truncate">{vo.description}</td>
+                      <td className="py-2 text-right">{formatRands(vo.estimatedAmount)}</td>
+                      <td className="py-2 text-right">{vo.approvedAmount != null ? formatRands(vo.approvedAmount) : '—'}</td>
+                      <td className="py-2">
+                        <span className="text-xs text-[var(--text-secondary)]">{vo.status.replace(/_/g, ' ')}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <VariationOrderDrawer
+            isOpen={isVariationDrawerOpen}
+            onClose={() => setIsVariationDrawerOpen(false)}
+            selected={selectedVariation}
+            canCreate={canCreateVariation}
+            canApprove={canApproveDocuments}
+            onCreate={async (payload) => {
+              if (!id) return;
+              await variationsApi.create(id, payload);
+              setIsVariationDrawerOpen(false);
+              setVariations(await variationsApi.list(id));
+            }}
+            onSubmit={async (voId) => {
+              if (!id) return;
+              await variationsApi.submit(id, voId);
+              setVariations(await variationsApi.list(id));
+            }}
+            onApprove={async (voId) => {
+              if (!id) return;
+              await variationsApi.approve(id, voId);
+              setVariations(await variationsApi.list(id));
+              const updatedProject = await projectsApi.getById(id);
+              setProject(updatedProject);
+            }}
+            onReject={async (voId, reason) => {
+              if (!id) return;
+              await variationsApi.reject(id, voId, reason);
+              setVariations(await variationsApi.list(id));
+            }}
+          />
+        </div>
+      )}
+
+      {activeTab === 'Media' && (
+        <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+          <h3 className="text-h3 mb-3">Site Media</h3>
+          {isMediaLoading ? (
+            <p className="text-sm text-[var(--text-muted)]">Loading media...</p>
+          ) : (
+            <MediaGallery
+              media={mediaItems}
+              canUpload={!isClientTemp && canUploadMedia}
+              canDelete={!isClientTemp && canUploadMedia}
+              onUpload={async (file, mediaType, captureDate, description) => {
+                if (!id) return;
+                const upload = await mediaApi.getUploadUrl(id, file.name);
+                await fetch(upload.url, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                  body: file,
+                });
+                await mediaApi.register(id, {
+                  originalName: file.name,
+                  storagePath: upload.key,
+                  mimeType: file.type || 'application/octet-stream',
+                  sizeBytes: file.size,
+                  mediaType,
+                  stage: currentStage,
+                  captureDate,
+                  description,
+                });
+                const refreshed = await mediaApi.list(id, { page: 1, limit: 200 });
+                setMediaItems(refreshed.media);
+              }}
+              onDelete={async (mediaId) => {
+                if (!id) return;
+                await mediaApi.delete(id, mediaId);
+                setMediaItems((prev) =>
+                  prev.filter((item) => entityId(item as ProjectFile & { _id?: string }) !== mediaId),
+                );
+              }}
+            />
+          )}
         </div>
       )}
     </div>

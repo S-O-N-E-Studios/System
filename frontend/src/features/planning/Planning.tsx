@@ -117,7 +117,7 @@ export default function Planning() {
           <p className="text-lg font-medium">No planning entries found</p>
           <p className="text-sm mt-1">Create multi-year plan entries to get started</p>
         </div>
-      ) : (
+      ) : viewMode === 'table' ? (
         <div className="border border-[var(--border)] bg-[var(--bg-surface)] overflow-x-auto">
           <table className="w-full min-w-[800px] text-sm">
             <thead>
@@ -166,6 +166,57 @@ export default function Planning() {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : (
+        <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map((year) => {
+              const yearPlans = plans.filter((plan) => plan.plannedYear === year);
+              return (
+                <section key={year} className="border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Year {year}</h3>
+                  <div className="space-y-2">
+                    {yearPlans.length === 0 ? (
+                      <p className="text-xs text-[var(--text-muted)]">No planned projects</p>
+                    ) : (
+                      yearPlans.map((plan) => (
+                        <article
+                          key={plan.id}
+                          className="border border-[var(--border)] bg-[var(--bg-surface)] p-2"
+                        >
+                          <p className="text-xs font-medium text-[var(--text-primary)] line-clamp-2">
+                            {plan.projectName}
+                          </p>
+                          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                            {plan.localMunicipality || 'Municipality pending'}
+                          </p>
+                          <div className="mt-2">{statusBadge(plan.status)}</div>
+                          <div className="mt-2">
+                            {plan.linkedProjectId ? (
+                              <button
+                                onClick={() => navigate(`/${tenantSlug}/projects/${plan.linkedProjectId}`)}
+                                className="px-2 py-1 text-[11px] border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-alt)]"
+                              >
+                                Open Project
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleBeginInception(plan.id)}
+                                disabled={plan.status !== 'planned'}
+                                className="px-2 py-1 text-[11px] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Begin Inception
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

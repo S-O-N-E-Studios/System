@@ -1,5 +1,7 @@
 const StageApproval = require('./stageApproval.model');
 const Project = require('../projects/project.model');
+const File = require('../files/file.model');
+const CalendarEvent = require('../calendar/calendarEvent.model');
 const { sendSuccess } = require('../../utils/apiResponse');
 
 const ensureProject = async (tenantId, projectId) => {
@@ -90,6 +92,27 @@ const approveDocument = async (req, res) => {
   approval.reviewedAt = new Date();
   approval.rejectionReason = null;
   await approval.save();
+  await File.updateOne(
+    {
+      _id: approval.fileId,
+      tenantId: req.tenant._id,
+      projectId,
+      deletedAt: null,
+    },
+    {
+      approvalStatus: 'approved',
+      approvedBy: req.user.sub,
+      approvedAt: approval.reviewedAt,
+      rejectionReason: null,
+    },
+  );
+  await CalendarEvent.createApprovalEvent(
+    req.tenant._id,
+    projectId,
+    true,
+    approval.documentCategory,
+    req.user.sub,
+  );
 
   return sendSuccess(res, { approval });
 };
@@ -121,6 +144,27 @@ const rejectDocument = async (req, res) => {
   approval.reviewedAt = new Date();
   approval.rejectionReason = req.body.reason;
   await approval.save();
+  await File.updateOne(
+    {
+      _id: approval.fileId,
+      tenantId: req.tenant._id,
+      projectId,
+      deletedAt: null,
+    },
+    {
+      approvalStatus: 'rejected',
+      approvedBy: null,
+      approvedAt: null,
+      rejectionReason: approval.rejectionReason,
+    },
+  );
+  await CalendarEvent.createApprovalEvent(
+    req.tenant._id,
+    projectId,
+    false,
+    approval.documentCategory,
+    req.user.sub,
+  );
 
   return sendSuccess(res, { approval });
 };

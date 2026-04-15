@@ -79,6 +79,7 @@ export interface User {
   avatarUrl?: string;
   tenants: TenantSummary[];
   temporaryAccessId?: string;
+  canApproveDocuments?: boolean;
   lastLoginAt?: string;
   /** From API member list; false means suspended for this account. */
   isActive?: boolean;
@@ -636,6 +637,8 @@ export interface StageDocumentRequirement {
   uploaded: boolean;
   fileId?: string;
   fileName?: string;
+  approvalStatus?: ApprovalStatus;
+  rejectionReason?: string;
 }
 
 export interface StageGateStatus {

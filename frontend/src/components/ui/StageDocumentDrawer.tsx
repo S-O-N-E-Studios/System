@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import Button from './Button';
+import ApprovalStatusBadge from './ApprovalStatusBadge';
+import ClientApprovalPanel from './ClientApprovalPanel';
 import { STAGE_NAMES, type ProjectStage, type StageDocumentRequirement } from '@/types';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 
@@ -12,6 +14,9 @@ interface StageDocumentDrawerProps {
   onClose: () => void;
   onAdvanceStage?: () => void;
   onUploadDocument?: (doc: { documentName: string; category: string; file: File }) => Promise<void> | void;
+  canApproveDocuments?: boolean;
+  onApproveDocument?: (fileId: string) => Promise<void> | void;
+  onRejectDocument?: (fileId: string, reason: string) => Promise<void> | void;
   isAdvancing?: boolean;
 }
 
@@ -22,6 +27,9 @@ export default function StageDocumentDrawer({
   onClose,
   onAdvanceStage,
   onUploadDocument,
+  canApproveDocuments,
+  onApproveDocument,
+  onRejectDocument,
   isAdvancing,
 }: StageDocumentDrawerProps) {
   const [isOpen] = useState(true);
@@ -145,11 +153,28 @@ export default function StageDocumentDrawer({
                     <p className="text-[0.82rem] font-medium text-[var(--text-primary)]">
                       {doc.documentName}
                     </p>
+                    <div className="mt-1">
+                      <ApprovalStatusBadge status={doc.approvalStatus || 'not_required'} />
+                    </div>
                     {doc.uploaded && doc.fileName && (
                       <p className="text-[0.68rem] text-[var(--text-muted)] truncate">
                         {doc.fileName}
                       </p>
                     )}
+                    <ClientApprovalPanel
+                      canApprove={Boolean(canApproveDocuments)}
+                      approvalStatus={doc.approvalStatus || 'not_required'}
+                      onApprove={
+                        doc.fileId
+                          ? () => onApproveDocument?.(doc.fileId as string)
+                          : undefined
+                      }
+                      onReject={
+                        doc.fileId
+                          ? (reason) => onRejectDocument?.(doc.fileId as string, reason)
+                          : undefined
+                      }
+                    />
                   </div>
                 </div>
                 {!doc.uploaded && onUploadDocument && (
