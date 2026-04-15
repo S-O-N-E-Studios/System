@@ -3,19 +3,16 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import StageTimeline from './StageTimeline';
 
 describe('StageTimeline', () => {
-  it('renders Project Stage heading', () => {
+  it('renders Project Lifecycle heading', () => {
     render(<StageTimeline currentStage={1} />);
-    expect(screen.getByText('Project Stage')).toBeInTheDocument();
+    expect(screen.getByText('Project Lifecycle')).toBeInTheDocument();
   });
 
-  it('renders all 6 stages', () => {
+  it('renders all 11 stages (0-10)', () => {
     render(<StageTimeline currentStage={3} />);
-    expect(screen.getByTestId('stage-1')).toBeInTheDocument();
-    expect(screen.getByTestId('stage-2')).toBeInTheDocument();
-    expect(screen.getByTestId('stage-3')).toBeInTheDocument();
-    expect(screen.getByTestId('stage-4')).toBeInTheDocument();
-    expect(screen.getByTestId('stage-5')).toBeInTheDocument();
-    expect(screen.getByTestId('stage-6')).toBeInTheDocument();
+    for (let i = 0; i <= 10; i++) {
+      expect(screen.getByTestId(`stage-${i}`)).toBeInTheDocument();
+    }
   });
 
   it('renders stage names', () => {
@@ -39,7 +36,7 @@ describe('StageTimeline', () => {
 
   it('allows clicking completed and current stages', () => {
     const onStageClick = vi.fn();
-    render(<StageTimeline currentStage={3} completedStages={[1, 2]} onStageClick={onStageClick} />);
+    render(<StageTimeline currentStage={3} completedStages={[0, 1, 2]} onStageClick={onStageClick} />);
     fireEvent.click(screen.getByTestId('stage-1'));
     fireEvent.click(screen.getByTestId('stage-3'));
     expect(onStageClick).toHaveBeenCalledTimes(2);

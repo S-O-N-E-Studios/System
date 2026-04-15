@@ -9,6 +9,7 @@ export interface StageDocumentSpec {
 }
 
 export const STAGE_DOCUMENT_REQUIREMENTS: Record<ProjectStage, StageDocumentSpec[]> = {
+  0: [],
   1: [
     { documentName: 'Signed Scoping Report', category: 'scoping-report' },
     { documentName: 'Quotations for surveys and investigations', category: 'quotation' },
@@ -49,4 +50,8 @@ export const STAGE_DOCUMENT_REQUIREMENTS: Record<ProjectStage, StageDocumentSpec
     { documentName: 'Final Approval Certificate', category: 'final-approval' },
     { documentName: 'Proof of Payment', category: 'proof-of-payment' },
   ],
+  7: [],
+  8: [],
+  9: [],
+  10: [],
 };

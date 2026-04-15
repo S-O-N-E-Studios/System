@@ -1,12 +1,15 @@
-import type { MockSettingsTeamMember } from '@/mocks/settingsTeamMembers';
-import { DEFAULT_MOCK_TEAM_MEMBERS } from '@/mocks/settingsTeamMembers';
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: 'active' | 'suspended';
+};
 
 const orgKey = (slug: string) => `p360-org-general:${slug}`;
 const notifyKey = (slug: string) => `p360-notify-prefs:${slug}`;
-const teamKey = (slug: string) => `p360-mock-team:${slug}`;
 
 export type OrgGeneralStored = {
-  /** Local demo override; real tenant name still comes from auth until API sync exists. */
   orgName: string;
   primaryContact: string;
   address: string;
@@ -86,32 +89,3 @@ export function saveNotificationPrefs(tenantSlug: string, prefs: Record<Notifica
 }
 
 export { NOTIFY_LABELS };
-
-export function loadTeamMembers(tenantSlug: string | undefined): MockSettingsTeamMember[] {
-  if (!tenantSlug || typeof window === 'undefined') return [...DEFAULT_MOCK_TEAM_MEMBERS];
-  try {
-    const raw = localStorage.getItem(teamKey(tenantSlug));
-    if (!raw) return [...DEFAULT_MOCK_TEAM_MEMBERS];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [...DEFAULT_MOCK_TEAM_MEMBERS];
-    const cleaned = parsed.filter(
-      (row): row is MockSettingsTeamMember =>
-        !!row &&
-        typeof row === 'object' &&
-        typeof (row as MockSettingsTeamMember).id === 'string' &&
-        typeof (row as MockSettingsTeamMember).email === 'string',
-    );
-    return cleaned.length > 0 ? cleaned : [...DEFAULT_MOCK_TEAM_MEMBERS];
-  } catch {
-    return [...DEFAULT_MOCK_TEAM_MEMBERS];
-  }
-}
-
-export function saveTeamMembers(tenantSlug: string, members: MockSettingsTeamMember[]): boolean {
-  try {
-    localStorage.setItem(teamKey(tenantSlug), JSON.stringify(members));
-    return true;
-  } catch {
-    return false;
-  }
-}

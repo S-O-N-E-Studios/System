@@ -8,7 +8,6 @@ import { Download } from 'lucide-react';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
 import type { Project, ServiceCategory } from '@/types';
-import { getMockServiceSummaries } from '@/mocks/normalServiceSummaries';
 import { formatRands } from '@/utils/formatters';
 
 export default function NormalServices() {
@@ -17,13 +16,7 @@ export default function NormalServices() {
 
   const { data: summaries = [], isLoading } = useQuery({
     queryKey: ['services', 'summary', tenantSlug],
-    queryFn: async () => {
-      try {
-        return await servicesApi.summary();
-      } catch {
-        return getMockServiceSummaries();
-      }
-    },
+    queryFn: () => servicesApi.summary(),
   });
 
   const handleExport = async (format: ExportFormat) => {

@@ -7,15 +7,18 @@ import { useUiStore } from '@/store/uiStore';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usersApi } from '@/api/users';
 
 export default function Profile() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, setUser } = useAuthStore();
   const { addToast } = useUiStore();
   const navigate = useNavigate();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -51,6 +54,23 @@ export default function Profile() {
     navigate('/', { replace: true });
   };
 
+  const onAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      await usersApi.uploadAvatar(file);
+      const me = await authApi.getMe();
+      setUser(me);
+      addToast({ type: 'success', message: 'Profile photo updated.' });
+    } catch {
+      addToast({ type: 'error', message: 'Could not upload photo. Use JPEG, PNG, WebP, or GIF (max 2MB).' });
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in max-w-3xl">
       <div className="flex items-center justify-between gap-4 mb-8">
@@ -62,8 +82,28 @@ export default function Profile() {
 
       {/* Profile info */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 mb-8">
-        <div className="flex items-center gap-6 mb-8">
-          <Avatar name={`${user.firstName} ${user.lastName}`} src={user.avatarUrl} size="xl" />
+        <div className="flex flex-wrap items-center gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <Avatar name={`${user.firstName} ${user.lastName}`} src={user.avatarUrl} size="xl" />
+            <div className="flex flex-col gap-2">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                onChange={(ev) => void onAvatarFile(ev)}
+              />
+              <Button
+                variant="secondary"
+                type="button"
+                isLoading={avatarUploading}
+                disabled={avatarUploading}
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                Change photo
+              </Button>
+            </div>
+          </div>
           <div>
             <h2 className="text-h3">{user.firstName} {user.lastName}</h2>
             <p className="text-body">{user.email}</p>

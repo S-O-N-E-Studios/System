@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { MOCK_PORTFOLIO_PROJECTS } from '@/mocks/portfolioProjects';
+import { projectsApi } from '@/api/projects';
+import { clientAccessApi } from '@/api/clientAccess';
 import { useUiStore } from '@/store/uiStore';
 import type { TemporaryAccess } from '@/types';
 
@@ -12,92 +12,91 @@ function addDaysIso(iso: string, days: number): string {
   return d.toISOString();
 }
 
-const initialGrants = (tenantSlug: string): TemporaryAccess[] => [
-  {
-    id: 'mock-grant-1',
-    tenantId: tenantSlug,
-    grantedBy: 'fortune@project360.co.za',
-    clientEmail: 'client@example.com',
-    projectIds: ['1'],
-    expiresAt: addDaysIso(new Date().toISOString(), 14),
-    grantedAt: new Date(Date.now() - 5 * 24 * 3_600_000).toISOString(),
-    status: 'active',
-    extensionHistory: [],
-    notes: 'Road rehabilitation read-only',
-  },
-  {
-    id: 'mock-grant-2',
-    tenantId: tenantSlug,
-    grantedBy: 'thabo@project360.co.za',
-    clientEmail: 'reviewer@municipality.gov.za',
-    projectIds: ['1', '2'],
-    expiresAt: addDaysIso(new Date().toISOString(), 3),
-    grantedAt: new Date(Date.now() - 2 * 24 * 3_600_000).toISOString(),
-    status: 'active',
-    extensionHistory: [],
-  },
-];
-
 export default function ClientAccessSettings() {
   const { tenantSlug = '' } = useParams<{ tenantSlug: string }>();
   const { addToast } = useUiStore();
-  const [grants, setGrants] = useState<TemporaryAccess[]>(() => initialGrants(tenantSlug));
+  const [grants, setGrants] = useState<TemporaryAccess[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [portfolioProjects, setPortfolioProjects] = useState<{ id: string; name: string }[]>([]);
+
+  const loadGrants = useCallback(() => {
+    if (!tenantSlug) return;
+    setLoading(true);
+    clientAccessApi
+      .list(tenantSlug)
+      .then(setGrants)
+      .catch(() => setGrants([]))
+      .finally(() => setLoading(false));
+  }, [tenantSlug]);
+
+  useEffect(() => {
+    loadGrants();
+  }, [loadGrants]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { projects } = await projectsApi.list({ limit: 100 });
+        if (!cancelled) {
+          setPortfolioProjects(projects.map((p) => ({ id: p.id, name: p.name })));
+        }
+      } catch {
+        if (!cancelled) setPortfolioProjects([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug]);
 
   const projectName = useMemo(() => {
-    const map = new Map(MOCK_PORTFOLIO_PROJECTS.map((p) => [p.id, p.name]));
+    const map = new Map(portfolioProjects.map((p) => [p.id, p.name]));
     return (id: string) => map.get(id) ?? id;
-  }, []);
+  }, [portfolioProjects]);
 
-  const extend = (id: string) => {
-    setGrants((prev) =>
-      prev.map((g) =>
-        g.id === id
-          ? {
-              ...g,
-              expiresAt: addDaysIso(g.expiresAt, 7),
-              extensionHistory: [
-                ...g.extensionHistory,
-                {
-                  previousExpiry: g.expiresAt,
-                  newExpiry: addDaysIso(g.expiresAt, 7),
-                  extendedBy: 'you@mock.local',
-                  extendedAt: new Date().toISOString(),
-                },
-              ],
-            }
-          : g,
-      ),
-    );
-    addToast({ type: 'success', message: 'Access extended by 7 days (mock).' });
+  const extend = async (id: string) => {
+    if (!tenantSlug) return;
+    const g = grants.find((x) => x.id === id);
+    if (!g) return;
+    const nextExpiry = addDaysIso(g.expiresAt, 7);
+    try {
+      await clientAccessApi.extend(tenantSlug, id, nextExpiry);
+      addToast({ type: 'success', message: 'Access extended by 7 days.' });
+      loadGrants();
+    } catch {
+      addToast({ type: 'error', message: 'Could not extend access.' });
+    }
   };
 
-  const revoke = (id: string) => {
-    setGrants((prev) =>
-      prev.map((g) =>
-        g.id === id
-          ? {
-              ...g,
-              status: 'revoked' as const,
-              revokedAt: new Date().toISOString(),
-              revokedBy: 'you@mock.local',
-            }
-          : g,
-      ),
-    );
-    addToast({ type: 'info', message: 'Grant revoked (mock; no API call).' });
+  const revoke = async (id: string) => {
+    if (!tenantSlug) return;
+    try {
+      await clientAccessApi.revoke(tenantSlug, id);
+      addToast({ type: 'success', message: 'Grant revoked.' });
+      loadGrants();
+    } catch {
+      addToast({ type: 'error', message: 'Could not revoke access.' });
+    }
   };
+
+  const colWidths = ['22%', '25%', '13%', '12%', '28%'];
 
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border)]">
       <div className="px-6 py-4 border-b border-[var(--border)]">
         <h3 className="text-h3">Client access</h3>
         <p className="text-[0.72rem] text-[var(--text-muted)] mt-1">
-          Temporary client grants (mock data). Wire to <span className="font-mono">GET /:tenant/client-access</span> when
-          the backend is ready.
+          Temporary client grants for this organisation. Data loads from the server.
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed min-w-[720px]">
+        <table className="w-full min-w-[780px]" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            {colWidths.map((w) => (
+              <col key={w} style={{ width: w }} />
+            ))}
+          </colgroup>
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
               {['Client', 'Projects', 'Expires', 'Status', 'Actions'].map((h) => (
@@ -108,47 +107,106 @@ export default function ClientAccessSettings() {
             </tr>
           </thead>
           <tbody>
-            {grants.map((g, i) => (
-              <tr
-                key={g.id}
-                className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
-              >
-                <td className="px-4 py-3 text-[0.82rem] text-[var(--text-primary)]">{g.clientEmail}</td>
-                <td className="px-4 py-3 text-table-cell">
-                  {g.projectIds.map((pid) => projectName(pid)).join(', ')}
-                </td>
-                <td className="px-4 py-3 text-[0.72rem] font-mono text-[var(--text-secondary)]">
-                  {new Date(g.expiresAt).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge
-                    status={
-                      g.status === 'active' ? 'active' : g.status === 'expired' ? 'review' : 'danger'
-                    }
-                  >
-                    {g.status}
-                  </StatusBadge>
-                </td>
-                <td className="px-4 py-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    className="!text-[0.55rem] !py-1.5"
-                    disabled={g.status !== 'active'}
-                    onClick={() => extend(g.id)}
-                  >
-                    +7 days
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="!text-[0.55rem] !py-1.5 text-[var(--status-danger)]"
-                    disabled={g.status !== 'active'}
-                    onClick={() => revoke(g.id)}
-                  >
-                    Revoke
-                  </Button>
+            {loading && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-muted)] text-[0.82rem]">
+                  Loading…
                 </td>
               </tr>
-            ))}
+            )}
+            {!loading && grants.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-muted)] text-[0.82rem]">
+                  No client access grants yet.
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              grants.map((g, i) => {
+                const projectNames = g.projectIds.map((pid) => projectName(pid)).join(', ');
+                const isActive = g.status === 'active';
+                return (
+                  <tr
+                    key={g.id}
+                    className={`border-b border-[var(--border)] align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
+                  >
+                    <td className="px-4 py-3 max-w-0 overflow-hidden">
+                      <span
+                        className="block text-[0.78rem] font-mono text-[var(--text-primary)] truncate"
+                        title={g.clientEmail}
+                      >
+                        {g.clientEmail}
+                      </span>
+                      {g.notes && (
+                        <span className="block text-[0.62rem] text-[var(--text-muted)] truncate mt-0.5" title={g.notes}>
+                          {g.notes}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 max-w-0 overflow-hidden">
+                      <span className="block text-[0.78rem] text-[var(--text-secondary)] truncate" title={projectNames}>
+                        {projectNames}
+                      </span>
+                      <span className="text-[0.62rem] text-[var(--text-muted)]">
+                        {g.projectIds.length} project{g.projectIds.length !== 1 ? 's' : ''}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-[0.72rem] font-mono text-[var(--text-secondary)]">
+                        {new Date(g.expiresAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        status={isActive ? 'active' : g.status === 'expired' ? 'review' : 'danger'}
+                      >
+                        {g.status}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 flex-nowrap">
+                        <button
+                          type="button"
+                          disabled={!isActive}
+                          onClick={() => void extend(g.id)}
+                          title={!isActive ? 'Grant is no longer active' : 'Extend access by 7 days'}
+                          className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border transition-colors whitespace-nowrap disabled:opacity-35 disabled:cursor-not-allowed"
+                          style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                          onMouseEnter={(e) => {
+                            if (isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
+                          }}
+                        >
+                          +7 days
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isActive}
+                          onClick={() => void revoke(g.id)}
+                          title={!isActive ? 'Grant is no longer active' : 'Revoke access immediately'}
+                          className="shrink-0 px-3 py-1 text-[0.7rem] font-medium border transition-colors whitespace-nowrap disabled:opacity-35 disabled:cursor-not-allowed"
+                          style={{ borderColor: 'var(--border)', color: 'var(--status-danger)' }}
+                          onMouseEnter={(e) => {
+                            if (isActive)
+                              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--status-danger)';
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
+                          }}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>

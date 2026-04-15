@@ -1,3 +1,10 @@
+import apiClient from './client';
+import { useTenantStore } from '@/store/tenantStore';
+
+function slug() {
+  return useTenantStore.getState().getSlug() || '';
+}
+
 export interface DashboardKpiSummary {
   allocated: number;
   spent: number;
@@ -31,36 +38,44 @@ export interface ReportsOverviewResponse {
   serviceCategories: ServiceCategoryBreakdownItem[];
 }
 
-export async function fetchReportsOverview() {
-  const kpis: DashboardKpiSummary = {
-    allocated: 185_000_000,
-    spent: 72_500_000,
-    remaining: 112_500_000,
-  };
-
-  const departments: DeptBudgetSummary[] = [
-    { deptName: 'DPW', totalBudget: 95_000_000, spent: 42_000_000, remaining: 53_000_000 },
-    { deptName: 'Transport', totalBudget: 60_000_000, spent: 18_000_000, remaining: 42_000_000 },
-    { deptName: 'Education', totalBudget: 30_000_000, spent: 12_500_000, remaining: 17_500_000 },
-  ];
-
-  const grants: GrantsReportSummary = {
-    totalValue: 330_000_000,
-    disbursedToDate: 119_000_000,
-    remaining: 211_000_000,
-  };
-
-  const serviceCategories: ServiceCategoryBreakdownItem[] = [
-    { category: 'Water and Sanitation', totalValue: 90_000_000, disbursedToDate: 32_000_000, remaining: 58_000_000 },
-    { category: 'Roads and Stormwater', totalValue: 75_000_000, disbursedToDate: 28_000_000, remaining: 47_000_000 },
-    { category: 'Energy and Electricity', totalValue: 50_000_000, disbursedToDate: 19_000_000, remaining: 31_000_000 },
-  ];
-
-  return Promise.resolve({
-    kpis,
-    departments,
-    grants,
-    serviceCategories,
-  });
+export async function fetchReportsOverview(): Promise<ReportsOverviewResponse> {
+  try {
+    const res = await apiClient.get(`/${slug()}/reports/dashboard`);
+    const data = res.data?.data || res.data;
+    return data as ReportsOverviewResponse;
+  } catch {
+    return {
+      kpis: { allocated: 0, spent: 0, remaining: 0 },
+      departments: [],
+      grants: { totalValue: 0, disbursedToDate: 0, remaining: 0 },
+      serviceCategories: [],
+    };
+  }
 }
 
+export async function fetchDeptSummary(deptId?: string) {
+  try {
+    const res = await apiClient.get(`/${slug()}/reports/dept-summary`, { params: { deptId } });
+    return res.data?.data || res.data;
+  } catch {
+    return {};
+  }
+}
+
+export async function fetchPaymentForecastReport() {
+  try {
+    const res = await apiClient.get(`/${slug()}/reports/payment-forecast`);
+    return res.data?.data || res.data;
+  } catch {
+    return {};
+  }
+}
+
+export async function fetchGrantsSummaryReport() {
+  try {
+    const res = await apiClient.get(`/${slug()}/reports/grants-summary`);
+    return res.data?.data || res.data;
+  } catch {
+    return {};
+  }
+}

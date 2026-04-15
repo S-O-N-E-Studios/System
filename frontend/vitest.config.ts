@@ -18,7 +18,8 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/e2e/**', 'playwright.config.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: 'coverage',
       exclude: ['src/main.tsx', 'src/router/**', '**/*.d.ts'],
     },
   },

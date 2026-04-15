@@ -19,12 +19,27 @@ export interface FileListParams {
 
 export const filesApi = {
   list: async (params: FileListParams): Promise<PaginatedResponse<ProjectFile>> => {
-    const { tenantSlug, ...query } = params;
-    const res = await apiClient.get<PaginatedResponse<ProjectFile>>(
-      `/${tenantSlug}/files`,
-      { params: query }
-    );
-    return res.data;
+    const { tenantSlug, pageSize, ...rest } = params;
+    const query: Record<string, unknown> = { ...rest };
+    if (pageSize !== undefined) {
+      query.limit = pageSize;
+    }
+    const res = await apiClient.get<
+      ApiResponse<{ files: ProjectFile[]; total: number; page: number; limit: number }>
+    >(`/${tenantSlug}/files`, { params: query });
+    const payload = res.data.data;
+    const files = payload?.files ?? [];
+    const total = payload?.total ?? 0;
+    const page = payload?.page ?? 1;
+    const limit = payload?.limit ?? 20;
+    const resolvedLimit = limit || 20;
+    return {
+      data: files,
+      total,
+      page,
+      pageSize: resolvedLimit,
+      totalPages: Math.max(1, Math.ceil(total / resolvedLimit)),
+    };
   },
 
   /**
@@ -141,20 +156,25 @@ export const filesApi = {
       sizeBytes: params.file.size,
     });
 
+    // For placeholder backends, skip direct upload and only register metadata.
+    const isPlaceholderUpload = uploadUrl.startsWith('placeholder://');
+
     // Direct upload to storage using the presigned URL.
-    if (method === 'POST' && fields) {
-      const formData = new FormData();
-      Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
-      formData.append('file', params.file);
-      const resp = await fetch(uploadUrl, { method: 'POST', body: formData });
-      if (!resp.ok) throw new Error('Presigned POST upload failed');
-    } else {
-      const resp = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': params.file.type || 'application/octet-stream' },
-        body: params.file,
-      });
-      if (!resp.ok) throw new Error('Presigned PUT upload failed');
+    if (!isPlaceholderUpload) {
+      if (method === 'POST' && fields) {
+        const formData = new FormData();
+        Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
+        formData.append('file', params.file);
+        const resp = await fetch(uploadUrl, { method: 'POST', body: formData });
+        if (!resp.ok) throw new Error('Presigned POST upload failed');
+      } else {
+        const resp = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': params.file.type || 'application/octet-stream' },
+          body: params.file,
+        });
+        if (!resp.ok) throw new Error('Presigned PUT upload failed');
+      }
     }
 
     return filesApi.registerUploadedFile({

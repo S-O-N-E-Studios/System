@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useJsApiLoader, GoogleMap, Marker as GoogleMarker } from '@react-google-maps/api';
+import { GOOGLE_MAPS_LIBRARIES } from '@/config/googleMaps';
 import { MapPin } from 'lucide-react';
 
 // Leaflet provider
@@ -137,7 +138,7 @@ export default function AtlasMap({
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey || '',
     id: 'google-maps-script',
-    libraries: ['maps'],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   const showGoogle = resolvedProvider === 'google' && Boolean(apiKey) && isLoaded && !loadError;

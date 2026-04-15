@@ -34,6 +34,10 @@ const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
   meeting: 'Meeting',
   deadline: 'Deadline',
   activity_update: 'Activity Update',
+  stage_advanced: 'Stage Advanced',
+  document_approved: 'Document Approved',
+  document_rejected: 'Document Rejected',
+  variation_approved: 'Variation Approved',
   project_complete: 'Project Complete',
 };
 
@@ -126,7 +130,7 @@ export default function Calendar() {
       <h1 className="text-h1 mb-8">Calendar</h1>
 
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] mb-6 px-6 py-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div>
             <p className="text-[0.65rem] uppercase tracking-wider text-[var(--text-muted)]">Calendar</p>
             <h2 className="text-h2">{format(selectedDateObj, 'MMMM yyyy')}</h2>
@@ -264,12 +268,16 @@ export default function Calendar() {
           />
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-7 gap-px bg-[var(--border)]">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                <div key={d} className="bg-[var(--bg-surface-alt)] p-2 text-[0.65rem] text-[var(--text-muted)]">
-                  {d}
-                </div>
-              ))}
+            <div className="overflow-x-auto lg:overflow-x-visible">
+              <div className="grid grid-cols-7 gap-px bg-[var(--border)] min-w-[640px]">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                  <div
+                    key={d}
+                    className="bg-[var(--bg-surface-alt)] p-2 text-[0.65rem] text-[var(--text-muted)]"
+                  >
+                    {d}
+                  </div>
+                ))}
 
               {calendarDays.map((day) => {
                 const iso = format(day, 'yyyy-MM-dd');
@@ -287,7 +295,7 @@ export default function Calendar() {
                     type="button"
                     onClick={() => setSelectedDate(iso)}
                     className={[
-                      'bg-[var(--bg-card)] p-2 text-left transition-colors min-h-[92px]',
+                      'bg-[var(--bg-card)] p-2 text-left transition-colors min-h-[80px] lg:min-h-[92px]',
                       !isInMonth ? 'opacity-40' : '',
                       isSelected ? 'ring-1 ring-[var(--accent)]' : '',
                       isTodayCell ? 'bg-[var(--accent-glow)]/20' : '',
@@ -326,6 +334,7 @@ export default function Calendar() {
                   </button>
                 );
               })}
+              </div>
             </div>
           </div>
         )}
@@ -338,14 +347,19 @@ function getEventBadgeBg(type: CalendarEventType): string {
   switch (type) {
     case 'milestone':
     case 'project_complete':
+    case 'document_approved':
       return 'var(--status-success)';
     case 'payment':
       return 'var(--chart-bar-fill)';
     case 'deadline':
     case 'report_due':
+    case 'variation_approved':
       return 'var(--status-warning)';
+    case 'document_rejected':
+      return 'var(--status-danger)';
     case 'activity_update':
       return 'var(--accent-lavender)';
+    case 'stage_advanced':
     case 'meeting':
     case 'site_visit':
     default:

@@ -303,7 +303,7 @@ body {
 @layer components {
   .text-h1 {
     font-family: var(--font-display-override, var(--font-display));
-    font-size: 3rem;
+    font-size: clamp(1.5rem, 4vw, 3rem);
     font-weight: 400;
     letter-spacing: 0.5px;
     color: var(--text-primary);
@@ -311,7 +311,7 @@ body {
 
   .text-h2 {
     font-family: var(--font-display-override, var(--font-display));
-    font-size: 2rem;
+    font-size: clamp(1.25rem, 3vw, 2rem);
     font-weight: 400;
     letter-spacing: 0;
     color: var(--text-primary);
@@ -319,7 +319,7 @@ body {
 
   .text-h3 {
     font-family: var(--font-display-override, var(--font-display));
-    font-size: 1.35rem;
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
     font-weight: 400;
     letter-spacing: 0.5px;
     color: var(--text-primary);
@@ -327,7 +327,7 @@ body {
 
   .text-stat {
     font-family: var(--font-display-override, var(--font-display));
-    font-size: 1.75rem;
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
     font-weight: 400;
     color: var(--accent);
   }
@@ -649,4 +649,99 @@ body {
   .sahara-progress-fill {
     border-radius: 2px !important;
   }
+
+  /* Mobile-first touch target sizing */
+  @media (pointer: coarse) {
+    .sahara-btn {
+      min-height: 44px;
+    }
+
+    select,
+    input[type='text'],
+    input[type='email'],
+    input[type='password'],
+    input[type='search'],
+    input[type='number'],
+    textarea {
+      min-height: 44px;
+      font-size: max(0.88rem, 16px);
+    }
+  }
+
+  /* Responsive table wrapper utility */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-responsive::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .table-responsive::-webkit-scrollbar-track {
+    background: var(--bg-surface-alt);
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb {
+    background: var(--border-emphasis);
+  }
+}
+
+/* ── Atlas Sahara — native date / datetime-local inputs ─────────────────── */
+/*
+ *  The browser picker popup cannot be fully styled, but we control the
+ *  input's text colour, background, border, and the calendar icon.
+ *  color-scheme tells the browser which flavour of picker to display so it
+ *  at least matches the user's OS preference.
+ */
+:root,
+[data-theme='light'] {
+  --date-input-color-scheme: light;
+}
+[data-theme='dark'] {
+  --date-input-color-scheme: dark;
+}
+
+input[type='date'],
+input[type='datetime-local'],
+input[type='time'] {
+  color-scheme: var(--date-input-color-scheme, light);
+  background: var(--bg-card, #fdfaf5);
+  color: var(--text-primary, #2c2216);
+  border: 1px solid var(--border, #ddd0b8);
+  border-radius: 0;
+  padding: 0.45rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  outline: none;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+
+input[type='date']:focus,
+input[type='datetime-local']:focus,
+input[type='time']:focus {
+  border-color: var(--accent, #c0642c);
+}
+
+/* Calendar icon tint — Webkit only; Firefox does not expose this pseudo */
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  filter: var(--calendar-icon-filter, none);
+}
+
+[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(0.85) sepia(0.15) hue-rotate(5deg);
+}
+
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type='datetime-local']:hover::-webkit-calendar-picker-indicator,
+input[type='time']:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
 }

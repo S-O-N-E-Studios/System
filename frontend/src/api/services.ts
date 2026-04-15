@@ -1,32 +1,32 @@
 import apiClient from './client';
+import { useTenantStore } from '@/store/tenantStore';
 import type { ServiceCategorySummary, ServiceCategory } from '@/types';
-import { getMockServiceSummaries } from '@/mocks/normalServiceSummaries';
 
-const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
-const mockDelay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function slug() {
+  return useTenantStore.getState().getSlug() || '';
+}
 
 export const servicesApi = {
   summary: async (): Promise<ServiceCategorySummary[]> => {
-    if (useMockAuth) {
-      await mockDelay(180);
-      return getMockServiceSummaries();
+    try {
+      const res = await apiClient.get(`/${slug()}/services`);
+      const data = res.data?.data || res.data;
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
     }
-    const res = await apiClient.get<{ data: ServiceCategorySummary[] }>('/services');
-    return res.data.data ?? res.data;
   },
 
   byCategory: async (
     category: ServiceCategory,
     params?: { localMunicipality?: string; funder?: string; stage?: number; status?: string }
   ) => {
-    const res = await apiClient.get<{ data: ServiceCategorySummary }>(`/services/${category}`, {
-      params,
-    });
-    return res.data.data ?? res.data;
+    const res = await apiClient.get(`/${slug()}/services/${encodeURIComponent(category)}`, { params });
+    return res.data?.data || res.data;
   },
 
   exportXlsx: async (): Promise<Blob> => {
-    const res = await apiClient.get('/services/export', {
+    const res = await apiClient.get(`/${slug()}/services/export`, {
       params: { format: 'xlsx' },
       responseType: 'blob',
     });
@@ -34,7 +34,7 @@ export const servicesApi = {
   },
 
   exportPdf: async (): Promise<Blob> => {
-    const res = await apiClient.get('/services/export', {
+    const res = await apiClient.get(`/${slug()}/services/export`, {
       params: { format: 'pdf' },
       responseType: 'blob',
     });

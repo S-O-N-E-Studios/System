@@ -3,11 +3,12 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
+import DatePicker from '@/components/ui/DatePicker';
 import { Plus, GripVertical } from 'lucide-react';
 import type { TaskStatus, TaskPriority } from '@/types';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
-import { MOCK_KANBAN_TASKS, type MockKanbanTask } from '@/mocks/kanbanTasks';
+import { tasksApi } from '@/api/tasks';
 
 import {
   DndContext,
@@ -21,7 +22,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
-type KanbanTask = MockKanbanTask;
+interface KanbanTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee: string;
+  dueDate: string;
+}
 
 const columns: { key: TaskStatus; label: string; color: string }[] = [
   { key: 'backlog', label: 'Backlog', color: 'var(--text-muted)' },
@@ -209,6 +217,7 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [assignee, setAssignee] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<TaskStatus>(initialStatus ?? 'backlog');
 
@@ -230,7 +239,7 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-body text-[0.75rem] text-[var(--text-muted)]">Priority</label>
             <select
@@ -245,12 +254,32 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-body text-[0.75rem] text-[var(--text-muted)]">Due date</label>
-            <input
+            <DatePicker
+              label="Start date"
+              type="date"
+              value={startDate}
+              onChange={setStartDate}
+              max={dueDate || undefined}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <DatePicker
+              label="Due date"
+              type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full bg-transparent border border-[var(--border)] px-3 py-2 text-[0.85rem] focus:border-[var(--accent)] focus:outline-none"
-              placeholder="e.g. 10 Mar 2026"
+              onChange={setDueDate}
+              min={startDate || undefined}
+            />
+          </div>
+          <div className="space-y-1">
+            <DatePicker
+              label="Time (optional)"
+              type="time"
+              value=""
+              onChange={() => {/* will wire to API */}}
             />
           </div>
         </div>
@@ -289,12 +318,19 @@ function AddTaskModal({ onAddTask }: { onAddTask: (task: KanbanTask) => void }) 
             onClick={() => {
               if (!title.trim()) return;
 
+              const formatDate = (iso: string) => {
+                if (!iso) return '—';
+                const [y, m, d] = iso.split('-');
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
+              };
+
               onAddTask({
                 id: crypto.randomUUID(),
                 title: title.trim(),
                 priority,
                 assignee: assignee.trim() || 'Unassigned',
-                dueDate: dueDate.trim() || '—',
+                dueDate: formatDate(dueDate),
                 status,
               });
               closeModal();
@@ -376,8 +412,25 @@ function TaskDetailsModal({ tasks }: { tasks: KanbanTask[] }) {
 }
 
 export default function Kanban() {
-  const [tasks, setTasks] = useState<KanbanTask[]>(MOCK_KANBAN_TASKS);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const { openModal } = useUiStore();
+
+  useEffect(() => {
+    let cancelled = false;
+    tasksApi.list().then((res) => {
+      if (cancelled) return;
+      const mapped: KanbanTask[] = (res.tasks || []).map((t) => ({
+        id: t.id || crypto.randomUUID(),
+        title: t.title || 'Untitled',
+        status: t.status || 'backlog',
+        priority: t.priority || 'medium',
+        assignee: t.assigneeName || 'Unassigned',
+        dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+      }));
+      setTasks(mapped);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -414,9 +467,9 @@ export default function Kanban() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-3 mb-8">
         <h1 className="text-h1">Kanban Board</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select className="bg-transparent border border-[var(--border)] px-3 py-2 text-[0.78rem] font-body text-[var(--text-secondary)] focus:border-[var(--accent)] focus:outline-none">
             <option className="bg-[var(--bg-card)]">Sprint 4: 23 Mar to 3 Apr</option>
             <option className="bg-[var(--bg-card)]">Sprint 3: 9 to 20 Mar</option>
