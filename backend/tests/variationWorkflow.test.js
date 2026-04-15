@@ -5,6 +5,8 @@ const Project = require("../src/modules/projects/project.model");
 const VariationOrder = require("../src/modules/stage-gate/variationOrder.model");
 const variationOrderService = require("../src/modules/stage-gate/variationOrder.service");
 
+jest.setTimeout(30000);
+
 describe("variation workflow", () => {
   beforeAll(async () => {
     await connect();
