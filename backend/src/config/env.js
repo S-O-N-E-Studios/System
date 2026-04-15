@@ -11,10 +11,10 @@ const JWT_SECRET =
   requireInProduction(process.env.JWT_SECRET, "JWT_SECRET") ||
   "dev-jwt-secret-change-me";
 const JWT_ACCESS_SECRET =
-  requireInProduction(process.env.JWT_ACCESS_SECRET, "JWT_ACCESS_SECRET") ||
+  process.env.JWT_ACCESS_SECRET ||
   JWT_SECRET;
 const JWT_REFRESH_SECRET =
-  requireInProduction(process.env.JWT_REFRESH_SECRET, "JWT_REFRESH_SECRET") ||
+  process.env.JWT_REFRESH_SECRET ||
   `${JWT_SECRET}-refresh`;
 
 module.exports = {

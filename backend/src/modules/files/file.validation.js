@@ -49,7 +49,7 @@ const uploadUrlSchema = Joi.object({
 });
 
 const visibilitySchema = Joi.object({
-  clientVisible: Joi.boolean().required(),
+  clientVisible: Joi.boolean().optional(),
 });
 
 module.exports = {
