@@ -4,6 +4,7 @@ const fileRepo = require('./file.repository');
 const StageApproval = require('../stage-gate/stageApproval.model');
 const Project = require('../projects/project.model');
 const { APPROVAL_REQUIRED_CATEGORIES } = require('../../constants/fileCategories');
+const storage = require('../../utils/storage');
 
 const listFiles = async (tenant, query, isClientTemp) => {
   const filters = { ...query };
@@ -71,7 +72,12 @@ const toggleVisibility = async (tenant, fileId, _userId, clientVisible) => {
   const file = await fileRepo.findById(fileId, tenant._id);
   if (!file) throw Object.assign(new Error('File not found'), { status: 404 });
 
-  file.clientVisible = clientVisible;
+  if (typeof clientVisible === 'boolean') {
+    file.clientVisible = clientVisible;
+  } else {
+    // Backward compatibility: if body omits clientVisible, preserve prior toggle behavior.
+    file.clientVisible = !file.clientVisible;
+  }
   await file.save();
 
   return file;
@@ -103,7 +109,8 @@ const getDownloadUrl = async (tenant, fileId, isClientTemp, clientAccess = null)
     }
   }
 
-  return { url: file.storagePath };
+  const url = await storage.getDownloadUrl(file.storagePath);
+  return { url };
 };
 
 module.exports = {
