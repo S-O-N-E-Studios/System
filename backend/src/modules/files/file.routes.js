@@ -14,6 +14,7 @@ const {
   registerFileSchema,
   fileListQuerySchema,
   uploadUrlSchema,
+  visibilitySchema,
 } = require('./file.validation');
 
 router.use(validateClientAccess);
@@ -45,7 +46,12 @@ router.post(
   asyncHandler(ctrl.register)
 );
 
-router.patch('/:id/visibility', requirePM, asyncHandler(ctrl.toggleVisibility));
+router.patch(
+  '/:id/visibility',
+  requirePM,
+  validate(visibilitySchema),
+  asyncHandler(ctrl.toggleVisibility)
+);
 
 router.delete('/:id', requirePM, asyncHandler(ctrl.remove));
 

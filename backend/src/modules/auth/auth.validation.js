@@ -54,7 +54,7 @@ const registerOrgSchema = Joi.object({
 
 // POST /auth/accept-invite/:token
 const acceptInviteSchema = Joi.object({
-  name,
+  fullName: name,
   password,
 });
 

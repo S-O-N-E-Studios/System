@@ -67,11 +67,11 @@ const registerFile = async (tenant, data, userId) => {
   return file;
 };
 
-const toggleVisibility = async (tenant, fileId, _userId) => {
+const toggleVisibility = async (tenant, fileId, _userId, clientVisible) => {
   const file = await fileRepo.findById(fileId, tenant._id);
   if (!file) throw Object.assign(new Error('File not found'), { status: 404 });
 
-  file.clientVisible = !file.clientVisible;
+  file.clientVisible = clientVisible;
   await file.save();
 
   return file;
@@ -103,7 +103,7 @@ const getDownloadUrl = async (tenant, fileId, isClientTemp, clientAccess = null)
     }
   }
 
-  return { storagePath: file.storagePath };
+  return { url: file.storagePath };
 };
 
 module.exports = {

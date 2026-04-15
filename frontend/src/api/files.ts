@@ -156,20 +156,25 @@ export const filesApi = {
       sizeBytes: params.file.size,
     });
 
+    // For placeholder backends, skip direct upload and only register metadata.
+    const isPlaceholderUpload = uploadUrl.startsWith('placeholder://');
+
     // Direct upload to storage using the presigned URL.
-    if (method === 'POST' && fields) {
-      const formData = new FormData();
-      Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
-      formData.append('file', params.file);
-      const resp = await fetch(uploadUrl, { method: 'POST', body: formData });
-      if (!resp.ok) throw new Error('Presigned POST upload failed');
-    } else {
-      const resp = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': params.file.type || 'application/octet-stream' },
-        body: params.file,
-      });
-      if (!resp.ok) throw new Error('Presigned PUT upload failed');
+    if (!isPlaceholderUpload) {
+      if (method === 'POST' && fields) {
+        const formData = new FormData();
+        Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
+        formData.append('file', params.file);
+        const resp = await fetch(uploadUrl, { method: 'POST', body: formData });
+        if (!resp.ok) throw new Error('Presigned POST upload failed');
+      } else {
+        const resp = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': params.file.type || 'application/octet-stream' },
+          body: params.file,
+        });
+        if (!resp.ok) throw new Error('Presigned PUT upload failed');
+      }
     }
 
     return filesApi.registerUploadedFile({

@@ -38,11 +38,23 @@ const fileListQuerySchema = Joi.object({
 });
 
 const uploadUrlSchema = Joi.object({
-  storagePath: Joi.string().trim().min(1).required(),
+  projectId: Joi.string().hex().length(24).required(),
+  stage: Joi.number().integer().min(1).max(9).allow(null).optional(),
+  category: Joi.string()
+    .valid(...categoryValues)
+    .required(),
+  fileName: Joi.string().trim().min(1).max(500).required(),
+  mimeType: Joi.string().trim().min(1).required(),
+  sizeBytes: Joi.number().integer().min(0).required(),
+});
+
+const visibilitySchema = Joi.object({
+  clientVisible: Joi.boolean().required(),
 });
 
 module.exports = {
   registerFileSchema,
   fileListQuerySchema,
   uploadUrlSchema,
+  visibilitySchema,
 };
