@@ -33,9 +33,10 @@ export default function VariationOrderDrawer({
   const [rejectReason, setRejectReason] = useState('');
 
   const isCreateMode = useMemo(() => !selected, [selected]);
+  const selectedVariation = selected ?? null;
   const selectedId =
-    (selected as VariationOrder & { _id?: string } | null)?.id ||
-    (selected as VariationOrder & { _id?: string } | null)?._id ||
+    (selectedVariation as VariationOrder & { _id?: string } | null)?.id ||
+    (selectedVariation as VariationOrder & { _id?: string } | null)?._id ||
     '';
   if (!isOpen) return null;
 
@@ -44,7 +45,7 @@ export default function VariationOrderDrawer({
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
       <aside className="fixed top-16 right-4 z-50 w-[calc(100%-2rem)] max-w-lg max-h-[calc(100vh-5rem)] overflow-auto border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-h3">{isCreateMode ? 'New Variation Order' : selected.variationNumber}</h3>
+          <h3 className="text-h3">{isCreateMode ? 'New Variation Order' : selectedVariation?.variationNumber}</h3>
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
             <X className="h-5 w-5" />
           </button>
@@ -87,29 +88,29 @@ export default function VariationOrderDrawer({
               Create Variation Order
             </Button>
           </div>
-        ) : (
+        ) : selectedVariation ? (
           <div className="space-y-3">
-            <p className="text-sm text-[var(--text-secondary)]">{selected.description}</p>
-            <p className="text-sm text-[var(--text-secondary)]">{selected.reason}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{selectedVariation.description}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{selectedVariation.reason}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-3">
                 <p className="text-xs text-[var(--text-muted)]">Estimated</p>
-                <p className="text-currency">{formatRands(selected.estimatedAmount)}</p>
+                <p className="text-currency">{formatRands(selectedVariation.estimatedAmount)}</p>
               </div>
               <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-3">
                 <p className="text-xs text-[var(--text-muted)]">Approved</p>
-                <p className="text-currency">{selected.approvedAmount != null ? formatRands(selected.approvedAmount) : 'Pending'}</p>
+                <p className="text-currency">{selectedVariation.approvedAmount != null ? formatRands(selectedVariation.approvedAmount) : 'Pending'}</p>
               </div>
             </div>
-            <p className="text-xs text-[var(--text-muted)]">Status: {selected.status.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-[var(--text-muted)]">Status: {selectedVariation.status.replace(/_/g, ' ')}</p>
 
-            {selected.status === 'draft' && canCreate && (
+            {selectedVariation.status === 'draft' && canCreate && (
               <Button variant="secondary" onClick={() => void onSubmit(selectedId)}>
                 Submit for Approval
               </Button>
             )}
 
-            {selected.status === 'pending_approval' && canApprove && (
+            {selectedVariation.status === 'pending_approval' && canApprove && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Button variant="primary" onClick={() => void onApprove(selectedId)}>
@@ -134,7 +135,8 @@ export default function VariationOrderDrawer({
               </div>
             )}
           </div>
-        )}
+        ) : null
+        }
       </aside>
     </>
   );

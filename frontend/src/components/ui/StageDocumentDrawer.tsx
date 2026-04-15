@@ -20,6 +20,15 @@ interface StageDocumentDrawerProps {
   isAdvancing?: boolean;
 }
 
+interface DrawerDocumentStatus {
+  documentName: string;
+  category: string;
+  uploaded: boolean;
+  fileName?: string;
+  fileId?: string;
+  approvalStatus?: StageDocumentRequirement['approvalStatus'];
+}
+
 export default function StageDocumentDrawer({
   stage,
   documents,
@@ -43,16 +52,19 @@ export default function StageDocumentDrawer({
   const [isUploading, setIsUploading] = useState(false);
 
   // Map requirements to document status (from API or mock)
-  const docStatus = requirements.map((req) => {
+  const docStatus: DrawerDocumentStatus[] = requirements.map((req) => {
     const found = documents.find(
       (d) =>
         d.documentName === req.documentName ||
         d.category === req.category
     );
     return {
-      ...req,
+      documentName: req.documentName,
+      category: req.category,
       uploaded: found?.uploaded ?? false,
       fileName: found?.fileName,
+      fileId: found?.fileId,
+      approvalStatus: found?.approvalStatus,
     };
   });
 
@@ -166,12 +178,12 @@ export default function StageDocumentDrawer({
                       approvalStatus={doc.approvalStatus || 'not_required'}
                       onApprove={
                         doc.fileId
-                          ? () => onApproveDocument?.(doc.fileId as string)
+                          ? () => onApproveDocument?.(doc.fileId!)
                           : undefined
                       }
                       onReject={
                         doc.fileId
-                          ? (reason) => onRejectDocument?.(doc.fileId as string, reason)
+                          ? (reason) => onRejectDocument?.(doc.fileId!, reason)
                           : undefined
                       }
                     />
