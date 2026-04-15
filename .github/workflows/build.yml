@@ -95,8 +95,8 @@ jobs:
         run: npm run type-check
         working-directory: frontend
 
-      - name: Run unit tests (Vitest)
-        run: npm run test
+      - name: Run unit tests (Vitest) with coverage
+        run: npm run test -- --coverage
         working-directory: frontend
         env:
           CI: true
@@ -112,6 +112,12 @@ jobs:
         with:
           name: frontend-dist
           path: frontend/dist/
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
 
       - name: Security audit (all deps)
         run: npm audit --audit-level=high

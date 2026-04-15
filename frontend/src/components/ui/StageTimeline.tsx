@@ -12,12 +12,12 @@ export default function StageTimeline({
   completedStages = [],
   onStageClick,
 }: StageTimelineProps) {
-  const stages: ProjectStage[] = [1, 2, 3, 4, 5, 6];
+  const stages: ProjectStage[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   return (
-    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
-      <h3 className="text-h3 mb-6">Project Stage</h3>
-      <div className="flex items-start gap-0 overflow-x-auto pb-2">
+    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-4 sm:p-6">
+      <h3 className="text-h3 mb-4 sm:mb-6">Project Lifecycle</h3>
+      <div className="flex items-start gap-0 overflow-x-auto pb-2 scrollbar-hidden">
         {stages.map((stage, index) => {
           const isCompleted = completedStages.includes(stage) || stage < currentStage;
           const isCurrent = stage === currentStage;
@@ -29,7 +29,7 @@ export default function StageTimeline({
                 type="button"
                 onClick={() => onStageClick?.(stage)}
                 className={[
-                  'flex flex-col items-center gap-2 px-2 py-3 min-w-[96px] max-w-[140px] transition-all duration-200',
+                  'flex flex-col items-center gap-1.5 px-1.5 py-2 min-w-[72px] max-w-[110px] transition-all duration-200',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-periwinkle)]',
                   isCompleted &&
                     'text-[var(--status-success)] hover:bg-[var(--accent-sand-glow)]',
@@ -44,7 +44,7 @@ export default function StageTimeline({
               >
                 <div
                   className={[
-                    'w-10 h-10 flex items-center justify-center border-2 shrink-0',
+                    'w-8 h-8 flex items-center justify-center border-2 shrink-0',
                     isCompleted && 'border-[var(--status-success)] bg-[var(--status-success)]/10',
                     isCurrent &&
                       'border-[var(--accent-periwinkle)] bg-[var(--accent-periwinkle)]/10',
@@ -54,7 +54,7 @@ export default function StageTimeline({
                     .join(' ')}
                 >
                   {isCompleted ? (
-                    <Check className="h-5 w-5 text-[var(--status-success)]" />
+                    <Check className="h-4 w-4 text-[var(--status-success)]" />
                   ) : (
                     <span
                       className={[
@@ -80,7 +80,7 @@ export default function StageTimeline({
               {index < stages.length - 1 && (
                 <div
                   className={[
-                    'h-0.5 w-8 min-w-[32px] mx-0',
+                    'h-0.5 w-4 min-w-[16px] mx-0',
                     isCompleted ? 'bg-[var(--status-success)]' : 'bg-[var(--border-default)]',
                   ].join(' ')}
                 />

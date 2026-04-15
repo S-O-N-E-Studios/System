@@ -175,11 +175,11 @@ export default function Login() {
       <Modal modalId={FORGOT_PASSWORD_MODAL_ID} title="Reset password" size="sm">
         <div className="space-y-4 text-[0.82rem] text-[var(--text-secondary)] leading-relaxed">
           <p>
-            Password reset is not wired to email in mock mode. When the backend is live, this will send a secure link to
-            your address.
+            Password reset sends a secure link to your email when outbound mail is configured for your account or
+            organisation.
           </p>
           <p className="text-[0.72rem] text-[var(--text-muted)]">
-            For now, contact your organisation administrator or use demo credentials from your team.
+            If you do not receive an email, contact your organisation administrator.
           </p>
           <Button type="button" variant="primary" className="w-full" onClick={() => closeModal()}>
             Close

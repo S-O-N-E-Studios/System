@@ -1,53 +1,76 @@
 import apiClient from './client';
-import type { Project, ApiResponse, PaginatedResponse, ProjectFormData } from '@/types';
+import { useTenantStore } from '@/store/tenantStore';
+import type { Project, ApiResponse, ProjectFormData } from '@/types';
+
+function slug() {
+  return useTenantStore.getState().getSlug() || '';
+}
 
 interface ProjectListParams {
   page?: number;
-  pageSize?: number;
+  limit?: number;
   status?: string;
+  serviceCategory?: string;
+  localMunicipality?: string;
+  stage?: number;
+  contractType?: string;
   search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  deptId?: string;
 }
 
 export const projectsApi = {
-  list: async (params?: ProjectListParams): Promise<PaginatedResponse<Project>> => {
-    const res = await apiClient.get<PaginatedResponse<Project>>('/projects', { params });
-    return res.data;
+  list: async (params?: ProjectListParams): Promise<{ projects: Project[]; total: number }> => {
+    const res = await apiClient.get<ApiResponse<{ projects: Project[]; total: number }>>(`/${slug()}/projects`, { params });
+    return res.data.data;
   },
 
   getById: async (id: string): Promise<Project> => {
-    const res = await apiClient.get<ApiResponse<Project>>(`/projects/${id}`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<{ project: Project }>>(`/${slug()}/projects/${id}`);
+    return res.data.data.project;
   },
 
   create: async (data: ProjectFormData): Promise<Project> => {
-    const res = await apiClient.post<ApiResponse<Project>>('/projects', data);
-    return res.data.data;
+    const res = await apiClient.post<ApiResponse<{ project: Project }>>(`/${slug()}/projects`, data);
+    return res.data.data.project;
   },
 
   update: async (id: string, data: Partial<ProjectFormData>): Promise<Project> => {
-    const res = await apiClient.patch<ApiResponse<Project>>(`/projects/${id}`, data);
-    return res.data.data;
+    const res = await apiClient.patch<ApiResponse<{ project: Project }>>(`/${slug()}/projects/${id}`, data);
+    return res.data.data.project;
   },
 
   delete: async (id: string): Promise<void> => {
-    await apiClient.delete(`/projects/${id}`);
+    await apiClient.delete(`/${slug()}/projects/${id}`);
   },
 
-  exportXlsx: async (params?: ProjectListParams): Promise<Blob> => {
-    const res = await apiClient.get('/projects/export/xlsx', {
-      params,
-      responseType: 'blob',
-    });
-    return res.data;
+  getBudgetSummary: async (deptId?: string) => {
+    const params = deptId ? { deptId } : {};
+    const res = await apiClient.get<ApiResponse<{ summary: Record<string, number> }>>(`/${slug()}/projects/budget-summary`, { params });
+    return res.data.data.summary;
   },
 
-  exportPdf: async (params?: ProjectListParams): Promise<Blob> => {
-    const res = await apiClient.get('/projects/export/pdf', {
-      params,
-      responseType: 'blob',
-    });
-    return res.data;
+  getStageStatus: async (projectId: string) => {
+    const res = await apiClient.get<ApiResponse<Record<string, unknown>>>(`/${slug()}/projects/${projectId}/stage-status`);
+    return res.data.data;
+  },
+
+  advanceStage: async (projectId: string) => {
+    const res = await apiClient.post<ApiResponse<Record<string, unknown>>>(`/${slug()}/projects/${projectId}/advance-stage`);
+    return res.data.data;
+  },
+
+  listPayments: async (projectId: string) => {
+    const res = await apiClient.get<ApiResponse<{ payments: unknown[] }>>(`/${slug()}/projects/${projectId}/payments`);
+    return res.data.data.payments;
+  },
+
+  addPayment: async (projectId: string, data: Record<string, unknown>) => {
+    const res = await apiClient.post<ApiResponse<{ payment: unknown }>>(`/${slug()}/projects/${projectId}/payments`, data);
+    return res.data.data.payment;
+  },
+
+  getPaymentForecast: async (projectId: string) => {
+    const res = await apiClient.get<ApiResponse<{ forecast: unknown[] }>>(`/${slug()}/projects/${projectId}/payment-forecast`);
+    return res.data.data.forecast;
   },
 };

@@ -9,7 +9,7 @@ import { useUiStore } from '@/store/uiStore';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { generateSlug } from '@/utils/formatters';
-import { LIMPOPO_LOCAL_MUNICIPALITIES } from '@/mocks/limpopoMunicipalities';
+import { LIMPOPO_LOCAL_MUNICIPALITIES } from '@/constants/municipalities';
 import { ArrowLeft, ArrowRight, Check, Building2, UserPlus, ClipboardCheck } from 'lucide-react';
 
 type Step = 1 | 2 | 3;

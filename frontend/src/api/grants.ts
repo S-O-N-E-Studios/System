@@ -1,6 +1,10 @@
-// Grants API – mocked for MVP frontend work.
-// Swap implementation to use apiClient when backend is ready.
+import apiClient from './client';
+import { useTenantStore } from '@/store/tenantStore';
 import type { Grant } from '@/types';
+
+function slug() {
+  return useTenantStore.getState().getSlug() || '';
+}
 
 export interface GrantsSummary {
   totalValue: number;
@@ -14,77 +18,55 @@ export interface GrantsSummary {
   }>;
 }
 
-export async function fetchGrants(params?: { status?: string | null }) {
-  const status = params?.status ?? null;
-
-  const base: Grant[] = [
-    {
-      id: 'g-1',
-      tenantId: 'mock-tenant',
-      grantName: 'MIG 2025/26',
-      grantType: 'MIG',
-      funderOrg: 'National Treasury',
-      financialYear: '2025/26',
-      totalValue: 250_000_000,
-      allocatedToProjects: 180_000_000,
-      disbursedToDate: 95_000_000,
-      remaining: 155_000_000,
-      complianceDeadline: '2026-03-31',
-      reportingSchedule: [],
-      linkedProjects: ['proj-1', 'proj-2'],
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'g-2',
-      tenantId: 'mock-tenant',
-      grantName: 'WSIG 2025/26',
-      grantType: 'WSIG',
-      funderOrg: 'DWS',
-      financialYear: '2025/26',
-      totalValue: 80_000_000,
-      allocatedToProjects: 60_000_000,
-      disbursedToDate: 24_000_000,
-      remaining: 56_000_000,
-      complianceDeadline: '2026-02-28',
-      reportingSchedule: [],
-      linkedProjects: ['proj-3'],
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
-
-  const filtered = status ? base.filter((g) => g.status === status) : base;
-  return Promise.resolve(filtered);
+export async function fetchGrants(params?: { status?: string | null }): Promise<Grant[]> {
+  try {
+    const res = await apiClient.get(`/${slug()}/grants`, { params });
+    const data = res.data?.data || res.data;
+    return Array.isArray(data) ? data : (data?.grants || []);
+  } catch {
+    return [];
+  }
 }
 
-export async function fetchGrantsSummary() {
-  const totalValue = 330_000_000;
-  const disbursedToDate = 119_000_000;
-  const remaining = totalValue - disbursedToDate;
+export async function fetchGrantsSummary(): Promise<GrantsSummary> {
+  try {
+    const grants = await fetchGrants();
+    const totalValue = grants.reduce((s, g) => s + g.totalValue, 0);
+    const disbursedToDate = grants.reduce((s, g) => s + g.disbursedToDate, 0);
 
-  const byType: GrantsSummary['byType'] = [
-    {
-      grantType: 'MIG',
-      totalValue: 250_000_000,
-      disbursedToDate: 95_000_000,
-      remaining: 155_000_000,
-    },
-    {
-      grantType: 'WSIG',
-      totalValue: 80_000_000,
-      disbursedToDate: 24_000_000,
-      remaining: 56_000_000,
-    },
-  ];
+    const byTypeMap = new Map<string, { totalValue: number; disbursedToDate: number }>();
+    for (const g of grants) {
+      const existing = byTypeMap.get(g.grantType) || { totalValue: 0, disbursedToDate: 0 };
+      existing.totalValue += g.totalValue;
+      existing.disbursedToDate += g.disbursedToDate;
+      byTypeMap.set(g.grantType, existing);
+    }
 
-  return Promise.resolve({
-    totalValue,
-    disbursedToDate,
-    remaining,
-    byType,
-  });
+    return {
+      totalValue,
+      disbursedToDate,
+      remaining: totalValue - disbursedToDate,
+      byType: Array.from(byTypeMap.entries()).map(([grantType, v]) => ({
+        grantType,
+        ...v,
+        remaining: v.totalValue - v.disbursedToDate,
+      })),
+    };
+  } catch {
+    return { totalValue: 0, disbursedToDate: 0, remaining: 0, byType: [] };
+  }
 }
 
+export async function createGrant(data: Partial<Grant>): Promise<Grant> {
+  const res = await apiClient.post(`/${slug()}/grants`, data);
+  return res.data?.data?.grant || res.data?.data || res.data;
+}
+
+export async function updateGrant(id: string, data: Partial<Grant>): Promise<Grant> {
+  const res = await apiClient.patch(`/${slug()}/grants/${id}`, data);
+  return res.data?.data?.grant || res.data?.data || res.data;
+}
+
+export async function deleteGrant(id: string): Promise<void> {
+  await apiClient.delete(`/${slug()}/grants/${id}`);
+}

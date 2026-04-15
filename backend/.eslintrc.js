@@ -2,16 +2,16 @@ module.exports = {
   root: true,
   env: {
     node: true,
-    es2021: true,
-    jest: true
+    commonjs: true,
+    es2022: true,
+    jest: true,
   },
-  extends: ['eslint:recommended', 'prettier'],
+  extends: ['eslint:recommended'],
   parserOptions: {
-    ecmaVersion: 12,
-    sourceType: 'module'
+    ecmaVersion: 2022,
   },
   rules: {
+    'no-unused-vars': ['warn', { argsIgnorePattern: '^_|^next$|^req$|^res$', varsIgnorePattern: '^_' }],
     'no-console': 'off',
-    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
-  }
+  },
 };

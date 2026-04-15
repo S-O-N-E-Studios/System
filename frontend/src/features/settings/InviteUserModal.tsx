@@ -6,7 +6,8 @@ import type { UserRole } from '@/types';
 
 const MODAL_ID = 'settings-invite-user';
 
-export type InviteTenantRole = Extract<UserRole, 'ORG_ADMIN' | 'PROJECT_MANAGER' | 'MEMBER' | 'VIEWER'>;
+/** Backend role enum uses `PM` (not PROJECT_MANAGER). */
+export type InviteTenantRole = Extract<UserRole, 'ORG_ADMIN' | 'PM' | 'MEMBER' | 'VIEWER'>;
 
 interface InviteUserModalProps {
   onInvite: (email: string, role: InviteTenantRole) => void;
@@ -37,8 +38,7 @@ export default function InviteUserModal({ onInvite }: InviteUserModalProps) {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-[0.78rem] text-[var(--text-muted)]">
-          Mock flow: invitation is recorded locally until the backend exposes{' '}
-          <span className="font-mono text-[0.65rem]">POST /invites</span>.
+          An email invitation is sent to this address. They choose a password when they accept.
         </p>
         <FormInput
           label="Email"
@@ -57,13 +57,13 @@ export default function InviteUserModal({ onInvite }: InviteUserModalProps) {
           >
             <option value="VIEWER">Viewer</option>
             <option value="MEMBER">Member</option>
-            <option value="PROJECT_MANAGER">Project Manager</option>
+            <option value="PM">Project Manager</option>
             <option value="ORG_ADMIN">Org Admin</option>
           </select>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="submit" variant="primary">
-            Send invite (mock)
+            Send invite
           </Button>
         </div>
       </form>

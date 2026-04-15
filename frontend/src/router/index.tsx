@@ -47,6 +47,7 @@ const MapsView = lazy(() => import('@/features/maps/MapsView'));
 const FileManager = lazy(() => import('@/features/files/FileManager'));
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Profile = lazy(() => import('@/features/auth/Profile'));
+const Planning = lazy(() => import('@/features/planning/Planning'));
 
 // Lazy Imports - Super Admin
 const SuperAdminTenants = lazy(() => import('@/features/superadmin/Tenants'));
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
                   { path: 'dashboard', element: <LazyRoute component={Dashboard} /> },
                   { path: 'idp', element: <LazyRoute component={IDPView} /> },
                   { path: 'services', element: <LazyRoute component={NormalServices} /> },
+                  { path: 'planning', element: <LazyRoute component={Planning} /> },
                   { path: 'kanban', element: <LazyRoute component={Kanban} /> },
                   { path: 'calendar', element: <LazyRoute component={Calendar} /> },
                   { path: 'grants', element: <LazyRoute component={Grants} /> },

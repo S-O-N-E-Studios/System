@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { paymentsApi, mockPaymentHistory } from '@/api/payments';
+import { paymentsApi } from '@/api/payments';
 import type { PaymentHistoryEntry } from '@/types';
 import PaymentHistoryTable from '@/components/ui/PaymentHistoryTable';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
@@ -20,7 +20,7 @@ export default function PaymentHistory() {
         if (!cancelled) setEntries(res.data);
       } catch {
         if (!cancelled) {
-          setEntries(mockPaymentHistory());
+          setEntries([]);
         }
       } finally {
         if (!cancelled) setLoading(false);

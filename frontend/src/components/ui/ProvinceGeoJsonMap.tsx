@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { MapPin } from 'lucide-react';
 
 import { useJsApiLoader, GoogleMap } from '@react-google-maps/api';
+import { GOOGLE_MAPS_LIBRARIES } from '@/config/googleMaps';
 
 import type { FeatureCollection } from 'geojson';
 import type { LeafletMouseEvent } from 'leaflet';
@@ -98,7 +99,7 @@ export default function ProvinceGeoJsonMap({
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey || '',
     id: 'google-maps-script',
-    libraries: ['maps'],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   const [theme, setTheme] = useState(() =>

@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import Button from './Button';
+import ApprovalStatusBadge from './ApprovalStatusBadge';
+import ClientApprovalPanel from './ClientApprovalPanel';
 import { STAGE_NAMES, type ProjectStage, type StageDocumentRequirement } from '@/types';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 
@@ -12,7 +14,19 @@ interface StageDocumentDrawerProps {
   onClose: () => void;
   onAdvanceStage?: () => void;
   onUploadDocument?: (doc: { documentName: string; category: string; file: File }) => Promise<void> | void;
+  canApproveDocuments?: boolean;
+  onApproveDocument?: (fileId: string) => Promise<void> | void;
+  onRejectDocument?: (fileId: string, reason: string) => Promise<void> | void;
   isAdvancing?: boolean;
+}
+
+interface DrawerDocumentStatus {
+  documentName: string;
+  category: string;
+  uploaded: boolean;
+  fileName?: string;
+  fileId?: string;
+  approvalStatus?: StageDocumentRequirement['approvalStatus'];
 }
 
 export default function StageDocumentDrawer({
@@ -22,6 +36,9 @@ export default function StageDocumentDrawer({
   onClose,
   onAdvanceStage,
   onUploadDocument,
+  canApproveDocuments,
+  onApproveDocument,
+  onRejectDocument,
   isAdvancing,
 }: StageDocumentDrawerProps) {
   const [isOpen] = useState(true);
@@ -35,16 +52,19 @@ export default function StageDocumentDrawer({
   const [isUploading, setIsUploading] = useState(false);
 
   // Map requirements to document status (from API or mock)
-  const docStatus = requirements.map((req) => {
+  const docStatus: DrawerDocumentStatus[] = requirements.map((req) => {
     const found = documents.find(
       (d) =>
         d.documentName === req.documentName ||
         d.category === req.category
     );
     return {
-      ...req,
+      documentName: req.documentName,
+      category: req.category,
       uploaded: found?.uploaded ?? false,
       fileName: found?.fileName,
+      fileId: found?.fileId,
+      approvalStatus: found?.approvalStatus,
     };
   });
 
@@ -145,11 +165,28 @@ export default function StageDocumentDrawer({
                     <p className="text-[0.82rem] font-medium text-[var(--text-primary)]">
                       {doc.documentName}
                     </p>
+                    <div className="mt-1">
+                      <ApprovalStatusBadge status={doc.approvalStatus || 'not_required'} />
+                    </div>
                     {doc.uploaded && doc.fileName && (
                       <p className="text-[0.68rem] text-[var(--text-muted)] truncate">
                         {doc.fileName}
                       </p>
                     )}
+                    <ClientApprovalPanel
+                      canApprove={Boolean(canApproveDocuments)}
+                      approvalStatus={doc.approvalStatus || 'not_required'}
+                      onApprove={
+                        doc.fileId
+                          ? () => onApproveDocument?.(doc.fileId!)
+                          : undefined
+                      }
+                      onReject={
+                        doc.fileId
+                          ? (reason) => onRejectDocument?.(doc.fileId!, reason)
+                          : undefined
+                      }
+                    />
                   </div>
                 </div>
                 {!doc.uploaded && onUploadDocument && (
