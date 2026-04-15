@@ -1,6 +1,21 @@
 const NODE_ENV = process.env.NODE_ENV || "development";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+const requireInProduction = (value, key) => {
+  if (NODE_ENV === "production" && (!value || String(value).trim() === "")) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+};
+
+const JWT_SECRET =
+  requireInProduction(process.env.JWT_SECRET, "JWT_SECRET") ||
+  "dev-jwt-secret-change-me";
+const JWT_ACCESS_SECRET =
+  requireInProduction(process.env.JWT_ACCESS_SECRET, "JWT_ACCESS_SECRET") ||
+  JWT_SECRET;
+const JWT_REFRESH_SECRET =
+  requireInProduction(process.env.JWT_REFRESH_SECRET, "JWT_REFRESH_SECRET") ||
+  `${JWT_SECRET}-refresh`;
 
 module.exports = {
   PORT: process.env.PORT || 5000,
@@ -9,8 +24,8 @@ module.exports = {
   DATABASE_URL: process.env.DATABASE_URL || "mongodb://localhost:27017/project360",
 
   JWT_SECRET,
-  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || JWT_SECRET,
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || JWT_SECRET + "-refresh",
+  JWT_ACCESS_SECRET,
+  JWT_REFRESH_SECRET,
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "1h",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
 

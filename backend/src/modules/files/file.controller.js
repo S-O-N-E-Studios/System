@@ -9,8 +9,13 @@ const list = async (req, res) => {
 };
 
 const requestUploadUrl = async (req, res) => {
-  const { storagePath } = req.body;
-  return sendSuccess(res, { url: 'placeholder', key: storagePath });
+  const safeFileName = req.body.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `${req.tenant.slug}/${req.body.projectId}/${Date.now()}-${safeFileName}`;
+  return sendSuccess(res, {
+    uploadUrl: `placeholder://${storagePath}`,
+    method: 'PUT',
+    storagePath,
+  });
 };
 
 const register = async (req, res) => {
@@ -19,7 +24,12 @@ const register = async (req, res) => {
 };
 
 const toggleVisibility = async (req, res) => {
-  const file = await fileService.toggleVisibility(req.tenant, req.params.id, req.user.sub);
+  const file = await fileService.toggleVisibility(
+    req.tenant,
+    req.params.id,
+    req.user.sub,
+    req.body.clientVisible
+  );
   return sendSuccess(res, { file });
 };
 

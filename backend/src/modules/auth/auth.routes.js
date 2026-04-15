@@ -64,7 +64,7 @@ router.post(
 router.get("/check-slug/:slug", asyncHandler(controller.checkSlug)); // this route will be used to check if an organization slug is available or not when a user is registering an organization so the slug will be the organization slug that the user wants to use and we will check if it is available or not and return a boolean value indicating whether the slug is available or not
 
 // Protected routes
-router.post("/refresh", authenticate, asyncHandler(controller.refresh));
+router.post("/refresh", asyncHandler(controller.refresh));
 router.post("/logout", authenticate, asyncHandler(controller.logout));
 router.post(
   "/change-password",
