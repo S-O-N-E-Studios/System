@@ -21,13 +21,14 @@ import ApprovalStatusBadge from '@/components/ui/ApprovalStatusBadge';
 import VariationOrderDrawer from '@/components/ui/VariationOrderDrawer';
 import MediaGallery from '@/components/ui/MediaGallery';
 import { formatRands } from '@/utils/formatters';
+import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
 import { ArrowLeft, Edit, FileText, Clock, Check, X, Star } from 'lucide-react';
 import ProjectLocationMap from '@/components/ui/ProjectLocationMap';
 import ProjectActivitySchedule from './ProjectActivitySchedule';
 import ProjectPaymentHistory from './ProjectPaymentHistory';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 import { STAGE_NAMES } from '@/types';
-import type { Project, ProjectFile, ProjectStage } from '@/types';
+import type { Project, ProjectFile, ProjectStage, Stage0Contact } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
@@ -39,11 +40,12 @@ import {
 } from '@/api/projectStage';
 import { filesApi } from '@/api/files';
 import { projectsApi } from '@/api/projects';
+import { planningApi } from '@/api/planning';
 import apiClient from '@/api/client';
 import { stageApprovalsApi } from '@/api/stageApprovals';
 import { variationsApi } from '@/api/variations';
 import { mediaApi } from '@/api/media';
-import type { ApprovalStatus, StageApproval, VariationOrder } from '@/types';
+import type { ApprovalStatus, StageApproval, VariationOrder, MultiYearPlan } from '@/types';
 
 const detailTabs = [
   'Overview',
@@ -96,9 +98,13 @@ export default function ProjectDetail() {
   const [isStageLoading, setIsStageLoading] = useState(false);
   const [isStageStatusLoaded, setIsStageStatusLoaded] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
-  const [localStageUploads, setLocalStageUploads] = useState<
-    Record<string, { fileName: string }>
-  >({});
+  const [isCompletingStage0, setIsCompletingStage0] = useState(false);
+  const [stage0Address, setStage0Address] = useState('');
+  const [stage0AppointmentDate, setStage0AppointmentDate] = useState('');
+  const [stage0CompletionDate, setStage0CompletionDate] = useState('');
+  const [stage0Contacts, setStage0Contacts] = useState<Stage0Contact[]>([]);
+  const [stage0LinkedPlanId, setStage0LinkedPlanId] = useState('');
+  const [availablePlans, setAvailablePlans] = useState<MultiYearPlan[]>([]);
 
   const { user } = useAuthStore();
   const { addToast } = useUiStore();
@@ -143,7 +149,8 @@ export default function ProjectDetail() {
   const contractValue = project?.contractValueAdjusted || project?.contractValueOriginal || project?.contractValue || 0;
   const expenditure = project?.expenditureToDate || 0;
   const balance = project?.balance ?? (contractValue - expenditure);
-  const percentComplete = project?.percentComplete ?? (currentStage ? Math.round((currentStage / 6) * 100) : 0);
+  const percentComplete =
+    project?.percentComplete ?? progressFromLifecycleStage(currentStage);
 
   const projectRecord = project as (Project & Record<string, unknown>) | null;
   const paymentPlan: { year: number; q1: number; q2: number; q3: number; q4: number }[] =
@@ -216,6 +223,15 @@ export default function ProjectDetail() {
         if (!cancelled) {
           setProject(res);
           if (res.currentStage) setCurrentStage(res.currentStage);
+          setStage0Address(res.location?.address || '');
+          setStage0AppointmentDate(res.appointmentDate?.slice(0, 10) || '');
+          setStage0CompletionDate(res.completionDate?.slice(0, 10) || '');
+          setStage0LinkedPlanId(res.linkedMultiYearPlanId || '');
+          setStage0Contacts(
+            (res.stage0Contacts || []).length > 0
+              ? (res.stage0Contacts || [])
+              : [{ firstName: '', lastName: '', email: '', inviteStatus: 'pending' }]
+          );
         }
       } catch {
         // Keep defaults if API unavailable
@@ -226,6 +242,23 @@ export default function ProjectDetail() {
     void loadProject();
     return () => { cancelled = true; };
   }, [tenantSlug, id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPlans() {
+      if (!tenantSlug) return;
+      try {
+        const res = await planningApi.list({ limit: 200 });
+        if (!cancelled) setAvailablePlans(res.plans || []);
+      } catch {
+        if (!cancelled) setAvailablePlans([]);
+      }
+    }
+    void loadPlans();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug]);
 
   useEffect(() => {
     if (!tenantSlug || !id) return;
@@ -399,6 +432,85 @@ export default function ProjectDetail() {
     return <Navigate to="/" replace />;
   }
 
+  const updateStage0Contact = (
+    index: number,
+    field: keyof Stage0Contact,
+    value: string
+  ) => {
+    setStage0Contacts((prev) =>
+      prev.map((contact, i) =>
+        i === index ? { ...contact, [field]: value } : contact
+      )
+    );
+  };
+
+  const addStage0Contact = () => {
+    setStage0Contacts((prev) => [
+      ...prev,
+      { firstName: '', lastName: '', email: '', inviteStatus: 'pending' },
+    ]);
+  };
+
+  const removeStage0Contact = (index: number) => {
+    setStage0Contacts((prev) =>
+      prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)
+    );
+  };
+
+  const completeStage0 = async () => {
+    if (!tenantSlug || !id) return;
+    const contacts = stage0Contacts
+      .map((c) => ({
+        firstName: c.firstName.trim(),
+        lastName: c.lastName.trim(),
+        email: c.email.trim(),
+        inviteStatus: c.inviteStatus,
+      }))
+      .filter((c) => c.firstName && c.lastName && c.email);
+
+    if (!stage0Address.trim()) {
+      addToast({ type: 'error', message: 'Stage 0 requires a project address.' });
+      return;
+    }
+    if (!stage0LinkedPlanId) {
+      addToast({ type: 'error', message: 'Stage 0 requires a linked multi-year plan.' });
+      return;
+    }
+    if (!stage0AppointmentDate || !stage0CompletionDate) {
+      addToast({ type: 'error', message: 'Stage 0 requires appointment and completion dates.' });
+      return;
+    }
+    if (contacts.length === 0) {
+      addToast({ type: 'error', message: 'Add at least one team contact for Stage 0.' });
+      return;
+    }
+
+    setIsCompletingStage0(true);
+    try {
+      const updated = await projectsApi.update(id, {
+        location: { ...(project?.location || {}), address: stage0Address.trim() },
+        appointmentDate: stage0AppointmentDate,
+        completionDate: stage0CompletionDate,
+        linkedMultiYearPlanId: stage0LinkedPlanId,
+        stage0Contacts: contacts,
+      });
+      setProject(updated);
+      await advanceProjectStage({ tenantSlug, projectId: id });
+      const status = await fetchProjectStageStatus({ tenantSlug, projectId: id });
+      setCurrentStage(status.currentStage);
+      setStageMissingDocs(status.missing);
+      setIsStageStatusLoaded(true);
+      addToast({ type: 'success', message: 'Stage 0 complete. Project moved to Stage 1.' });
+    } catch {
+      addToast({
+        type: 'error',
+        message: 'Could not complete Stage 0. Ensure all required onboarding fields are filled.',
+      });
+    } finally {
+      setIsCompletingStage0(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       {/* Header */}
@@ -511,6 +623,114 @@ export default function ProjectDetail() {
             completedStages={completedStages}
             onStageClick={(stage) => setStageDrawerOpen(stage)}
           />
+          {currentStage === 0 && !isClientTemp && (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+              <h3 className="text-h3 mb-2">Stage 0: Project Onboarding</h3>
+              <p className="text-body text-[var(--text-muted)] mb-6">
+                Complete all required setup and team invitation details before moving to Stage 1.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="text-eyebrow text-[var(--text-muted)]">Project Address</label>
+                  <input
+                    value={stage0Address}
+                    onChange={(e) => setStage0Address(e.target.value)}
+                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
+                    placeholder="Street, city, province"
+                  />
+                </div>
+                <div>
+                  <label className="text-eyebrow text-[var(--text-muted)]">Multi-Year Plan</label>
+                  <select
+                    value={stage0LinkedPlanId}
+                    onChange={(e) => setStage0LinkedPlanId(e.target.value)}
+                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
+                  >
+                    <option value="" className="bg-[var(--bg-card)]">Select a plan</option>
+                    {availablePlans.map((plan) => (
+                      <option key={plan.id} value={plan.id} className="bg-[var(--bg-card)]">
+                        {plan.projectName} - FY {plan.financialYear}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-eyebrow text-[var(--text-muted)]">Appointment Date</label>
+                  <input
+                    type="date"
+                    value={stage0AppointmentDate}
+                    onChange={(e) => setStage0AppointmentDate(e.target.value)}
+                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
+                  />
+                </div>
+                <div>
+                  <label className="text-eyebrow text-[var(--text-muted)]">Target Completion</label>
+                  <input
+                    type="date"
+                    value={stage0CompletionDate}
+                    onChange={(e) => setStage0CompletionDate(e.target.value)}
+                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
+                  />
+                </div>
+              </div>
+
+              <h4 className="text-h3 text-[0.95rem] mb-3">Team Contacts & Invite Status</h4>
+              <div className="space-y-3">
+                {stage0Contacts.map((contact, index) => (
+                  <div key={`stage0-contact-${index}`} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    <input
+                      value={contact.firstName}
+                      onChange={(e) => updateStage0Contact(index, 'firstName', e.target.value)}
+                      className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem]"
+                      placeholder="First name"
+                    />
+                    <input
+                      value={contact.lastName}
+                      onChange={(e) => updateStage0Contact(index, 'lastName', e.target.value)}
+                      className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem]"
+                      placeholder="Surname"
+                    />
+                    <input
+                      value={contact.email}
+                      onChange={(e) => updateStage0Contact(index, 'email', e.target.value)}
+                      className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem] md:col-span-2"
+                      placeholder="Email address"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={contact.inviteStatus}
+                        onChange={(e) =>
+                          updateStage0Contact(index, 'inviteStatus', e.target.value as Stage0Contact['inviteStatus'])
+                        }
+                        className="flex-1 bg-transparent border border-[var(--border-default)] px-2 py-2 text-[0.78rem]"
+                      >
+                        <option value="pending" className="bg-[var(--bg-card)]">pending</option>
+                        <option value="invite_sent" className="bg-[var(--bg-card)]">invite sent</option>
+                        <option value="invited" className="bg-[var(--bg-card)]">invited</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => removeStage0Contact(index)}
+                        className="px-2 border border-[var(--border-default)] text-[0.72rem] text-[var(--text-muted)] hover:text-[var(--status-danger)]"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-4">
+                <Button variant="secondary" onClick={addStage0Contact}>Add Contact</Button>
+                <Button
+                  variant="primary"
+                  onClick={() => void completeStage0()}
+                  isLoading={isCompletingStage0}
+                >
+                  Save Stage 0 and Continue to Stage 1
+                </Button>
+              </div>
+            </div>
+          )}
           {stageDrawerOpen != null && (
             <StageDocumentDrawer
               stage={stageDrawerOpen}
@@ -536,11 +756,8 @@ export default function ProjectDetail() {
                     approvalForFile(firstFileId)?.approvalStatus ||
                     'not_required';
 
-                  const localKey = `${id}|${stageDrawerOpen}|${r.documentName}|${r.category}`;
-                  const localUpload = localStageUploads[localKey];
-                  const localUploaded = Boolean(localUpload);
-                  const uploaded = isPastStage || (isCurrentStage && (!isMissing || localUploaded));
-                  const fileName = uploaded ? localUpload?.fileName ?? firstFileName : undefined;
+                  const uploaded = isPastStage || (isCurrentStage && !isMissing);
+                  const fileName = uploaded ? firstFileName : undefined;
 
                   return {
                     documentName: r.documentName,
@@ -568,8 +785,6 @@ export default function ProjectDetail() {
                       const stage = stageDrawerOpen;
                       if (!stage) return;
 
-                      const localKey = `${id}|${stage}|${documentName}|${category}`;
-
                       try {
                         await filesApi.uploadStageDocument({
                           tenantSlug,
@@ -579,19 +794,10 @@ export default function ProjectDetail() {
                           file,
                         });
                       } catch {
-                        // Backend may be stubbed/disabled for MVP: keep the drawer functional
-                        // by optimistically marking this requirement as uploaded.
-                        setLocalStageUploads((prev) => ({
-                          ...prev,
-                          [localKey]: { fileName: file.name },
-                        }));
-                        setStageMissingDocs((prev) =>
-                          prev.filter(
-                            (m) => !(m.documentName === documentName && m.category === category),
-                          ),
-                        );
-                        setIsStageLoading(false);
-                        setIsStageStatusLoaded(true);
+                        addToast({
+                          type: 'error',
+                          message: `Could not upload ${documentName}.`,
+                        });
                         return;
                       }
 

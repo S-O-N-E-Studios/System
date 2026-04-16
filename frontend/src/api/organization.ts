@@ -25,6 +25,8 @@ export type Organization = {
   name: string;
   orgType?: OrgType;
   primaryContact?: string | null;
+  address?: string | null;
+  timezone?: string | null;
   logoUrl?: string | null;
   localMunicipalities?: string[];
   theme?: Record<string, unknown>;
@@ -32,7 +34,7 @@ export type Organization = {
 };
 
 export type OrganizationPatch = Partial<
-  Pick<Organization, 'name' | 'primaryContact' | 'logoUrl' | 'localMunicipalities' | 'theme'>
+  Pick<Organization, 'name' | 'primaryContact' | 'address' | 'timezone' | 'logoUrl' | 'localMunicipalities' | 'theme'>
 > & {
   outboundEmail?: Partial<OutboundEmailSettings> & { authPass?: string };
 };

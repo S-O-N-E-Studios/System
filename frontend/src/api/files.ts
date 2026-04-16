@@ -122,7 +122,7 @@ export const filesApi = {
     sizeBytes: number;
     storagePath?: string;
   }): Promise<ProjectFile> => {
-    const res = await apiClient.post<ApiResponse<ProjectFile>>(`/${params.tenantSlug}/files`, {
+    const res = await apiClient.post<ApiResponse<{ file: ProjectFile }>>(`/${params.tenantSlug}/files`, {
       projectId: params.projectId,
       stage: params.stage,
       category: params.category,
@@ -132,7 +132,7 @@ export const filesApi = {
       storagePath: params.storagePath,
     });
 
-    return res.data.data;
+    return res.data.data.file;
   },
 
   /**
@@ -194,11 +194,11 @@ export const filesApi = {
     fileId: string;
     clientVisible: boolean;
   }): Promise<ProjectFile> => {
-    const res = await apiClient.patch<ApiResponse<ProjectFile>>(
+    const res = await apiClient.patch<ApiResponse<{ file: ProjectFile }>>(
       `/${params.tenantSlug}/files/${params.fileId}/visibility`,
       { clientVisible: params.clientVisible }
     );
-    return res.data.data;
+    return res.data.data.file;
   },
 
   delete: async (params: { tenantSlug: string; id: string }): Promise<void> => {

@@ -47,8 +47,8 @@ export const usersApi = {
   },
 
   updateRole: async (userId: string, role: string): Promise<User> => {
-    const res = await apiClient.patch<ApiResponse<User>>(`/${slug()}/users/${userId}/role`, { role });
-    return res.data.data;
+    const res = await apiClient.patch<ApiResponse<{ user: User }>>(`/${slug()}/users/${userId}/role`, { role });
+    return res.data.data.user;
   },
 
   suspend: async (userId: string): Promise<void> => {

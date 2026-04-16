@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Bell, Menu, X, Sun, Moon, ArrowRight, Clock } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
@@ -9,6 +10,12 @@ import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import ClientAccessBanner from '@/components/ui/ClientAccessBanner';
 import { useProjectStore } from '@/store/projectStore';
+import {
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type NotificationItem,
+} from '@/api/notifications';
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -17,6 +24,7 @@ export default function TopBar() {
   const { currentTenant } = useTenantStore();
   const { user } = useAuthStore();
   const { expiresAt } = useClientAccessStore();
+  const queryClient = useQueryClient();
 
   const setFilters = useProjectStore((s) => s.setFilters);
   // Reactive selector so the dropdown updates immediately when pins change.
@@ -36,13 +44,16 @@ export default function TopBar() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
 
-  type Notification = { id: string; title: string; body: string; date: string; read: boolean };
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 'n1', title: 'Stage gate pending', body: 'PBD.pdf is required for Stage 4 completion.', date: '2h ago', read: false },
-    { id: 'n2', title: 'Payment received', body: 'A payment was recorded for PRJ-2026-002.', date: 'Yesterday', read: false },
-    { id: 'n3', title: 'Activity update', body: 'Geo-Tec report moved to In Review.', date: '3 days ago', read: true },
-  ]);
-
+  const tenantRole =
+    user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const showClientBanner = tenantRole === 'CLIENT_TEMP' && Boolean(expiresAt);
+  const { data: notificationPayload } = useQuery({
+    queryKey: ['notifications', tenantSlug],
+    queryFn: fetchNotifications,
+    enabled: Boolean(tenantSlug && tenantRole !== 'CLIENT_TEMP'),
+    refetchInterval: 60_000,
+  });
+  const notifications: NotificationItem[] = notificationPayload?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const openNotifications = () => {
@@ -58,18 +69,15 @@ export default function TopBar() {
 
   const closeNotifications = () => setNotificationsOpen(false);
 
-  const markRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  };
+  const refreshNotifications = () =>
+    queryClient.invalidateQueries({ queryKey: ['notifications', tenantSlug] });
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    closeNotifications();
+    void markAllNotificationsRead().then(() => {
+      closeNotifications();
+      void refreshNotifications();
+    });
   };
-
-  const tenantRole =
-    user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
-  const showClientBanner = tenantRole === 'CLIENT_TEMP' && Boolean(expiresAt);
 
   const openSearchDrop = () => {
     if (searchWrapRef.current) {
@@ -105,7 +113,8 @@ export default function TopBar() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const isK = e.key.toLowerCase() === 'k';
+      const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
+      const isK = key === 'k';
       if (!isK) return;
       if (!(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
@@ -387,13 +396,30 @@ export default function TopBar() {
 
                 {/* Items */}
                 <ul className="max-h-[320px] overflow-y-auto divide-y divide-[var(--border-default)]">
+                  {notifications.length === 0 && (
+                    <li className="px-4 py-5 text-[0.75rem] text-[var(--text-muted)]">
+                      No real notifications yet.
+                    </li>
+                  )}
                   {notifications.map((n) => (
                     <li
                       key={n.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => { markRead(n.id); closeNotifications(); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { markRead(n.id); closeNotifications(); } }}
+                      onClick={() => {
+                        void markNotificationRead(n.id).then(() => {
+                          closeNotifications();
+                          void refreshNotifications();
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          void markNotificationRead(n.id).then(() => {
+                            closeNotifications();
+                            void refreshNotifications();
+                          });
+                        }
+                      }}
                       className={[
                         'flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-colors',
                         'hover:bg-[var(--accent-sand-glow)]',

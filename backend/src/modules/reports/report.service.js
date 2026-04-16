@@ -3,6 +3,8 @@ const Project = require('../projects/project.model');
 const Task = require('../tasks/task.model');
 const Sprint = require('../sprints/sprint.model');
 const Grant = require('../grants/grant.model');
+const Department = require('../departments/department.model');
+const CalendarEvent = require('../calendar/calendarEvent.model');
 const projectRepo = require('../projects/project.repository');
 const { Payment, PaymentForecast } = projectRepo;
 const Report = require('./report.model');
@@ -10,7 +12,7 @@ const Report = require('./report.model');
 const getDashboardReport = async (tenant) => {
   const tid = tenant._id;
 
-  const [budgetRows, paymentAgg, taskAgg, sprintCounts, grantAgg] = await Promise.all([
+  const [budgetRows, paymentAgg, taskAgg, sprintCounts, grantAgg, departments, recentProjects, outstandingTasks, upcomingEvents, serviceCategories] = await Promise.all([
     projectRepo.getBudgetSummary(tid),
     Payment.aggregate([
       { $match: { tenantId: tid } },
@@ -43,6 +45,21 @@ const getDashboardReport = async (tenant) => {
         },
       },
     ]),
+    Department.find({ tenantId: tid }).sort({ name: 1 }).lean(),
+    Project.find({ tenantId: tid, deletedAt: null })
+      .sort({ updatedAt: -1 })
+      .limit(6)
+      .populate('deptId', 'name')
+      .lean(),
+    Task.find({ tenantId: tid, status: { $ne: 'done' } })
+      .sort({ dueDate: 1, updatedAt: -1 })
+      .limit(8)
+      .lean(),
+    CalendarEvent.find({ tenantId: tid, date: { $gte: new Date() } })
+      .sort({ date: 1 })
+      .limit(8)
+      .lean(),
+    projectRepo.getServiceCategorySummary(tid),
   ]);
 
   const budget = budgetRows[0] || {};
@@ -50,13 +67,92 @@ const getDashboardReport = async (tenant) => {
   const grants = grantAgg[0] || { totalGrantValue: 0, totalDisbursed: 0, grantCount: 0 };
 
   const tasksByStatus = Object.fromEntries(taskAgg.map((t) => [t._id, t.count]));
+  const now = Date.now();
+
+  const departmentRows = departments.map((dept) => {
+    const budgetValue = Number(dept.budgetTotal) || 0;
+    const spentValue = Number(dept.budgetSpent) || 0;
+    return {
+      id: dept._id.toString(),
+      name: dept.slug || dept.name,
+      fullName: dept.name,
+      deptName: dept.name,
+      budget: budgetValue,
+      totalBudget: budgetValue,
+      spent: spentValue,
+      totalExpenditure: spentValue,
+      remaining: Math.max(0, budgetValue - spentValue),
+    };
+  });
+
+  const projectRows = recentProjects.map((project) => ({
+    id: project._id.toString(),
+    name: project.name,
+    dept: project.deptId?.name || project.localMunicipality || 'Unassigned',
+    status:
+      project.status === 'complete'
+        ? 'completed'
+        : project.status === 'on-hold'
+          ? 'review'
+          : project.status,
+    updatedAt: project.updatedAt,
+  }));
+
+  const outstandingTaskRows = outstandingTasks.map((task) => {
+    const dueTs = task.dueDate ? new Date(task.dueDate).getTime() : null;
+    const daysUntilDue = dueTs == null ? null : Math.ceil((dueTs - now) / 86400000);
+    return {
+      id: task._id.toString(),
+      title: task.title,
+      dueStatus:
+        daysUntilDue != null && daysUntilDue < 0
+          ? 'danger'
+          : daysUntilDue != null && daysUntilDue <= 7
+            ? 'review'
+            : 'planning',
+      due: task.dueDate ? task.dueDate : task.updatedAt,
+    };
+  });
+
+  const upcomingEventRows = upcomingEvents.map((event) => ({
+    id: event._id.toString(),
+    title: event.title,
+    eventType: event.eventType,
+    date: event.date,
+    projectId: event.projectId ? event.projectId.toString() : undefined,
+  }));
+
+  const serviceCategoryRows = serviceCategories.map((row) => ({
+    category: row.serviceCategory,
+    totalValue: Number(row.totalBudget) || 0,
+    disbursedToDate: Number(row.totalExpenditure) || 0,
+    remaining: Number(row.totalBalance) || 0,
+  }));
 
   return {
+    kpis: {
+      allocated: Number(budget.totalContractValue) || 0,
+      spent: Number(budget.totalExpenditure) || 0,
+      remaining: Number(budget.totalBalance) || 0,
+    },
+    departments: departmentRows,
+    recentProjects: projectRows,
+    outstandingTasks: outstandingTaskRows,
+    upcomingEvents: upcomingEventRows,
+    grants: {
+      totalValue: Number(grants.totalGrantValue) || 0,
+      disbursedToDate: Number(grants.totalDisbursed) || 0,
+      remaining: Math.max(
+        0,
+        (Number(grants.totalGrantValue) || 0) - (Number(grants.totalDisbursed) || 0),
+      ),
+    },
+    serviceCategories: serviceCategoryRows,
     budget,
     payments,
     tasksByStatus,
     activeSprints: sprintCounts,
-    grants,
+    grantTotals: grants,
   };
 };
 
@@ -245,6 +341,28 @@ const getGrantsSummary = async (tenant) => {
   };
 };
 
+const getPaymentHistory = async (tenant) => {
+  const payments = await Payment.find({ tenantId: tenant._id })
+    .sort({ paymentDate: -1, createdAt: -1 })
+    .populate('projectId', 'name')
+    .lean();
+
+  return payments.map((payment) => ({
+    id: payment._id.toString(),
+    tenantId: payment.tenantId.toString(),
+    projectId: payment.projectId?._id?.toString?.() || payment.projectId?.toString?.(),
+    projectName: payment.projectId?.name || 'N/A',
+    consultantName: payment.contractType
+      ? `${payment.contractType.charAt(0).toUpperCase()}${payment.contractType.slice(1)} payment`
+      : 'Project payment',
+    invoiceNumber: payment.certificateNo || payment._id.toString().slice(-8).toUpperCase(),
+    paymentDate: payment.paymentDate,
+    paymentAmount: payment.amount,
+    paymentStatus: 'completed',
+    createdAt: payment.createdAt,
+  }));
+};
+
 const persistGeneratedReport = async (tenant, userId, reportType, filters, format, data) =>
   Report.create({
     tenantId: tenant._id,
@@ -262,5 +380,6 @@ module.exports = {
   getProjectStatus,
   getSprintBurndown,
   getGrantsSummary,
+  getPaymentHistory,
   persistGeneratedReport,
 };

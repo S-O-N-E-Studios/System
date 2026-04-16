@@ -11,12 +11,19 @@ const { ROLES, ADMIN_ROLES, WRITER_ROLES } = require('../constants/roles');
 const { sendForbidden, sendUnauthorized }  = require('../utils/apiResponse');
 
 
+const getEffectiveRole = (req) => {
+  if (req.user?.role === ROLES.SUPER_ADMIN || req.user?.role === ROLES.CLIENT_TEMP) {
+    return req.user.role;
+  }
+  return req.tenantMembership?.role || req.user?.role;
+};
+
 const requireRole = (allowedRoles) => (req, res, next) => {
   if (!req.user) {
     return sendUnauthorized(res);
   }
 
-  if (!allowedRoles.includes(req.user.role)) {
+  if (!allowedRoles.includes(getEffectiveRole(req))) {
     return sendForbidden(res);
   }
 
@@ -60,7 +67,7 @@ const denyClientTemp = (req, res, next) => {
 const requireDeptScope = (req, res, next) => {
   if (!req.user) return sendUnauthorized(res);
 
-  if (req.user.role !== ROLES.DEPT_ADMIN) {
+  if (getEffectiveRole(req) !== ROLES.DEPT_ADMIN) {
     return next();
   }
 

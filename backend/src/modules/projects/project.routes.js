@@ -36,6 +36,11 @@ router.get('/:id',
   asyncHandler(ctrl.getOne)
 );
 
+router.get('/:id/client-access-check',
+  requireProjectScope,
+  asyncHandler(ctrl.getClientAccessCheck)
+);
+
 router.patch('/:id',
   denyClientTemp,
   requirePM,

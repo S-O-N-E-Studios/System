@@ -21,6 +21,7 @@ export default function PaymentHistory() {
       } catch {
         if (!cancelled) {
           setEntries([]);
+          setError('Could not load payment history.');
         }
       } finally {
         if (!cancelled) setLoading(false);

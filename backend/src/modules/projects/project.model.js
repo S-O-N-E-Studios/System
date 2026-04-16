@@ -31,6 +31,20 @@ const subConsultantSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const stage0ContactSchema = new mongoose.Schema(
+  {
+    firstName: { type: String, required: true, trim: true },
+    lastName: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true, lowercase: true },
+    inviteStatus: {
+      type: String,
+      enum: ['pending', 'invite_sent', 'invited'],
+      default: 'pending',
+    },
+  },
+  { _id: false }
+);
+
 const projectSchema = new mongoose.Schema(
   {
     tenantId: {
@@ -66,7 +80,7 @@ const projectSchema = new mongoose.Schema(
       type: Number,
       min: 0,
       max: 10,
-      default: 1,
+      default: 0,
     },
     serviceCategory: {
       type: String,
@@ -143,6 +157,14 @@ const projectSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    stage0Contacts: {
+      type: [stage0ContactSchema],
+      default: [],
+    },
+    stage0CompletedAt: {
+      type: Date,
+      default: null,
+    },
     stageHistory: {
       type: [stageHistoryEntrySchema],
       default: [],
@@ -183,6 +205,13 @@ projectSchema.virtual('balance').get(function () {
 
 projectSchema.virtual('isDeleted').get(function () {
   return this.deletedAt !== null;
+});
+
+projectSchema.virtual('percentComplete').get(function () {
+  const stage = Number(this.currentStage);
+  if (!Number.isFinite(stage)) return 0;
+  const bounded = Math.max(0, Math.min(10, Math.round(stage)));
+  return Math.round((bounded / 10) * 100);
 });
 
 projectSchema.pre('save', async function (next) {

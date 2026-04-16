@@ -172,14 +172,8 @@ const registerOrg = async (data) => {
     });
   }
 
-  // Check user email
+  // Reuse an existing account when it creates another organisation.
   const existingUser = await authRepo.findUserByEmail(email);
-  if (existingUser) {
-    throw Object.assign(
-      new Error("An account with this email already exists"),
-      { status: 409 },
-    );
-  }
 
   // Create tenant
   const tenant = await Tenant.create({
@@ -191,25 +185,46 @@ const registerOrg = async (data) => {
     status: "trial",
   });
 
-  // Create Org Admin user
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-
-  const user = await authRepo.createUser({
-    email,
-    passwordHash,
-    fullName,
-    role: ROLES.ORG_ADMIN,
-    tenants: [
-      {
-        tenantId: tenant._id,
-        tenantSlug: tenant.slug,
-        role: ROLES.ORG_ADMIN,
-        joinedAt: new Date(),
-      },
-    ],
-    isActive: true,
-    lastLoginAt: new Date(),
-  });
+  let user = existingUser;
+  if (user) {
+    const alreadyMember = user.tenants.some(
+      (membership) => membership.tenantId.toString() === tenant._id.toString()
+    );
+    if (alreadyMember) {
+      throw Object.assign(
+        new Error("This account is already linked to the new organisation"),
+        { status: 409 },
+      );
+    }
+    user.tenants.push({
+      tenantId: tenant._id,
+      tenantSlug: tenant.slug,
+      role: ROLES.ORG_ADMIN,
+      joinedAt: new Date(),
+    });
+    user.role = ROLES.ORG_ADMIN;
+    user.isActive = true;
+    user.lastLoginAt = new Date();
+    await user.save();
+  } else {
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    user = await authRepo.createUser({
+      email,
+      passwordHash,
+      fullName,
+      role: ROLES.ORG_ADMIN,
+      tenants: [
+        {
+          tenantId: tenant._id,
+          tenantSlug: tenant.slug,
+          role: ROLES.ORG_ADMIN,
+          joinedAt: new Date(),
+        },
+      ],
+      isActive: true,
+      lastLoginAt: new Date(),
+    });
+  }
 
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);

@@ -5,6 +5,7 @@ import AtlasMap from '@/components/ui/AtlasMap';
 import { projectsApi } from '@/api/projects';
 import { formatRands } from '@/utils/formatters';
 import { Search, MapPin, X } from 'lucide-react';
+import { geocodeAddressCached } from '@/utils/geocode';
 
 type MapProjectRow = {
   id: string;
@@ -15,6 +16,8 @@ type MapProjectRow = {
   hasGps: boolean;
   lat?: number;
   lng?: number;
+  geocodedLat?: number;
+  geocodedLng?: number;
 };
 
 export default function MapsView() {
@@ -60,7 +63,7 @@ export default function MapsView() {
             status: stage >= 7 ? 'active' : stage >= 5 ? 'review' : 'planning',
             contractValue: (p.contractValueAdjusted || p.contractValueOriginal || 0) / 100,
             fullAddress: p.location?.address || '',
-            hasGps: !!(lat && lng),
+            hasGps: typeof lat === 'number' && typeof lng === 'number',
             lat,
             lng,
           };
@@ -74,6 +77,40 @@ export default function MapsView() {
       cancelled = true;
     };
   }, [tenantSlug]);
+
+  useEffect(() => {
+    if (!tenantSlug) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    (async () => {
+      const needs = projects.filter(
+        (p) =>
+          !p.hasGps &&
+          !!p.fullAddress &&
+          (p.geocodedLat == null || p.geocodedLng == null),
+      );
+      if (needs.length === 0) return;
+
+      const updates = await Promise.all(
+        needs.map(async (p) => {
+          const pt = await geocodeAddressCached(p.fullAddress, { signal: controller.signal });
+          return { id: p.id, pt };
+        }),
+      );
+      if (cancelled) return;
+      setProjects((prev) =>
+        prev.map((p) => {
+          const u = updates.find((x) => x.id === p.id);
+          if (!u?.pt) return p;
+          return { ...p, geocodedLat: u.pt.lat, geocodedLng: u.pt.lng };
+        }),
+      );
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [projects, tenantSlug]);
 
   // The "active" project is the hovered one, falling back to the clicked one
   const activeProjectId = hoveredProjectId ?? selectedProjectId;
@@ -100,13 +137,11 @@ export default function MapsView() {
   const markers = useMemo(
     () =>
       projects
-        .filter(
-          (p) => p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number',
-        )
+        .filter((p) => (p.hasGps && typeof p.lat === 'number' && typeof p.lng === 'number') || (typeof p.geocodedLat === 'number' && typeof p.geocodedLng === 'number'))
         .map((p) => ({
           id: p.id,
-          lat: p.lat as number,
-          lng: p.lng as number,
+          lat: (p.hasGps ? p.lat : p.geocodedLat) as number,
+          lng: (p.hasGps ? p.lng : p.geocodedLng) as number,
           label: p.name,
           status: p.status,
         })),
@@ -120,9 +155,13 @@ export default function MapsView() {
     typeof activeProject.lat === 'number' &&
     typeof activeProject.lng === 'number'
       ? { lat: activeProject.lat, lng: activeProject.lng }
+      : selectedProjectId !== null &&
+        typeof activeProject?.geocodedLat === 'number' &&
+        typeof activeProject?.geocodedLng === 'number'
+        ? { lat: activeProject.geocodedLat, lng: activeProject.geocodedLng }
       : undefined;
 
-  const zoom = selectedProjectId !== null && activeProject?.hasGps ? 14 : 7;
+  const zoom = selectedProjectId !== null && (activeProject?.hasGps || (typeof activeProject?.geocodedLat === 'number' && typeof activeProject?.geocodedLng === 'number')) ? 14 : 7;
 
   return (
     <div className="animate-fade-in -mx-6 lg:-mx-[5rem] -mt-16 lg:-mt-20 -mb-12">
@@ -288,17 +327,9 @@ export default function MapsView() {
                   <p className="text-[0.82rem] text-[var(--text-primary)] leading-relaxed">
                     {activeProject.fullAddress}
                   </p>
-                  {activeProject.hasGps && (
-                    <p
-                      className="text-[0.65rem] text-[var(--text-muted)] mt-1"
-                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-                    >
-                      {activeProject.lat?.toFixed(5)}, {activeProject.lng?.toFixed(5)}
-                    </p>
-                  )}
                   {!activeProject.hasGps && (
                     <p className="text-[0.65rem] text-[var(--status-warning)] mt-1">
-                      GPS coordinates not recorded — address shown only
+                      Address available. Map pin appears only for projects that still have legacy coordinates.
                     </p>
                   )}
                 </div>

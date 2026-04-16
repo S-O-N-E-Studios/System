@@ -57,7 +57,7 @@ const mergeOutboundEmail = (prev, incoming) => {
 };
 
 const updateOrganization = async (tenant, updates) => {
-  const allowedTop = ['name', 'primaryContact', 'logoUrl', 'localMunicipalities', 'theme'];
+  const allowedTop = ['name', 'primaryContact', 'address', 'timezone', 'logoUrl', 'localMunicipalities', 'theme'];
   const sanitized = {};
 
   for (const k of allowedTop) {

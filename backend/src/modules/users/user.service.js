@@ -236,6 +236,38 @@ const removeMember = async (tenantId, requesterId, targetUserId) => {
   return { removed: true };
 };
 
+const suspendMember = async (tenantId, requesterId, targetUserId) => {
+  if (requesterId.toString() === targetUserId.toString()) {
+    throw Object.assign(new Error('You cannot suspend yourself'), { status: 400 });
+  }
+
+  const user = await userRepo.findById(targetUserId);
+  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+
+  const membership = user.tenants.find((t) => t.tenantId.toString() === tenantId.toString());
+  if (!membership) {
+    throw Object.assign(new Error('User is not a member of this organisation'), { status: 404 });
+  }
+
+  user.isActive = false;
+  await user.save();
+  return user.toSafeObject();
+};
+
+const reactivateMember = async (tenantId, targetUserId) => {
+  const user = await userRepo.findById(targetUserId);
+  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+
+  const membership = user.tenants.find((t) => t.tenantId.toString() === tenantId.toString());
+  if (!membership) {
+    throw Object.assign(new Error('User is not a member of this organisation'), { status: 404 });
+  }
+
+  user.isActive = true;
+  await user.save();
+  return user.toSafeObject();
+};
+
 module.exports = {
   listMembers,
   getCurrentUserProfile,
@@ -244,4 +276,6 @@ module.exports = {
   inviteUser,
   updateMemberRole,
   removeMember,
+  suspendMember,
+  reactivateMember,
 };

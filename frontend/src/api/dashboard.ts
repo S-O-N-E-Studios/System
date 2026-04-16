@@ -18,7 +18,7 @@ export interface RecentProjectSummary {
   id: string;
   name: string;
   dept: string;
-  status: 'active' | 'review' | 'planning' | 'completed';
+  status: 'active' | 'review' | 'planning' | 'completed' | 'cancelled';
   updatedAt: string;
 }
 
@@ -45,17 +45,7 @@ export interface DashboardSummaryResponse {
 }
 
 export async function fetchDashboardSummary(): Promise<DashboardSummaryResponse> {
-  try {
-    const res = await apiClient.get(`/${slug()}/reports/dashboard`);
-    const data = res.data?.data || res.data;
-    return data as DashboardSummaryResponse;
-  } catch {
-    // Fallback to minimal data if backend not ready
-    return {
-      departments: [],
-      recentProjects: [],
-      outstandingTasks: [],
-      upcomingEvents: [],
-    };
-  }
+  const res = await apiClient.get(`/${slug()}/reports/dashboard`);
+  const data = res.data?.data || res.data;
+  return data as DashboardSummaryResponse;
 }

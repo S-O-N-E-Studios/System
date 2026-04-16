@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { useTenantStore } from '@/store/tenantStore';
 import type { PaymentHistoryEntry, PaginatedResponse } from '@/types';
 
 interface PaymentHistoryParams {
@@ -10,9 +11,20 @@ interface PaymentHistoryParams {
   dateTo?: string;
 }
 
+function slug() {
+  return useTenantStore.getState().getSlug() || '';
+}
+
 export const paymentsApi = {
   listPaymentHistory: async (params?: PaymentHistoryParams): Promise<PaginatedResponse<PaymentHistoryEntry>> => {
-    const res = await apiClient.get<PaginatedResponse<PaymentHistoryEntry>>('/payments/history', { params });
-    return res.data;
+    const res = await apiClient.get(`/${slug()}/reports/payment-history`, { params });
+    const rows = res.data?.data?.payments || [];
+    return {
+      data: rows,
+      total: rows.length,
+      page: 1,
+      pageSize: rows.length || 1,
+      totalPages: 1,
+    };
   },
 };

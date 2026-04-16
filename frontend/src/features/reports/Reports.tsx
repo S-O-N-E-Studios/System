@@ -35,6 +35,9 @@ export default function Reports() {
     filename: string;
   } | null>(null);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
+  const kpis = overview?.kpis ?? { allocated: 0, spent: 0, remaining: 0 };
+  const departments = overview?.departments ?? [];
+  const serviceCategories = overview?.serviceCategories ?? [];
 
   const closePreview = () => {
     if (preview?.url) URL.revokeObjectURL(preview.url);
@@ -62,21 +65,21 @@ export default function Reports() {
       sections.push({
         title: 'Portfolio KPIs',
         lines: [
-          { label: 'Allocated', value: formatRands(overview.kpis.allocated) },
-          { label: 'Spent', value: formatRands(overview.kpis.spent) },
-          { label: 'Remaining', value: formatRands(overview.kpis.remaining) },
+          { label: 'Allocated', value: formatRands(kpis.allocated) },
+          { label: 'Spent', value: formatRands(kpis.spent) },
+          { label: 'Remaining', value: formatRands(kpis.remaining) },
         ],
       });
       sections.push({
         title: 'Department budgets',
-        lines: overview.departments.map((d) => ({
+        lines: departments.map((d) => ({
           label: d.deptName,
           value: formatRands(d.totalBudget),
         })),
       });
       sections.push({
         title: 'Service category breakdown',
-        lines: overview.serviceCategories.map((s) => ({
+        lines: serviceCategories.map((s) => ({
           label: s.category,
           value: formatRands(s.totalValue),
         })),
@@ -249,19 +252,19 @@ export default function Reports() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 mb-10">
                 <StatCard
                   label="Allocated"
-                  value={formatRands(overview.kpis.allocated)}
+                  value={formatRands(kpis.allocated)}
                   icon={<DollarSign className="h-5 w-5" />}
                   isCurrency
                 />
                 <StatCard
                   label="Spent"
-                  value={formatRands(overview.kpis.spent)}
+                  value={formatRands(kpis.spent)}
                   icon={<TrendingDown className="h-5 w-5" />}
                   isCurrency
                 />
                 <StatCard
                   label="Remaining"
-                  value={formatRands(overview.kpis.remaining)}
+                  value={formatRands(kpis.remaining)}
                   icon={<Wallet className="h-5 w-5" />}
                   isCurrency
                 />
@@ -274,7 +277,7 @@ export default function Reports() {
                     <h3 className="text-h3">Department Budgets</h3>
                   </div>
                   <div className="px-6 py-4 space-y-2">
-                    {overview.departments.map((dept) => (
+                    {departments.map((dept) => (
                       <div key={dept.deptName} className="flex items-center justify-between">
                         <span className="text-[0.8rem] text-[var(--text-primary)]">
                           {dept.deptName}
@@ -292,7 +295,7 @@ export default function Reports() {
                     <h3 className="text-h3">Service Category Breakdown</h3>
                   </div>
                   <div className="px-6 py-4 space-y-2">
-                    {overview.serviceCategories.map((item) => (
+                    {serviceCategories.map((item) => (
                       <div key={item.category} className="flex items-center justify-between">
                         <span className="text-[0.8rem] text-[var(--text-primary)]">
                           {item.category}

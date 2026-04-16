@@ -16,6 +16,8 @@ const outboundEmailSchema = Joi.object({
 const updateOrganizationSchema = Joi.object({
   name: Joi.string().min(2).max(200).trim(),
   primaryContact: Joi.string().trim().allow(null, ''),
+  address: Joi.string().max(500).trim().allow(null, ''),
+  timezone: Joi.string().max(100).trim().allow(null, ''),
   /** Absolute URL or same-origin path e.g. `/uploads/...` */
   logoUrl: Joi.string().trim().allow(null, ''),
   localMunicipalities: Joi.array().items(Joi.string().trim()),

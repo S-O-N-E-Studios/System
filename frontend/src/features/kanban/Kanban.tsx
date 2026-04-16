@@ -413,7 +413,7 @@ function TaskDetailsModal({ tasks }: { tasks: KanbanTask[] }) {
 
 export default function Kanban() {
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
-  const { openModal } = useUiStore();
+  const { openModal, addToast } = useUiStore();
 
   useEffect(() => {
     let cancelled = false;
@@ -428,9 +428,11 @@ export default function Kanban() {
         dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
       }));
       setTasks(mapped);
-    }).catch(() => {});
+    }).catch(() => {
+      if (!cancelled) addToast({ type: 'error', message: 'Could not load tasks.' });
+    });
     return () => { cancelled = true; };
-  }, []);
+  }, [addToast]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -460,9 +462,14 @@ export default function Kanban() {
 
     if (!nextStatus || nextStatus === activeTask.status) return;
 
+    const previous = tasks;
     setTasks((prev) =>
       prev.map((t) => (t.id === activeTask.id ? { ...t, status: nextStatus as TaskStatus } : t))
     );
+    void tasksApi.update(activeTask.id, { status: nextStatus }).catch(() => {
+      setTasks(previous);
+      addToast({ type: 'error', message: 'Could not update task status.' });
+    });
   };
 
   return (
@@ -515,7 +522,40 @@ export default function Kanban() {
 
       <AddTaskModal
         onAddTask={(task) => {
+          const tempId = task.id;
           setTasks((prev) => [task, ...prev]);
+          void tasksApi
+            .create({
+              title: task.title,
+              status: task.status,
+              priority: task.priority,
+              dueDate: task.dueDate !== '—' ? new Date(task.dueDate).toISOString() : undefined,
+            })
+            .then((saved) => {
+              setTasks((prev) =>
+                prev.map((entry) =>
+                  entry.id === tempId
+                    ? {
+                        ...entry,
+                        id: saved.id,
+                        status: saved.status,
+                        assignee: saved.assigneeName || entry.assignee,
+                        dueDate: saved.dueDate
+                          ? new Date(saved.dueDate).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : entry.dueDate,
+                      }
+                    : entry
+                )
+              );
+            })
+            .catch(() => {
+              setTasks((prev) => prev.filter((entry) => entry.id !== tempId));
+              addToast({ type: 'error', message: 'Could not create task.' });
+            });
         }}
       />
       <TaskDetailsModal tasks={tasks} />

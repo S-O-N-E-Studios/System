@@ -30,6 +30,8 @@ router.patch(
   validate(updateUserRoleSchema),
   asyncHandler(ctrl.updateMemberRole),
 );
+router.post('/:id/suspend', requireOrgAdmin, asyncHandler(ctrl.suspendMember));
+router.post('/:id/reactivate', requireOrgAdmin, asyncHandler(ctrl.reactivateMember));
 router.delete('/:id', requireOrgAdmin, asyncHandler(ctrl.removeMember));
 
 module.exports = router;

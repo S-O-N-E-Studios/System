@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { getGreeting, formatRands } from '@/utils/formatters';
@@ -14,13 +14,16 @@ import { useUiStore } from '@/store/uiStore';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
-import { Download } from 'lucide-react';
+import { Download, MapPin } from 'lucide-react';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
-import ProvinceGeoJsonMap from '@/components/ui/ProvinceGeoJsonMap';
 import ExpenditureGauge from '@/components/ui/ExpenditureGauge';
 import UpcomingEventsStrip from '@/components/ui/UpcomingEventsStrip';
+import AtlasMap from '@/components/ui/AtlasMap';
+import { organizationApi } from '@/api/organization';
+import { projectsApi } from '@/api/projects';
+import { geocodeAddressCached } from '@/utils/geocode';
 import {
   fetchDashboardSummary,
   type DepartmentBudgetSummary,
@@ -38,11 +41,14 @@ function formatBudgetLabel(amount: number): string {
 function projectStatusToBadge(
   status: RecentProjectSummary['status']
 ): 'active' | 'review' | 'planning' | 'done' {
-  return status === 'completed' ? 'done' : status;
+  if (status === 'completed') return 'done';
+  if (status === 'cancelled') return 'review';
+  return status;
 }
 
 export default function Dashboard() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { currentTenant } = useTenantStore();
   const { addToast } = useUiStore();
@@ -52,6 +58,11 @@ export default function Dashboard() {
     queryKey: ['dashboard', 'summary', tenantSlug],
     queryFn: fetchDashboardSummary,
     refetchInterval: 5 * 60 * 1000,
+  });
+  const { data: organization } = useQuery({
+    queryKey: ['organization', tenantSlug],
+    queryFn: () => organizationApi.get(),
+    enabled: Boolean(tenantSlug),
   });
 
   const departments: DepartmentBudgetSummary[] = data?.departments ?? [];
@@ -67,6 +78,92 @@ export default function Dashboard() {
     departments.length > 0 ? Math.max(...departments.map((d) => d.budget)) : 0;
 
   const tenantName = currentTenant?.name ?? 'Mpumalanga Provincial Government';
+  const organizationAddress = organization?.address?.trim() || '';
+
+  const { data: allProjects } = useQuery({
+    queryKey: ['projects', 'map', tenantSlug],
+    queryFn: () => projectsApi.list({ limit: 2000 }),
+    enabled: Boolean(tenantSlug),
+  });
+
+  const [orgPt, setOrgPt] = useState<{ lat: number; lng: number } | null>(null);
+  const [projectPts, setProjectPts] = useState<Record<string, { lat: number; lng: number }>>({});
+
+  useEffect(() => {
+    if (!organizationAddress) {
+      setOrgPt(null);
+      return;
+    }
+    const controller = new AbortController();
+    void geocodeAddressCached(organizationAddress, { signal: controller.signal })
+      .then((pt) => setOrgPt(pt))
+      .catch(() => setOrgPt(null));
+    return () => controller.abort();
+  }, [organizationAddress]);
+
+  useEffect(() => {
+    const projects = allProjects?.projects || [];
+    const controller = new AbortController();
+    let cancelled = false;
+    (async () => {
+      const needing = projects.filter((p) => {
+        const addr = p.location?.address?.trim() || '';
+        const hasGps = typeof p.location?.lat === 'number' && typeof p.location?.lng === 'number';
+        return !hasGps && !!addr && !projectPts[p.id];
+      });
+      if (needing.length === 0) return;
+      const updates = await Promise.all(
+        needing.map(async (p) => {
+          const addr = p.location?.address?.trim() || '';
+          const pt = addr ? await geocodeAddressCached(addr, { signal: controller.signal }) : null;
+          return { id: p.id, pt };
+        }),
+      );
+      if (cancelled) return;
+      setProjectPts((prev) => {
+        const next = { ...prev };
+        for (const u of updates) {
+          if (u.pt) next[u.id] = u.pt;
+        }
+        return next;
+      });
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [allProjects?.projects, projectPts]);
+
+  const mapMarkers = useMemo(() => {
+    const markers: Array<{ id: string; lat: number; lng: number; label: string }> = [];
+    if (orgPt && organizationAddress) {
+      markers.push({
+        id: 'org',
+        lat: orgPt.lat,
+        lng: orgPt.lng,
+        label: 'Organisation',
+      });
+    }
+    const projects = allProjects?.projects || [];
+    for (const p of projects) {
+      const lat = p.location?.lat;
+      const lng = p.location?.lng;
+      const addr = p.location?.address?.trim() || '';
+      const pt = typeof lat === 'number' && typeof lng === 'number'
+        ? { lat, lng }
+        : projectPts[p.id];
+      if (!pt) continue;
+      markers.push({
+        id: p.id,
+        lat: pt.lat,
+        lng: pt.lng,
+        label: p.name || addr || 'Project',
+      });
+    }
+    return markers;
+  }, [allProjects?.projects, orgPt, organizationAddress, projectPts]);
+
+  const mapCenter = orgPt || (mapMarkers.length ? { lat: mapMarkers[0].lat, lng: mapMarkers[0].lng } : undefined);
 
   const handleExportPdf = () => {
     if (!data) {
@@ -270,12 +367,45 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Province map + tenant name */}
+      {/* Organisation address */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-4 sm:p-6 lg:p-8 mb-8">
         <h2 className="text-h2 mb-6">{tenantName}</h2>
-        <div className="h-[360px] bg-[var(--bg-surface-alt)] border border-dashed border-[var(--border-default)] overflow-hidden">
-          <ProvinceGeoJsonMap height="100%" zoom={7} onRegionClick={() => {}} />
-        </div>
+        {organizationAddress ? (
+          <div className="space-y-4">
+            <div className="bg-[var(--bg-surface-alt)] border border-[var(--border-default)] p-6">
+              <div className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-[var(--accent)] mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-[0.68rem] uppercase tracking-[0.14em] text-[var(--text-muted)] mb-2">
+                    Organisation Address
+                  </p>
+                  <p className="text-body text-[var(--text-primary)] leading-relaxed">{organizationAddress}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[var(--bg-surface-alt)] border border-[var(--border-default)] overflow-hidden">
+              <AtlasMap
+                markers={mapMarkers}
+                center={mapCenter}
+                zoom={orgPt ? 14 : 7}
+                height="320px"
+                onMarkerClick={(m) => {
+                  if (m.id === 'org') return;
+                  navigate(`/${tenantSlug}/projects/${m.id}`);
+                }}
+              />
+            </div>
+            <p className="text-[0.7rem] text-[var(--text-muted)]">
+              Pins are based on the saved address (geocoded) or legacy coordinates where present.
+            </p>
+          </div>
+        ) : (
+          <EmptyState
+            title="No organisation address set yet."
+            description="Add the organisation address in Settings before a location is shown on the dashboard."
+          />
+        )}
       </div>
 
       {/* Department budget bars: vertical bar chart */}

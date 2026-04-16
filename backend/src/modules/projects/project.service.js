@@ -2,6 +2,32 @@ const projectRepo = require('./project.repository');
 const stageGateSvc = require('../stage-gate/stageGate.service');
 const CalendarEvent = require('../calendar/calendarEvent.model');
 const { ROLES } = require('../../constants/roles');
+const { SERVICE_CATEGORY_LABEL_TO_KEY } = require('../../constants/serviceCategories');
+
+const normalizeServiceCategory = (value) => {
+  if (!value) return value;
+  return SERVICE_CATEGORY_LABEL_TO_KEY[value] || value;
+};
+
+const buildStage0Missing = (project) => {
+  const missing = [];
+  if (!project.linkedMultiYearPlanId) {
+    missing.push({ documentName: 'Linked multi-year plan', category: 'stage0-multi-year-plan' });
+  }
+  if (!project.location?.address) {
+    missing.push({ documentName: 'Project address', category: 'stage0-address' });
+  }
+  if (!project.appointmentDate) {
+    missing.push({ documentName: 'Appointment date', category: 'stage0-appointment-date' });
+  }
+  if (!project.completionDate) {
+    missing.push({ documentName: 'Target completion date', category: 'stage0-completion-date' });
+  }
+  if (!project.stage0Contacts || project.stage0Contacts.length === 0) {
+    missing.push({ documentName: 'Project team contacts', category: 'stage0-contacts' });
+  }
+  return missing;
+};
 
 const listProjects = async (tenant, query, requestingUser) => {
   if (requestingUser.role === ROLES.CLIENT_TEMP) {
@@ -29,6 +55,7 @@ const getProject = async (tenant, projectId, requestingUser) => {
 };
 
 const createProject = async (tenant, data, createdBy) => {
+  data.serviceCategory = normalizeServiceCategory(data.serviceCategory);
   if (
     tenant.orgType === 'provincial_gov' &&
     data.localMunicipality &&
@@ -44,7 +71,7 @@ const createProject = async (tenant, data, createdBy) => {
   const project = await projectRepo.create({
     ...data,
     tenantId: tenant._id,
-    currentStage: 1,
+    currentStage: 0,
     contractValueAdjusted: data.contractValueOriginal || 0,
     createdBy,
   });
@@ -53,6 +80,9 @@ const createProject = async (tenant, data, createdBy) => {
 };
 
 const updateProject = async (tenant, projectId, updates, _requestingUser) => {
+  if (updates.serviceCategory) {
+    updates.serviceCategory = normalizeServiceCategory(updates.serviceCategory);
+  }
   if (updates.status === 'complete') {
     throw Object.assign(
       new Error('Projects cannot be marked complete directly. Advance through the stage gate to complete a project.'),
@@ -108,7 +138,21 @@ const advanceStage = async (tenant, projectId, advancedBy) => {
   }
 
   // Stages 0 and 5 don't require approval gate
-  if (project.currentStage !== 0 && project.currentStage !== 5) {
+  if (project.currentStage === 0) {
+    const stage0Missing = buildStage0Missing(project);
+    if (stage0Missing.length > 0) {
+      const err = Object.assign(
+        new Error('Stage 0 setup is incomplete'),
+        {
+          status: 422,
+          gateError: true,
+          stage: project.currentStage,
+          missing: stage0Missing,
+        }
+      );
+      throw err;
+    }
+  } else if (project.currentStage !== 5) {
     const gateResult = await stageGateSvc.checkStageGateWithActivities(
       tenant._id, projectId, project.currentStage
     );
@@ -140,6 +184,7 @@ const advanceStage = async (tenant, projectId, advancedBy) => {
 
   const updates = {
     currentStage: newStage,
+    ...(project.currentStage === 0 ? { stage0CompletedAt: new Date() } : {}),
     $push: {
       stageHistory: {
         stage: project.currentStage,
@@ -163,6 +208,15 @@ const advanceStage = async (tenant, projectId, advancedBy) => {
     previousStage: project.currentStage,
     newStage,
     completed: newStage === 10,
+  };
+};
+
+const getClientAccessCheck = async (tenant, projectId, clientAccess) => {
+  await _assertProjectExists(tenant._id, projectId);
+  const allowedProjectIds = (clientAccess?.projectIds || []).map((id) => id.toString());
+  return {
+    allowedProjectIds,
+    expiresAt: clientAccess?.expiresAt ? clientAccess.expiresAt.toISOString() : null,
   };
 };
 
@@ -250,6 +304,7 @@ module.exports = {
   deleteProject,
   getStageStatus,
   advanceStage,
+  getClientAccessCheck,
   listPayments,
   addPayment,
   updatePayment,

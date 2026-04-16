@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import axios from 'axios';
 import {
   projectFormSchemaForOrgType,
   type OrgType,
@@ -13,6 +14,8 @@ import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import { useUiStore } from '@/store/uiStore';
 import { organizationApi } from '@/api/organization';
+import { projectsApi } from '@/api/projects';
+import { filesApi } from '@/api/files';
 import { ArrowLeft, Upload, X as XIcon, FileText } from 'lucide-react';
 
 const FALLBACK_MUNICIPALITIES = [
@@ -26,6 +29,7 @@ const FALLBACK_MUNICIPALITIES = [
 
 type ProjectFormBodyProps = {
   tenantSlug: string;
+  projectId?: string;
   isEdit: boolean;
   orgType: OrgType;
   municipalityOptions: string[];
@@ -33,6 +37,7 @@ type ProjectFormBodyProps = {
 
 function ProjectFormBody({
   tenantSlug,
+  projectId,
   isEdit,
   orgType,
   municipalityOptions,
@@ -44,12 +49,14 @@ function ProjectFormBody({
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
   const [appointmentDate, setAppointmentDate] = useState('');
   const [completionDate, setCompletionDate] = useState('');
+  const [isPrefilling, setIsPrefilling] = useState(isEdit);
 
   const schema = useMemo(() => projectFormSchemaForOrgType(orgType), [orgType]);
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(schema),
@@ -66,9 +73,107 @@ function ProjectFormBody({
 
   const isProvincial = orgType === 'provincial_gov';
 
-  const onSubmit = async () => {
-    addToast({ type: 'success', message: isEdit ? 'Project updated.' : 'Project created.' });
-    navigate(`/${tenantSlug}/projects`);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProjectForEdit() {
+      if (!isEdit || !tenantSlug || !projectId) {
+        setIsPrefilling(false);
+        return;
+      }
+      try {
+        const project = await projectsApi.getById(projectId);
+        if (cancelled) return;
+        reset({
+          name: project.name,
+          contractValue: Number(project.contractValueOriginal || project.contractValue || 0) / 100,
+          status: project.status,
+          contractTypes:
+            project.contractTypes?.length
+              ? project.contractTypes
+              : ['professional'],
+          serviceCategory: project.serviceCategory,
+          localMunicipality: project.localMunicipality || '',
+          idpProjectNo: project.idpProjectNo || '',
+          location: {
+            address: project.location?.address || '',
+          },
+          geoTecEngineer: project.geoTecEngineer || '',
+          contractor: project.contractor || '',
+        });
+        setAppointmentDate(project.appointmentDate?.slice(0, 10) || '');
+        setCompletionDate(project.completionDate?.slice(0, 10) || '');
+      } catch {
+        if (!cancelled) {
+          addToast({ type: 'error', message: 'Could not load project details for editing.' });
+          navigate(`/${tenantSlug}/projects`);
+        }
+      } finally {
+        if (!cancelled) setIsPrefilling(false);
+      }
+    }
+    void loadProjectForEdit();
+    return () => {
+      cancelled = true;
+    };
+  }, [addToast, isEdit, navigate, projectId, reset, tenantSlug]);
+
+  if (isPrefilling) {
+    return (
+      <div className="animate-fade-in max-w-3xl p-8 text-[0.82rem] text-[var(--text-muted)] border border-[var(--border)] bg-[var(--bg-card)]">
+        Loading project details…
+      </div>
+    );
+  }
+
+  const onSubmit = async (values: ProjectFormData) => {
+    try {
+      const payload = {
+        name: values.name,
+        serviceCategory: values.serviceCategory,
+        localMunicipality: values.localMunicipality || undefined,
+        idpProjectNo: values.idpProjectNo || undefined,
+        contractTypes: values.contractTypes,
+        contractValueOriginal: Math.round((values.contractValue || 0) * 100),
+        status: values.status,
+        location: values.location?.address ? { address: values.location.address } : undefined,
+        geoTecEngineer: values.geoTecEngineer || undefined,
+        contractor: values.contractor || undefined,
+        appointmentDate: appointmentDate || undefined,
+        completionDate: completionDate || undefined,
+      };
+
+      const project = isEdit && projectId
+        ? await projectsApi.update(projectId, payload)
+        : await projectsApi.create(payload);
+
+      if (uploadedDocs.length > 0) {
+        await Promise.all(
+          uploadedDocs.map((file) =>
+            filesApi.uploadStageDocument({
+              tenantSlug,
+              projectId: project.id,
+              stage: 1,
+              category: 'other',
+              file,
+            })
+          )
+        );
+      }
+
+      addToast({ type: 'success', message: isEdit ? 'Project updated.' : 'Project created.' });
+      navigate(`/${tenantSlug}/projects/${project.id}`);
+    } catch (error) {
+      const message =
+        axios.isAxiosError(error)
+          ? (error.response?.data as { message?: string } | undefined)?.message
+          : undefined;
+      addToast({
+        type: 'error',
+        message:
+          message ||
+          (isEdit ? 'Could not update project.' : 'Could not create project.'),
+      });
+    }
   };
 
   return (
@@ -104,7 +209,7 @@ function ProjectFormBody({
             {...register('name')}
           />
 
-          {isEdit && <FormInput label="Reference Code" value="PRJ-2026-001" disabled />}
+          {isEdit && <FormInput label="Reference Code" value={projectId || 'Loading...'} disabled />}
 
           <FormInput
             label="Contract Value (ZAR)"
@@ -177,31 +282,9 @@ function ProjectFormBody({
             error={errors.location?.address?.message}
             {...register('location.address')}
           />
-
-          <details className="group">
-            <summary className="text-eyebrow text-[var(--text-muted)] cursor-pointer hover:text-[var(--accent)] transition-colors select-none py-1 flex items-center gap-2">
-              <span className="group-open:rotate-90 transition-transform inline-block text-[0.65rem]">▶</span>
-              GPS Coordinates (optional — derived from address by backend)
-            </summary>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 pl-4 border-l-2 border-[var(--border)]">
-              <FormInput
-                label="Latitude"
-                type="number"
-                step="any"
-                placeholder="-23.9045"
-                error={errors.location?.lat?.message}
-                {...register('location.lat', { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Longitude"
-                type="number"
-                step="any"
-                placeholder="29.4688"
-                error={errors.location?.lng?.message}
-                {...register('location.lng', { valueAsNumber: true })}
-              />
-            </div>
-          </details>
+          <p className="text-[0.68rem] text-[var(--text-muted)]">
+            Use a full address for project locations. Coordinate entry is no longer part of the form.
+          </p>
 
           <FormInput
             label="Geo-Tec Engineer"
@@ -341,10 +424,15 @@ export default function ProjectForm() {
     );
   }
 
+  if (isEdit && !id) {
+    return null;
+  }
+
   return (
     <ProjectFormBody
       key={orgType}
       tenantSlug={tenantSlug}
+      projectId={id}
       isEdit={isEdit}
       orgType={orgType}
       municipalityOptions={municipalityOptions}

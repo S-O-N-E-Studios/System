@@ -1,5 +1,7 @@
 import { MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import AtlasMap from './AtlasMap';
+import { geocodeAddressCached } from '@/utils/geocode';
 
 const DEFAULT_CENTER = { lat: -25.4753, lng: 30.9694 };
 
@@ -12,11 +14,9 @@ interface ProjectLocationMapProps {
 
 function MapPlaceholder({
   address,
-  gpsFormatted,
   hint,
 }: {
   address?: string;
-  gpsFormatted?: string;
   hint?: string;
 }) {
   return (
@@ -24,16 +24,8 @@ function MapPlaceholder({
       <div className="text-center px-4">
         <MapPin className="h-10 w-10 text-[var(--accent-periwinkle)] mx-auto mb-2" />
         <p className="text-body text-[var(--text-primary)]">
-          {address || 'R573, Mbombela, Mpumalanga'}
+          {address || 'No project address captured yet'}
         </p>
-        {gpsFormatted && (
-          <p
-            className="text-[0.7rem] text-[var(--text-muted)] mt-1"
-            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-          >
-            {gpsFormatted}
-          </p>
-        )}
         {hint && (
           <p className="text-[0.65rem] text-[var(--text-muted)] mt-2">{hint}</p>
         )}
@@ -48,8 +40,24 @@ export default function ProjectLocationMap({
   lng,
   gpsFormatted,
 }: ProjectLocationMapProps) {
-  const center = lat != null && lng != null ? { lat, lng } : DEFAULT_CENTER;
-  const showMap = lat != null && lng != null;
+  const [geocoded, setGeocoded] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!address || (lat != null && lng != null)) return;
+    const controller = new AbortController();
+    void geocodeAddressCached(address, { signal: controller.signal })
+      .then((pt) => setGeocoded(pt))
+      .catch(() => setGeocoded(null));
+    return () => controller.abort();
+  }, [address, lat, lng]);
+
+  const resolved = useMemo(() => {
+    if (lat != null && lng != null) return { lat, lng };
+    return geocoded;
+  }, [geocoded, lat, lng]);
+
+  const center = resolved ? resolved : DEFAULT_CENTER;
+  const showMap = Boolean(resolved);
 
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-5">
@@ -58,7 +66,12 @@ export default function ProjectLocationMap({
         {showMap ? (
           <AtlasMap
             markers={[
-              { id: 'project-location', lat, lng, label: address ?? gpsFormatted ?? 'Project' },
+              {
+                id: 'project-location',
+                lat: resolved?.lat ?? DEFAULT_CENTER.lat,
+                lng: resolved?.lng ?? DEFAULT_CENTER.lng,
+                label: address ?? gpsFormatted ?? 'Project',
+              },
             ]}
             center={center}
             zoom={14}
@@ -67,8 +80,7 @@ export default function ProjectLocationMap({
         ) : (
           <MapPlaceholder
             address={address}
-            gpsFormatted={gpsFormatted}
-            hint={'Set GPS coordinates to show an interactive map'}
+            hint={address ? 'Address recorded. Finding this location on the map…' : 'Add a project address to show the saved location details here.'}
           />
         )}
       </div>
@@ -77,14 +89,7 @@ export default function ProjectLocationMap({
           {address && (
             <p className="text-body text-[var(--text-primary)] mb-1">{address}</p>
           )}
-          {gpsFormatted && (
-            <p
-              className="text-[0.7rem] text-[var(--text-muted)]"
-              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-            >
-              {gpsFormatted}
-            </p>
-          )}
+          {!address && gpsFormatted && <p className="text-[0.7rem] text-[var(--text-muted)]">{gpsFormatted}</p>}
         </>
       )}
     </div>

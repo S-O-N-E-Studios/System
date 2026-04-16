@@ -18,6 +18,8 @@ interface ProjectListParams {
   deptId?: string;
 }
 
+type ProjectUpsertData = Partial<ProjectFormData> & Record<string, unknown>;
+
 export const projectsApi = {
   list: async (params?: ProjectListParams): Promise<{ projects: Project[]; total: number }> => {
     const res = await apiClient.get<ApiResponse<{ projects: Project[]; total: number }>>(`/${slug()}/projects`, { params });
@@ -29,12 +31,12 @@ export const projectsApi = {
     return res.data.data.project;
   },
 
-  create: async (data: ProjectFormData): Promise<Project> => {
+  create: async (data: ProjectUpsertData): Promise<Project> => {
     const res = await apiClient.post<ApiResponse<{ project: Project }>>(`/${slug()}/projects`, data);
     return res.data.data.project;
   },
 
-  update: async (id: string, data: Partial<ProjectFormData>): Promise<Project> => {
+  update: async (id: string, data: ProjectUpsertData): Promise<Project> => {
     const res = await apiClient.patch<ApiResponse<{ project: Project }>>(`/${slug()}/projects/${id}`, data);
     return res.data.data.project;
   },

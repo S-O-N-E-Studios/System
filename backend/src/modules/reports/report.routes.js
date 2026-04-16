@@ -17,6 +17,7 @@ router.get(
 );
 
 router.get('/payment-forecast', asyncHandler(ctrl.paymentForecast));
+router.get('/payment-history', asyncHandler(ctrl.paymentHistory));
 
 router.get('/project-status', asyncHandler(ctrl.projectStatus));
 

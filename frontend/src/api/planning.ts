@@ -18,12 +18,8 @@ interface PlanListParams {
 
 export const planningApi = {
   list: async (params?: PlanListParams): Promise<{ plans: MultiYearPlan[]; total: number }> => {
-    try {
-      const res = await apiClient.get<ApiResponse<{ plans: MultiYearPlan[]; total: number }>>(`/${slug()}/planning`, { params });
-      return res.data.data;
-    } catch {
-      return { plans: [], total: 0 };
-    }
+    const res = await apiClient.get<ApiResponse<{ plans: MultiYearPlan[]; total: number }>>(`/${slug()}/planning`, { params });
+    return res.data.data;
   },
 
   getById: async (id: string): Promise<MultiYearPlan> => {

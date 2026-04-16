@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { uploadActivityImage, removeActivityImage } from '@/api/activityImages';
 import { activitiesApi } from '@/api/activities';
+import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
 import { projectsApi } from '@/api/projects';
 
 type ScheduleRow = ScheduleActivity & { expectedFunds: number; actualFunds: number };
@@ -107,7 +108,10 @@ export default function ProjectActivitySchedule() {
           refCode: p.refCode,
           startDate: start,
           completionDate,
-          progress: p.percentComplete ?? 0,
+          progress:
+            typeof p.percentComplete === 'number'
+              ? p.percentComplete
+              : progressFromLifecycleStage(p.currentStage),
         });
         setImagesByActivityId(
           Object.fromEntries(acts.map((a) => [a.id, [...(a.supportingImages ?? [])]])),

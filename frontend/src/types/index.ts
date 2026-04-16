@@ -193,6 +193,13 @@ export interface StageHistoryEntry {
   documentsSnapshot?: string[];
 }
 
+export interface Stage0Contact {
+  firstName: string;
+  lastName: string;
+  email: string;
+  inviteStatus: 'pending' | 'invite_sent' | 'invited';
+}
+
 export interface Project {
   id: string;
   tenantId: string;
@@ -224,6 +231,8 @@ export interface Project {
   geoTecReportStatus?: GeoTecReportStatus;
   ddrStatus?: DDRStatus;
   contractor?: string;
+  stage0Contacts?: Stage0Contact[];
+  stage0CompletedAt?: string;
   constructionStatus?: ConstructionStatus;
   startDate?: string;
   percentComplete?: number;
@@ -806,7 +815,7 @@ export const projectSchema = z.object({
   serviceCategory: z.enum([
     'water_sanitation', 'energy_electricity', 'roads_stormwater',
     'waste_management', 'recreational_sport_libraries', 'public_transportation',
-  ]).optional(),
+  ], { message: 'Service category is required' }),
   localMunicipality: z.string().optional(),
   idpProjectNo: z.string().optional(),
   location: z.object({

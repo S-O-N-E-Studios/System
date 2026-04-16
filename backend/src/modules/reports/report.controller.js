@@ -31,6 +31,11 @@ const grantsSummary = async (req, res) => {
   return sendSuccess(res, data);
 };
 
+const paymentHistory = async (req, res) => {
+  const payments = await reportService.getPaymentHistory(req.tenant);
+  return sendSuccess(res, { payments });
+};
+
 const generateReport = async (req, res) => {
   const { reportType, filters, format } = req.body;
 
@@ -79,6 +84,7 @@ module.exports = {
   dashboardReport,
   deptSummary,
   paymentForecast,
+  paymentHistory,
   projectStatus,
   sprintBurndown,
   grantsSummary,

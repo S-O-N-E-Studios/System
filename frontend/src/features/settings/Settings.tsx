@@ -16,14 +16,17 @@ import {
 import {
   loadOrgGeneral,
   saveOrgGeneral,
-  loadNotificationPrefs,
-  saveNotificationPrefs,
-  NOTIFY_LABELS,
-  type NotificationPrefKey,
   type TeamMember,
 } from '@/utils/tenantSettingsStorage';
 import { usersApi } from '@/api/users';
 import { organizationApi, type OrganizationPatch } from '@/api/organization';
+import {
+  fetchNotifications,
+  NOTIFICATION_PREFS,
+  updateNotificationPreferences,
+  type NotificationPrefKey,
+  type NotificationPreferences,
+} from '@/api/notifications';
 import ClientAccessSettings from './ClientAccessSettings';
 import InviteUserModal, { INVITE_USER_MODAL_ID, type InviteTenantRole } from './InviteUserModal';
 
@@ -61,9 +64,13 @@ export default function Settings() {
   const [primaryContact, setPrimaryContact] = useState('');
   const [address, setAddress] = useState('');
   const [timezone, setTimezone] = useState('Africa/Johannesburg');
-  const [notifyPrefs, setNotifyPrefs] = useState<Record<NotificationPrefKey, boolean>>(() =>
-    loadNotificationPrefs(undefined),
-  );
+  const [notifyPrefs, setNotifyPrefs] = useState<NotificationPreferences>({
+    projectUpdates: true,
+    taskAssignments: true,
+    reportSubmissions: true,
+    deadlineReminders: true,
+    teamInvitations: true,
+  });
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [, setTeamLoading] = useState(false);
 
@@ -104,8 +111,6 @@ export default function Settings() {
     const g = loadOrgGeneral(tenantSlug);
     setAddress(g.address);
     setTimezone(g.timezone);
-    setNotifyPrefs(loadNotificationPrefs(tenantSlug));
-
     let cancelled = false;
     setTeamLoading(true);
 
@@ -116,6 +121,8 @@ export default function Settings() {
           if (cancelled) return;
           setOrgName(org.name || currentTenant?.name || '');
           setPrimaryContact(org.primaryContact || '');
+          setAddress(org.address || g.address);
+          setTimezone(org.timezone || g.timezone || 'Africa/Johannesburg');
           setOrgLogoUrl(org.logoUrl ?? null);
           syncOrgLogoToShell(org.logoUrl ?? null);
           const oe = org.outboundEmail;
@@ -137,6 +144,14 @@ export default function Settings() {
           if (cancelled) return;
           setOrgName(g.orgName || currentTenant?.name || '');
           setPrimaryContact(g.primaryContact);
+        }),
+      fetchNotifications()
+        .then((payload) => {
+          if (cancelled) return;
+          setNotifyPrefs(payload.preferences);
+        })
+        .catch(() => {
+          if (cancelled) return;
         }),
       usersApi
         .list()
@@ -191,7 +206,7 @@ export default function Settings() {
     if (!tenantSlug) return;
     try {
       if (tenantRole === 'ORG_ADMIN') {
-        await organizationApi.update({ name: orgName, primaryContact });
+        await organizationApi.update({ name: orgName, primaryContact, address, timezone });
       }
       const ok = saveOrgGeneral(tenantSlug, {
         orgName,
@@ -245,16 +260,14 @@ export default function Settings() {
   };
 
   const updateNotifyPref = (key: NotificationPrefKey, checked: boolean) => {
-    setNotifyPrefs((prev) => {
-      const next = { ...prev, [key]: checked };
-      if (tenantSlug) {
-        const saved = saveNotificationPrefs(tenantSlug, next);
-        if (!saved) {
-          addToast({ type: 'error', message: 'Could not persist notification preference.' });
-        }
-      }
-      return next;
-    });
+    const previous = notifyPrefs;
+    const next = { ...previous, [key]: checked };
+    setNotifyPrefs(next);
+    void updateNotificationPreferences({ [key]: checked })
+      .catch(() => {
+        setNotifyPrefs(previous);
+        addToast({ type: 'error', message: 'Could not persist notification preference.' });
+      });
   };
 
   const handleOrgLogoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -326,8 +339,8 @@ export default function Settings() {
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
               <h3 className="text-h3">Organisation Settings</h3>
               <p className="text-[0.72rem] text-[var(--text-muted)]">
-                Organisation name and contact sync to the server for administrators. Address and timezone stay in{' '}
-                <span className="font-mono">localStorage</span> until those fields are added to the API.
+                Organisation name, address, contact, and timezone sync to the server for administrators. Local browser
+                storage is still used as a fallback when the API is unavailable.
               </p>
               <FormInput
                 label="Organisation Name"
@@ -594,18 +607,18 @@ export default function Settings() {
             <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
               <h3 className="text-h3">Notification Preferences</h3>
               <p className="text-[0.72rem] text-[var(--text-muted)]">
-                Toggles save per tenant in the browser. Delivery rules will use the API later.
+                Notification settings are now saved to your account for this organisation.
               </p>
-              {NOTIFY_LABELS.map((pref) => {
-                const on = notifyPrefs[pref];
+              {NOTIFICATION_PREFS.map((pref) => {
+                const on = notifyPrefs[pref.key];
                 return (
-                  <label key={pref} className="flex items-center justify-between py-3 border-b border-[var(--border)] cursor-pointer select-none">
-                    <span className="text-body">{pref}</span>
+                  <label key={pref.key} className="flex items-center justify-between py-3 border-b border-[var(--border)] cursor-pointer select-none">
+                    <span className="text-body">{pref.label}</span>
                     <div className="relative shrink-0">
                       <input
                         type="checkbox"
                         checked={on}
-                        onChange={(e) => updateNotifyPref(pref, e.target.checked)}
+                        onChange={(e) => updateNotifyPref(pref.key, e.target.checked)}
                         className="sr-only"
                       />
                       {/* Track */}

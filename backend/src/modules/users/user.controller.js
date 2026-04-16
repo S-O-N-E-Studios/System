@@ -83,6 +83,16 @@ const removeMember = async (req, res) => {
   return sendSuccess(res, result);
 };
 
+const suspendMember = async (req, res) => {
+  const user = await userService.suspendMember(req.tenant._id, req.user.sub, req.params.id);
+  return sendSuccess(res, { user });
+};
+
+const reactivateMember = async (req, res) => {
+  const user = await userService.reactivateMember(req.tenant._id, req.params.id);
+  return sendSuccess(res, { user });
+};
+
 module.exports = {
   getMe,
   updateMe,
@@ -93,4 +103,6 @@ module.exports = {
   inviteUser,
   updateMemberRole,
   removeMember,
+  suspendMember,
+  reactivateMember,
 };

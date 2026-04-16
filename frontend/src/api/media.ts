@@ -16,12 +16,8 @@ interface MediaListParams {
 
 export const mediaApi = {
   list: async (projectId: string, params?: MediaListParams): Promise<{ media: ProjectFile[]; total: number }> => {
-    try {
-      const res = await apiClient.get<ApiResponse<{ media: ProjectFile[]; total: number }>>(`/${slug()}/projects/${projectId}/media`, { params });
-      return res.data.data;
-    } catch {
-      return { media: [], total: 0 };
-    }
+    const res = await apiClient.get<ApiResponse<{ media: ProjectFile[]; total: number }>>(`/${slug()}/projects/${projectId}/media`, { params });
+    return res.data.data;
   },
 
   getUploadUrl: async (projectId: string, fileName: string): Promise<{ url: string; key: string }> => {

@@ -28,6 +28,27 @@ const tenantMembershipSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const notificationPreferenceSchema = new mongoose.Schema(
+  {
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
+    projectUpdates: { type: Boolean, default: true },
+    taskAssignments: { type: Boolean, default: true },
+    reportSubmissions: { type: Boolean, default: true },
+    deadlineReminders: { type: Boolean, default: true },
+    teamInvitations: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const notificationReadSchema = new mongoose.Schema(
+  {
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
+    notificationKey: { type: String, required: true, trim: true },
+    readAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -59,6 +80,15 @@ const userSchema = new mongoose.Schema(
     // Multi-tenancy: all orgs this user belongs to
     tenants: {
       type:    [tenantMembershipSchema],
+      default: [],
+    },
+
+    notificationPreferences: {
+      type: [notificationPreferenceSchema],
+      default: [],
+    },
+    notificationReads: {
+      type: [notificationReadSchema],
       default: [],
     },
 
@@ -107,6 +137,7 @@ const userSchema = new mongoose.Schema(
 
 // email index handled by unique: true on field
 userSchema.index({ 'tenants.tenantId': 1 });
+userSchema.index({ 'notificationPreferences.tenantId': 1 });
 userSchema.index({ temporaryAccessId: 1 });
 userSchema.index({ entraOid: 1 }, { sparse: true });
 

@@ -40,6 +40,8 @@ const updateById = (id, updates) =>
 const deactivate = (id) =>
   User.findByIdAndUpdate(id, { isActive: false }, { new: true });
 
+const save = (user) => user.save();
+
 module.exports = {
   findById,
   findByEmail,
@@ -49,5 +51,6 @@ module.exports = {
   countMembersWithTenantRole,
   updateById,
   deactivate,
+  save,
 };
 

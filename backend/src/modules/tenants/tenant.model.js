@@ -27,6 +27,16 @@ const tenantSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    address: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    timezone: {
+      type: String,
+      default: 'Africa/Johannesburg',
+      trim: true,
+    },
     emailDomain: {
       type: String,
       default: null,

@@ -1,5 +1,9 @@
 const Joi = require('joi');
-const { SERVICE_CATEGORIES } = require('../../constants/serviceCategories');
+const { SERVICE_CATEGORIES, SERVICE_CATEGORY_LABEL_TO_KEY } = require('../../constants/serviceCategories');
+
+const SERVICE_CATEGORY_KEYS = Object.values(SERVICE_CATEGORIES);
+const LEGACY_SERVICE_CATEGORY_LABELS = Object.keys(SERVICE_CATEGORY_LABEL_TO_KEY);
+const SERVICE_CATEGORY_ACCEPTED_VALUES = [...new Set([...SERVICE_CATEGORY_KEYS, ...LEGACY_SERVICE_CATEGORY_LABELS])];
 
 const locationSchema = Joi.object({
   address: Joi.string().trim().allow(null, ''),
@@ -13,9 +17,16 @@ const subConsultantSchema = Joi.object({
   appointedAt: Joi.date().iso().allow(null),
 });
 
+const stage0ContactSchema = Joi.object({
+  firstName: Joi.string().trim().min(1).max(100).required(),
+  lastName: Joi.string().trim().min(1).max(100).required(),
+  email: Joi.string().email().trim().required(),
+  inviteStatus: Joi.string().valid('pending', 'invite_sent', 'invited').default('pending'),
+});
+
 const createProjectSchema = Joi.object({
   name: Joi.string().min(2).max(200).trim().required(),
-  serviceCategory: Joi.string().valid(...Object.values(SERVICE_CATEGORIES)).required(),
+  serviceCategory: Joi.string().valid(...SERVICE_CATEGORY_ACCEPTED_VALUES).required(),
   localMunicipality: Joi.string().trim().allow(null, ''),
   idpProjectNo: Joi.string().trim().allow(null, ''),
   deptId: Joi.string().hex().length(24).allow(null, ''),
@@ -34,11 +45,12 @@ const createProjectSchema = Joi.object({
   geoTecEngineer: Joi.string().trim().allow(null, ''),
   contractor: Joi.string().trim().allow(null, ''),
   linkedMultiYearPlanId: Joi.string().hex().length(24).allow(null, ''),
+  stage0Contacts: Joi.array().items(stage0ContactSchema).default([]),
 });
 
 const updateProjectSchema = Joi.object({
   name: Joi.string().min(2).max(200).trim(),
-  serviceCategory: Joi.string().valid(...Object.values(SERVICE_CATEGORIES)),
+  serviceCategory: Joi.string().valid(...SERVICE_CATEGORY_ACCEPTED_VALUES),
   localMunicipality: Joi.string().trim().allow(null, ''),
   idpProjectNo: Joi.string().trim().allow(null, ''),
   status: Joi.string().valid('active', 'on-hold', 'cancelled'),
@@ -55,6 +67,9 @@ const updateProjectSchema = Joi.object({
   completionDate: Joi.date().iso().allow(null),
   geoTecEngineer: Joi.string().trim().allow(null, ''),
   contractor: Joi.string().trim().allow(null, ''),
+  linkedMultiYearPlanId: Joi.string().hex().length(24).allow(null, ''),
+  stage0Contacts: Joi.array().items(stage0ContactSchema),
+  stage0CompletedAt: Joi.date().iso().allow(null),
 });
 
 const createPaymentSchema = Joi.object({
@@ -80,7 +95,7 @@ const forecastEntrySchema = Joi.object({
 
 const projectListQuerySchema = Joi.object({
   status: Joi.string().valid('active', 'on-hold', 'complete', 'cancelled'),
-  serviceCategory: Joi.string().valid(...Object.values(SERVICE_CATEGORIES)),
+  serviceCategory: Joi.string().valid(...SERVICE_CATEGORY_KEYS),
   localMunicipality: Joi.string().trim(),
   deptId: Joi.string().hex().length(24),
   stage: Joi.number().integer().min(0).max(10),

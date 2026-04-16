@@ -8,13 +8,16 @@ function slug() {
 
 export const servicesApi = {
   summary: async (): Promise<ServiceCategorySummary[]> => {
-    try {
-      const res = await apiClient.get(`/${slug()}/services`);
-      const data = res.data?.data || res.data;
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
+    const res = await apiClient.get(`/${slug()}/services`);
+    const data = res.data?.data || res.data;
+    const summary = Array.isArray(data?.summary) ? data.summary : [];
+    return summary.map((row: Record<string, unknown>) => ({
+      category: (row.category ?? row.serviceCategory) as ServiceCategory,
+      projectCount: Number(row.projectCount ?? 0),
+      totalBudget: Number(row.totalBudget ?? 0),
+      totalExpenditure: Number(row.totalExpenditure ?? 0),
+      projects: Array.isArray(row.projects) ? row.projects : [],
+    })) as ServiceCategorySummary[];
   },
 
   byCategory: async (

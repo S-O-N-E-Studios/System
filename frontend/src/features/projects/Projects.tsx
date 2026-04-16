@@ -9,6 +9,7 @@ import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
 import { projectsApi } from '@/api/projects';
 import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, Star } from 'lucide-react';
 import { formatDate, formatRands } from '@/utils/formatters';
+import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
 import { useAuthStore } from '@/store/authStore';
@@ -34,7 +35,7 @@ type PortfolioTableProject = {
   expenditure: number;
   balance: number;
   status: 'active' | 'review' | 'planning' | 'done' | 'danger';
-  gps: string;
+  address: string;
   attachments: number;
   geoTecEngineer: string;
   geoTecReport: string;
@@ -72,16 +73,12 @@ function formatPortfolioDate(value: unknown): string {
   return s;
 }
 
-function gpsFromRaw(raw: Record<string, unknown>): string {
-  const coords = raw.gpsCoordinates;
-  if (typeof coords === 'string') return coords;
-  if (coords && typeof coords === 'object') {
-    const c = coords as { lat?: unknown; lng?: unknown };
-    if (c.lat != null && c.lng != null) return `${c.lat}, ${c.lng}`;
+function addressFromRaw(raw: Record<string, unknown>): string {
+  const loc = raw.location as { address?: unknown } | undefined;
+  if (loc && typeof loc.address === 'string' && loc.address.trim()) return loc.address.trim();
+  if (typeof raw.localMunicipality === 'string' && raw.localMunicipality.trim()) {
+    return raw.localMunicipality.trim();
   }
-  if (typeof raw.gpsFormatted === 'string') return raw.gpsFormatted;
-  const loc = raw.location as { lat?: unknown; lng?: unknown } | undefined;
-  if (loc && loc.lat != null && loc.lng != null) return `${loc.lat}, ${loc.lng}`;
   return '';
 }
 
@@ -131,7 +128,7 @@ function mapApiProjectToPortfolioRow(raw: Record<string, unknown>): PortfolioTab
     expenditure,
     balance: contractValue - expenditure,
     status: mapProfessionalStatusBadge(raw.status, raw.currentStage),
-    gps: gpsFromRaw(raw),
+    address: addressFromRaw(raw),
     attachments: Number((raw as { attachmentCount?: unknown }).attachmentCount ?? 0) || 0,
     geoTecEngineer: String(raw.geoTecEngineer ?? ''),
     geoTecReport: mapGeoTecReportStatus(raw.geoTecReportStatus ?? raw.geoTecReport),
@@ -141,7 +138,10 @@ function mapApiProjectToPortfolioRow(raw: Record<string, unknown>): PortfolioTab
     contractor: String(raw.contractor ?? ''),
     startDate: formatPortfolioDate(raw.startDate ?? raw.appointmentDate),
     completionDate: formatPortfolioDate(raw.completionDate),
-    percentComplete: Math.min(100, Math.max(0, Number(raw.percentComplete ?? 0) || 0)),
+    percentComplete:
+      typeof raw.percentComplete === 'number'
+        ? Math.min(100, Math.max(0, Number(raw.percentComplete) || 0))
+        : progressFromLifecycleStage(raw.currentStage),
     constructionStatus: mapConstructionStatus(raw.constructionStatus),
   };
 }
@@ -239,7 +239,7 @@ export default function Projects() {
     ref: string;
     serviceCategory: string;
     localMunicipality: string;
-    gps: string;
+    address: string;
     contractValue: string;
     expenditure: string;
     balance: string;
@@ -257,7 +257,7 @@ export default function Projects() {
       ref: p.ref,
       serviceCategory: p.serviceCategory ? SERVICE_CATEGORY_LABELS[p.serviceCategory] : 'N/A',
       localMunicipality: p.localMunicipality || 'N/A',
-      gps: p.gps || 'N/A',
+      address: p.address || 'N/A',
       contractValue: isClientTemp ? '—— Restricted' : formatRands(p.contractValue),
       expenditure: isClientTemp ? '—— Restricted' : formatRands(p.expenditure),
       balance: isClientTemp ? '—— Restricted' : formatRands(p.balance),
@@ -269,7 +269,7 @@ export default function Projects() {
       { key: 'ref', header: 'Ref' },
       { key: 'serviceCategory', header: 'Service Category' },
       { key: 'localMunicipality', header: 'Local Municipality' },
-      { key: 'gps', header: 'GPS' },
+      { key: 'address', header: 'Address' },
       { key: 'contractValue', header: 'Contract Value' },
       { key: 'expenditure', header: 'Expenditure' },
       { key: 'balance', header: 'Balance' },
@@ -495,8 +495,8 @@ export default function Projects() {
                       <td colSpan={9} className="px-4 py-4 bg-[var(--accent-sand-glow)] border-t border-[var(--accent)]">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
-                            <p className="text-[0.7rem] font-body font-medium text-[var(--text-primary)] mb-2">GPS Coordinates</p>
-                            <p className="text-[0.72rem] text-mono text-[var(--text-muted)] truncate">{p.gps || 'N/A'}</p>
+                            <p className="text-[0.7rem] font-body font-medium text-[var(--text-primary)] mb-2">Address</p>
+                            <p className="text-[0.72rem] text-[var(--text-muted)] truncate">{p.address || 'N/A'}</p>
                           </div>
                           {['Monthly Progress Report', 'Tender Document', 'Drawings', 'PDR'].map((doc) => (
                             <div key={doc} className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">

@@ -161,6 +161,7 @@ describe('projectSchema', () => {
     contractValue: 5_000_000,
     status: 'active',
     contractTypes: ['professional'] as const,
+    serviceCategory: 'water_sanitation' as const,
   };
 
   it('accepts valid project data', () => {

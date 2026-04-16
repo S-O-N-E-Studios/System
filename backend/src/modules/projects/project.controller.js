@@ -47,6 +47,15 @@ const getStageStatus = async (req, res) => {
   return sendSuccess(res, result);
 };
 
+const getClientAccessCheck = async (req, res) => {
+  const result = await projectService.getClientAccessCheck(
+    req.tenant,
+    req.params.id,
+    req.clientAccess,
+  );
+  return sendSuccess(res, result);
+};
+
 /**
  * POST /:id/advance-stage
  *
@@ -115,6 +124,7 @@ module.exports = {
   update,
   remove,
   getStageStatus,
+  getClientAccessCheck,
   advanceStage,
   listPayments,
   addPayment,

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
@@ -10,6 +10,7 @@ import { formatFileSize } from '@/utils/formatters';
 import EmptyState from '@/components/ui/EmptyState';
 import SuccessAnimation from '@/components/ui/SuccessAnimation';
 import { filesApi } from '@/api/files';
+import { projectsApi } from '@/api/projects';
 
 const FILE_UPLOAD_MODAL_ID = 'file-upload';
 
@@ -47,7 +48,7 @@ interface FileCard {
   date: string;
   project: string;
   mimeType: string;
-  blobUrl?: string;
+  downloadUrl?: string;
 }
 
 function fileCategoryToDocumentType(category: FileCategory): DocumentType {
@@ -83,8 +84,27 @@ function mapProjectFileToFileCard(pf: ProjectFile): FileCard {
     date: dateStr,
     project: pf.projectId ? `Project ${pf.projectId}` : 'Tenant',
     mimeType: pf.mimeType,
-    blobUrl: pf.url,
+    downloadUrl: pf.url,
   };
+}
+
+function documentTypeToCategory(documentType: DocumentType): FileCategory {
+  switch (documentType) {
+    case 'payment_certificate':
+      return 'payment-certificate';
+    case 'tender_document':
+      return 'tender-document';
+    case 'drawings':
+      return 'tender-drawing';
+    case 'digital_survey':
+      return 'digital-survey';
+    case 'geo_technical_report':
+      return 'geotechnical';
+    case 'environmental_report':
+      return 'environmental';
+    default:
+      return 'other';
+  }
 }
 
 function getIconForDocType(documentType: DocumentType): typeof FileText {
@@ -111,13 +131,15 @@ function getFileExtension(name: string): string {
 export default function FileManager() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { openModal, closeModal } = useUiStore();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'all' | DocumentType>('all');
   const [extensionFilter, setExtensionFilter] = useState('');
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('payment_certificate');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<FileCard[]>([]);
   const [fetchedFiles, setFetchedFiles] = useState<FileCard[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: filesPage } = useQuery({
@@ -128,6 +150,11 @@ export default function FileManager() {
         page: 1,
         pageSize: 200,
       }),
+    enabled: Boolean(tenantSlug),
+  });
+  const { data: projectsPage } = useQuery({
+    queryKey: ['projects', 'for-file-manager', tenantSlug],
+    queryFn: () => projectsApi.list({ limit: 200 }),
     enabled: Boolean(tenantSlug),
   });
 
@@ -148,7 +175,17 @@ export default function FileManager() {
     return () => clearTimeout(t);
   }, [uploadSuccess, closeModal]);
 
-  const allFiles = [...uploadedFiles, ...fetchedFiles];
+  useEffect(() => {
+    if (!selectedProjectId && projectsPage?.projects?.length) {
+      setSelectedProjectId(projectsPage.projects[0].id);
+    }
+  }, [projectsPage, selectedProjectId]);
+
+  const projectNameById = new Map((projectsPage?.projects || []).map((project) => [project.id, project.name]));
+  const allFiles = fetchedFiles.map((file) => ({
+    ...file,
+    project: projectNameById.get(file.project.replace('Project ', '')) || file.project,
+  }));
 
   const byTab =
     activeTab === 'all' ? allFiles : allFiles.filter((f) => f.documentType === activeTab);
@@ -165,37 +202,36 @@ export default function FileManager() {
     setSelectedFiles(files);
   };
 
-  const handleUploadSubmit = () => {
-    if (selectedFiles.length === 0) return;
-
-    const dateStr = new Date().toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-
-    const projectName = 'R573 Road Rehabilitation';
-
-    const newEntries: FileCard[] = selectedFiles.map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      documentType: selectedDocumentType,
-      size: file.size,
-      date: dateStr,
-      project: projectName,
-      mimeType: file.type || 'application/octet-stream',
-      blobUrl: URL.createObjectURL(file),
-    }));
-
-    setUploadedFiles((prev) => [...newEntries, ...prev]);
-    setSelectedFiles([]);
-    setUploadSuccess(true);
+  const handleUploadSubmit = async () => {
+    if (selectedFiles.length === 0 || !tenantSlug || !selectedProjectId) return;
+    setIsUploading(true);
+    try {
+      await Promise.all(
+        selectedFiles.map((file) =>
+          filesApi.uploadStageDocument({
+            tenantSlug,
+            projectId: selectedProjectId,
+            stage: 1,
+            category: documentTypeToCategory(selectedDocumentType),
+            file,
+          })
+        )
+      );
+      await queryClient.invalidateQueries({ queryKey: ['files', 'list', tenantSlug] });
+      setSelectedFiles([]);
+      setUploadSuccess(true);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleDownload = (file: FileCard) => {
-    if (!file.blobUrl) return;
+  const handleDownload = async (file: FileCard) => {
+    const downloadUrl =
+      file.downloadUrl ||
+      (tenantSlug ? await filesApi.getDownloadUrl({ tenantSlug, id: file.id }) : null);
+    if (!downloadUrl) return;
     const a = document.createElement('a');
-    a.href = file.blobUrl;
+    a.href = downloadUrl;
     a.download = file.name;
     a.click();
   };
@@ -335,6 +371,23 @@ export default function FileManager() {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-eyebrow text-[var(--text-muted)] mb-2">
+              Project (required)
+            </label>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="w-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-primary)] text-[0.9rem] px-4 py-3"
+            >
+              <option value="">Select project</option>
+              {(projectsPage?.projects || []).map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <input
@@ -368,9 +421,9 @@ export default function FileManager() {
               type="button"
               variant="primary"
               onClick={handleUploadSubmit}
-              disabled={selectedFiles.length === 0}
+              disabled={selectedFiles.length === 0 || !selectedProjectId || isUploading}
             >
-              Upload
+              {isUploading ? 'Uploading…' : 'Upload'}
             </Button>
           </div>
         </div>

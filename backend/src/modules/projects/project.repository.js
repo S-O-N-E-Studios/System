@@ -37,6 +37,16 @@ forecastSchema.index({ projectId: 1, month: 1, contractType: 1 }, { unique: true
 const Payment         = mongoose.model('Payment',         paymentSchema);
 const PaymentForecast = mongoose.model('PaymentForecast', forecastSchema);
 
+const withLifecycleProgress = (project) => {
+  if (!project || typeof project !== 'object') return project;
+  const stage = Number(project.currentStage);
+  const bounded = Number.isFinite(stage) ? Math.max(0, Math.min(10, Math.round(stage))) : 0;
+  return {
+    ...project,
+    percentComplete: Math.round((bounded / 10) * 100),
+  };
+};
+
 //  Project queries 
 
 const buildProjectFilter = (tenantId, query = {}) => {
@@ -74,7 +84,7 @@ const findProjects = async (tenantId, query = {}) => {
     Project.countDocuments(filter),
   ]);
 
-  return { projects, total };
+  return { projects: projects.map(withLifecycleProgress), total };
 };
 
 // CLIENT_TEMP: only return projects in their explicit list
@@ -88,7 +98,7 @@ const findProjectsForClient = async (tenantId, projectIds) => {
     .lean();
 
   // Strip financial fields for client view
-  return projects.map(stripFinancialFields);
+  return projects.map((project) => withLifecycleProgress(stripFinancialFields(project)));
 };
 
 const stripFinancialFields = (project) => {
@@ -104,7 +114,9 @@ const findById = (id, tenantId) =>
     .populate('teamMembers',    'fullName email avatarUrl');
 
 const findByIdLean = (id, tenantId) =>
-  Project.findOne({ _id: id, tenantId, deletedAt: null }).lean();
+  Project.findOne({ _id: id, tenantId, deletedAt: null })
+    .lean()
+    .then((project) => withLifecycleProgress(project));
 
 const create = (data) => Project.create(data);
 

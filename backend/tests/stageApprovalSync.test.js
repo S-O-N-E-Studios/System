@@ -46,7 +46,7 @@ describe("stage approval sync", () => {
     const project = await Project.create({
       tenantId: tenant._id,
       name: "Project A",
-      serviceCategory: "Roads and Stormwater",
+      serviceCategory: "roads_stormwater",
       contractValueOriginal: 1000000,
       contractValueAdjusted: 1000000,
       createdBy: userId,
@@ -106,7 +106,7 @@ describe("stage approval sync", () => {
     const project = await Project.create({
       tenantId: tenant._id,
       name: "Project B",
-      serviceCategory: "Roads and Stormwater",
+      serviceCategory: "roads_stormwater",
       contractValueOriginal: 1000000,
       contractValueAdjusted: 1000000,
       createdBy: userId,

@@ -9,6 +9,7 @@ import {
   SuperAdminGuard,
 } from './guards';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import RouteErrorBoundary from '@/components/ui/RouteErrorBoundary';
 
 function PageSkeleton() {
   return <LoadingOverlay />;
@@ -56,21 +57,23 @@ const SuperAdminTenantDetail = lazy(() => import('@/features/superadmin/TenantDe
 // Router Configuration
 export const router = createBrowserRouter([
   // Public routes
-  { path: '/', element: <LazyRoute component={Landing} /> },
-  { path: '/login', element: <LazyRoute component={Login} /> },
-  { path: '/register', element: <LazyRoute component={Register} /> },
-  { path: '/invite/:token', element: <LazyRoute component={InviteAccept} /> },
-  { path: '/client-access/:token', element: <LazyRoute component={ClientActivate} /> },
-  { path: '/access-expired', element: <LazyRoute component={AccessExpired} /> },
+  { path: '/', element: <LazyRoute component={Landing} />, errorElement: <RouteErrorBoundary /> },
+  { path: '/login', element: <LazyRoute component={Login} />, errorElement: <RouteErrorBoundary /> },
+  { path: '/register', element: <LazyRoute component={Register} />, errorElement: <RouteErrorBoundary /> },
+  { path: '/invite/:token', element: <LazyRoute component={InviteAccept} />, errorElement: <RouteErrorBoundary /> },
+  { path: '/client-access/:token', element: <LazyRoute component={ClientActivate} />, errorElement: <RouteErrorBoundary /> },
+  { path: '/access-expired', element: <LazyRoute component={AccessExpired} />, errorElement: <RouteErrorBoundary /> },
 
   // Authenticated routes
   {
     element: <AuthGuard />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       // Tenant-scoped routes
       {
         path: '/:tenantSlug',
         element: <TenantGuard />,
+        errorElement: <RouteErrorBoundary />,
         children: [
           {
             element: (
@@ -78,6 +81,7 @@ export const router = createBrowserRouter([
                 <AppShell />
               </Suspense>
             ),
+            errorElement: <RouteErrorBoundary />,
             children: [
               { index: true, element: <Navigate to="dashboard" replace /> },
 
@@ -138,6 +142,7 @@ export const router = createBrowserRouter([
       {
         path: '/super-admin',
         element: <SuperAdminGuard />,
+        errorElement: <RouteErrorBoundary />,
         children: [
           { path: 'tenants', element: <LazyRoute component={SuperAdminTenants} /> },
           { path: 'tenants/:id', element: <LazyRoute component={SuperAdminTenantDetail} /> },

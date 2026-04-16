@@ -19,42 +19,34 @@ export interface GrantsSummary {
 }
 
 export async function fetchGrants(params?: { status?: string | null }): Promise<Grant[]> {
-  try {
-    const res = await apiClient.get(`/${slug()}/grants`, { params });
-    const data = res.data?.data || res.data;
-    return Array.isArray(data) ? data : (data?.grants || []);
-  } catch {
-    return [];
-  }
+  const res = await apiClient.get(`/${slug()}/grants`, { params });
+  const data = res.data?.data || res.data;
+  return Array.isArray(data) ? data : (data?.grants || []);
 }
 
 export async function fetchGrantsSummary(): Promise<GrantsSummary> {
-  try {
-    const grants = await fetchGrants();
-    const totalValue = grants.reduce((s, g) => s + g.totalValue, 0);
-    const disbursedToDate = grants.reduce((s, g) => s + g.disbursedToDate, 0);
+  const grants = await fetchGrants();
+  const totalValue = grants.reduce((s, g) => s + g.totalValue, 0);
+  const disbursedToDate = grants.reduce((s, g) => s + g.disbursedToDate, 0);
 
-    const byTypeMap = new Map<string, { totalValue: number; disbursedToDate: number }>();
-    for (const g of grants) {
-      const existing = byTypeMap.get(g.grantType) || { totalValue: 0, disbursedToDate: 0 };
-      existing.totalValue += g.totalValue;
-      existing.disbursedToDate += g.disbursedToDate;
-      byTypeMap.set(g.grantType, existing);
-    }
-
-    return {
-      totalValue,
-      disbursedToDate,
-      remaining: totalValue - disbursedToDate,
-      byType: Array.from(byTypeMap.entries()).map(([grantType, v]) => ({
-        grantType,
-        ...v,
-        remaining: v.totalValue - v.disbursedToDate,
-      })),
-    };
-  } catch {
-    return { totalValue: 0, disbursedToDate: 0, remaining: 0, byType: [] };
+  const byTypeMap = new Map<string, { totalValue: number; disbursedToDate: number }>();
+  for (const g of grants) {
+    const existing = byTypeMap.get(g.grantType) || { totalValue: 0, disbursedToDate: 0 };
+    existing.totalValue += g.totalValue;
+    existing.disbursedToDate += g.disbursedToDate;
+    byTypeMap.set(g.grantType, existing);
   }
+
+  return {
+    totalValue,
+    disbursedToDate,
+    remaining: totalValue - disbursedToDate,
+    byType: Array.from(byTypeMap.entries()).map(([grantType, v]) => ({
+      grantType,
+      ...v,
+      remaining: v.totalValue - v.disbursedToDate,
+    })),
+  };
 }
 
 export async function createGrant(data: Partial<Grant>): Promise<Grant> {
