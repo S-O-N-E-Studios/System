@@ -1,6 +1,7 @@
 const fileService = require('./file.services');
 const { sendSuccess, sendCreated } = require('../../utils/apiResponse');
 const { ROLES } = require('../../constants/roles');
+const storage = require('../../utils/storage');
 
 const list = async (req, res) => {
   const isClientTemp = req.user.role === ROLES.CLIENT_TEMP;
@@ -9,10 +10,14 @@ const list = async (req, res) => {
 };
 
 const requestUploadUrl = async (req, res) => {
-  const safeFileName = req.body.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `${req.tenant.slug}/${req.body.projectId}/${Date.now()}-${safeFileName}`;
+  const storagePath = storage.buildStoragePath(
+    req.tenant.slug,
+    req.body.projectId,
+    req.body.fileName
+  );
+  const uploadUrl = await storage.getUploadUrl(storagePath, req.body.mimeType);
   return sendSuccess(res, {
-    uploadUrl: `placeholder://${storagePath}`,
+    uploadUrl,
     method: 'PUT',
     storagePath,
   });

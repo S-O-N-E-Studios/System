@@ -19,7 +19,7 @@ export default function AccessExpired() {
 
         <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
           <p className="text-[0.8rem] text-[var(--text-muted)] mb-5">
-            If you believe this is an error, request help from the Project 360 support contact
+            If you believe this is an error, request help from the EVIDENTIARY support contact
             provided in your access email.
           </p>
 

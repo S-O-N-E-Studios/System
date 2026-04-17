@@ -7,6 +7,7 @@ const findFiles = async (tenantId, filters = {}) => {
     projectId,
     category,
     stage,
+    billingPeriod,
     approvalStatus,
     mediaType,
     clientVisible,
@@ -22,6 +23,7 @@ const findFiles = async (tenantId, filters = {}) => {
     const n = Number(stage);
     filter.stage = Number.isNaN(n) ? stage : n;
   }
+  if (billingPeriod) filter.billingPeriod = billingPeriod;
   if (approvalStatus) filter.approvalStatus = approvalStatus;
   if (mediaType) filter.mediaType = mediaType;
   if (typeof clientVisible === 'boolean') filter.clientVisible = clientVisible;

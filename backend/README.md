@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>P R O J E C T &nbsp; 3 6 0 &ensp;·&ensp; B A C K E N D</strong><br/>
+  <strong>E V I D E N T I A R Y &ensp;·&ensp; B A C K E N D</strong><br/>
   <em>Multi-Tenant REST API &ensp;·&ensp; Node.js · Express · MongoDB</em>
 </p>
 
@@ -51,7 +51,7 @@ DATABASE_URL=mongodb://localhost:27017/project360
 | `EMAIL_PORT` | `587` | SMTP port |
 | `EMAIL_USER` | — | SMTP username |
 | `EMAIL_PASSWORD` | — | SMTP password |
-| `EMAIL_FROM` | `noreply@project360.co.za` | Sender address |
+| `EMAIL_FROM` | `noreply@evidentiary.co.za` | Sender address |
 | `SENDGRID_API_KEY` | — | SendGrid key (when `EMAIL_PROVIDER=sendgrid`) |
 | `STORAGE_PROVIDER` | `local` | File storage: `local`, `s3`, or `azure` |
 | `AWS_REGION` | `af-south-1` | AWS region for S3 |

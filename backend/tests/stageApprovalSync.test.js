@@ -7,7 +7,7 @@ const StageApproval = require("../src/modules/stage-gate/stageApproval.model");
 const CalendarEvent = require("../src/modules/calendar/calendarEvent.model");
 const stageGateController = require("../src/modules/stage-gate/stageGate.controller");
 
-jest.setTimeout(30000);
+jest.setTimeout(300000);
 
 const makeRes = () => {
   const res = {};

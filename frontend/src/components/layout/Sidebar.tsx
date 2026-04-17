@@ -105,7 +105,7 @@ export default function Sidebar() {
             <BrandMarkSvg />
             <div className="overflow-hidden lg:w-0 lg:group-hover:w-auto max-w-[200px] transition-[width] duration-300">
               <h1 className="text-eyebrow pl-4 leading-tight">
-                Project 360
+                EVIDENTIARY
               </h1>
             </div>
           </div>

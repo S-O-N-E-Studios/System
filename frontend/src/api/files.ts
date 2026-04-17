@@ -12,6 +12,7 @@ export interface FileListParams {
   projectId?: string;
   category?: FileCategory | string;
   stage?: ProjectStage;
+  billingPeriod?: string;
   clientVisible?: boolean;
   page?: number;
   pageSize?: number;
@@ -52,6 +53,7 @@ export const filesApi = {
     tenantSlug: string;
     projectId: string;
     stage: ProjectStage;
+    billingPeriod?: string;
     category: FileCategory | string;
     fileName: string;
     mimeType: string;
@@ -67,6 +69,7 @@ export const filesApi = {
       {
         projectId: params.projectId,
         stage: params.stage,
+        billingPeriod: params.billingPeriod,
         category: params.category,
         fileName: params.fileName,
         mimeType: params.mimeType,
@@ -116,6 +119,7 @@ export const filesApi = {
     tenantSlug: string;
     projectId: string;
     stage: ProjectStage;
+    billingPeriod?: string;
     category: FileCategory | string;
     originalName: string;
     mimeType: string;
@@ -125,6 +129,7 @@ export const filesApi = {
     const res = await apiClient.post<ApiResponse<{ file: ProjectFile }>>(`/${params.tenantSlug}/files`, {
       projectId: params.projectId,
       stage: params.stage,
+      billingPeriod: params.billingPeriod,
       category: params.category,
       originalName: params.originalName,
       mimeType: params.mimeType,
@@ -143,6 +148,7 @@ export const filesApi = {
     tenantSlug: string;
     projectId: string;
     stage: ProjectStage;
+    billingPeriod?: string;
     category: FileCategory | string;
     file: File;
   }): Promise<ProjectFile> => {
@@ -150,6 +156,7 @@ export const filesApi = {
       tenantSlug: params.tenantSlug,
       projectId: params.projectId,
       stage: params.stage,
+      billingPeriod: params.billingPeriod,
       category: params.category,
       fileName: params.file.name,
       mimeType: params.file.type || 'application/octet-stream',
@@ -181,6 +188,7 @@ export const filesApi = {
       tenantSlug: params.tenantSlug,
       projectId: params.projectId,
       stage: params.stage,
+      billingPeriod: params.billingPeriod,
       category: params.category,
       originalName: params.file.name,
       mimeType: params.file.type || 'application/octet-stream',

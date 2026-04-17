@@ -12,10 +12,39 @@ export interface StageMissingDoc {
   reason?: string;
 }
 
+export interface StageRequiredDoc {
+  documentName: string;
+  category: string;
+  group?: string;
+}
+
 export interface StageStatusResponse {
   currentStage: ProjectStage;
   gatePassed: boolean;
   missing: StageMissingDoc[];
+  requiredDocuments: StageRequiredDoc[];
+  workflowProfile?: string;
+  stageRequirements?: Record<string, StageRequiredDoc[]>;
+  stage7Readiness?: {
+    periods: Array<{
+      period: string;
+      progressReportPresent: boolean;
+      safetyReportPresent: boolean;
+      cashFlowPresent: boolean;
+      paymentCertificateCount: number;
+      evidenceImageCount: number;
+      reportingComplete: boolean;
+      evidenceMinimum: number;
+      evidenceSufficient: boolean;
+    }>;
+    pendingVariationCount: number;
+  } | null;
+  activitiesMissingImages?: Array<{
+    activityId: string;
+    name: string;
+    imageCount: number;
+    required: number;
+  }>;
 }
 
 export async function fetchProjectStageStatus(params: {
@@ -30,6 +59,19 @@ export async function fetchProjectStageStatus(params: {
     currentStage: data.currentStage as ProjectStage,
     gatePassed: data.gatePassed ?? false,
     missing: Array.isArray(data.missing) ? data.missing : [],
+    requiredDocuments: Array.isArray(data.requiredDocuments) ? data.requiredDocuments : [],
+    workflowProfile: typeof data.workflowProfile === 'string' ? data.workflowProfile : undefined,
+    stageRequirements:
+      data.stageRequirements && typeof data.stageRequirements === 'object'
+        ? (data.stageRequirements as Record<string, StageRequiredDoc[]>)
+        : undefined,
+    stage7Readiness:
+      data.stage7Readiness && typeof data.stage7Readiness === 'object'
+        ? (data.stage7Readiness as StageStatusResponse['stage7Readiness'])
+        : null,
+    activitiesMissingImages: Array.isArray(data.activitiesMissingImages)
+      ? data.activitiesMissingImages
+      : [],
   };
 }
 

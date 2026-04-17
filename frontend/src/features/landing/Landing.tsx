@@ -402,7 +402,7 @@ export default function Landing() {
           className="text-[0.7rem] uppercase tracking-[0.3em] text-[var(--text-muted)]"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
-          SONE · PROJECT 360
+          SONE · EVIDENTIARY
         </span>
       </div>
 
@@ -451,7 +451,7 @@ export default function Landing() {
             paddingLeft: '0.12em',
           }}
         >
-          Project 360
+          EVIDENTIARY
         </h1>
 
         {/* Tagline */}
@@ -518,7 +518,7 @@ export default function Landing() {
           className="text-[var(--text-muted)] opacity-60"
           style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.14em' }}
         >
-          © {new Date().getFullYear()} PROJECT 360 · ENGINEERING · DELIVERY · CONTROL
+          © {new Date().getFullYear()} EVIDENTIARY · ENGINEERING · DELIVERY · CONTROL
         </p>
       </footer>
     </div>

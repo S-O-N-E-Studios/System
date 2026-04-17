@@ -5,6 +5,14 @@ const StageApproval = require('../stage-gate/stageApproval.model');
 const Project = require('../projects/project.model');
 const { APPROVAL_REQUIRED_CATEGORIES } = require('../../constants/fileCategories');
 const storage = require('../../utils/storage');
+const STAGE7_BILLING_CATEGORIES = new Set([
+  'progress-report',
+  'safety-report',
+  'monthly-cash-flow',
+  'payment-certificate',
+  'site-image',
+  'drone-video',
+]);
 
 const listFiles = async (tenant, query, isClientTemp) => {
   const filters = { ...query };
@@ -12,21 +20,34 @@ const listFiles = async (tenant, query, isClientTemp) => {
   return fileRepo.findFiles(tenant._id, filters);
 };
 
+const assertProjectExists = async (tenantId, projectId) => {
+  if (!projectId) return;
+  const project = await Project.findOne({
+    _id: projectId,
+    tenantId,
+    deletedAt: null,
+  })
+    .select('_id currentStage')
+    .lean();
+  if (!project) {
+    throw Object.assign(new Error('Project not found'), { status: 404 });
+  }
+  return project;
+};
+
 const registerFile = async (tenant, data, userId) => {
   const needsApproval = APPROVAL_REQUIRED_CATEGORIES.includes(data.category);
+  const project = await assertProjectExists(tenant._id, data.projectId);
+  const stage = Number(data.stage);
+  const billingPeriod = data.billingPeriod ? String(data.billingPeriod).trim() : '';
+  if (stage === 7 && STAGE7_BILLING_CATEGORIES.has(data.category) && !billingPeriod) {
+    throw Object.assign(new Error(`billingPeriod is required for stage 7 ${data.category}`), {
+      status: 400,
+    });
+  }
 
   let stageForApproval = data.stage;
   if (needsApproval && (stageForApproval === null || stageForApproval === undefined)) {
-    const project = await Project.findOne({
-      _id: data.projectId,
-      tenantId: tenant._id,
-      deletedAt: null,
-    })
-      .select('currentStage')
-      .lean();
-    if (!project) {
-      throw Object.assign(new Error('Project not found'), { status: 404 });
-    }
     const raw = project.currentStage;
     const n = Number(raw);
     stageForApproval = Number.isFinite(n) ? Math.min(9, Math.max(1, n)) : 1;
@@ -41,6 +62,7 @@ const registerFile = async (tenant, data, userId) => {
     sizeBytes: data.sizeBytes ?? 0,
     mediaType: data.mediaType ?? 'document',
     stage: data.stage ?? null,
+    billingPeriod: billingPeriod || null,
     category: data.category,
     captureDate: data.captureDate ?? null,
     captureGPS: data.captureGPS ?? { lat: null, lng: null },

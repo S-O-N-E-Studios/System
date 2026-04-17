@@ -9,7 +9,7 @@ import { useUiStore } from '@/store/uiStore';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { generateSlug } from '@/utils/formatters';
-import { LIMPOPO_LOCAL_MUNICIPALITIES } from '@/constants/municipalities';
+import { NKANGALA_LOCAL_MUNICIPALITIES } from '@/constants/municipalities';
 import { ArrowLeft, ArrowRight, Check, Building2, UserPlus, ClipboardCheck } from 'lucide-react';
 
 type Step = 1 | 2 | 3;
@@ -123,6 +123,13 @@ export default function Register() {
   const onSubmit = async (data: RegisterOrgFormData) => {
     setIsSubmitting(true);
     try {
+      const selectedMunicipalityNames =
+        data.orgType === 'provincial_gov'
+          ? (data.localMunicipalityIds ?? [])
+              .map((mid) => NKANGALA_LOCAL_MUNICIPALITIES.find((m) => m.id === mid)?.name)
+              .filter((name): name is string => Boolean(name))
+          : undefined;
+
       const result = await authApi.registerOrg({
         orgName: data.orgName,
         slug: data.slug,
@@ -134,8 +141,7 @@ export default function Register() {
         adminLastName: data.adminLastName,
         adminEmail: data.adminEmail,
         adminPassword: data.adminPassword,
-        localMunicipalityIds:
-          data.orgType === 'provincial_gov' ? data.localMunicipalityIds : undefined,
+        localMunicipalities: selectedMunicipalityNames,
       });
       login(result.user, result.tokens);
       addToast({ type: 'success', message: 'Organisation created successfully!' });
@@ -186,7 +192,7 @@ export default function Register() {
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
             <h1 className="text-h2 tracking-[2px] uppercase">
-              Project 360
+              EVIDENTIARY
             </h1>
           </Link>
           <h2 className="text-h2 mb-2">Register Your Organisation</h2>
@@ -240,7 +246,7 @@ export default function Register() {
               <div className="flex flex-col gap-5">
                 <FormInput
                   label="Organisation Name"
-                  placeholder="e.g. Limpopo Civil Engineering"
+                  placeholder="e.g. Onboard Consulting Engineers"
                   error={errors.orgName?.message}
                   {...register('orgName')}
                 />
@@ -254,7 +260,7 @@ export default function Register() {
                   />
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-[0.65rem] text-[var(--text-muted)]">
-                      app.project360.com/
+                      app.evidentiary.com/
                     </span>
                     <span className="text-[0.65rem] font-mono text-[var(--accent)]">
                       {slug || '...'}
@@ -339,10 +345,10 @@ export default function Register() {
                   <div className="flex flex-col gap-2">
                     <span className="text-eyebrow text-[var(--text-muted)]">Local municipalities</span>
                     <p className="text-[0.65rem] text-[var(--text-muted)]">
-                      Sample Limpopo list for UX; replace with API-driven options when available.
+                      Nkangala municipal scope for this workflow profile.
                     </p>
                     <div className="max-h-44 overflow-y-auto border border-[var(--border-default)] p-3 space-y-2 bg-[var(--bg-primary)]">
-                      {LIMPOPO_LOCAL_MUNICIPALITIES.map((m) => {
+                      {NKANGALA_LOCAL_MUNICIPALITIES.map((m) => {
                         const ids = localMunicipalityIds ?? [];
                         const checked = ids.includes(m.id);
                         return (
@@ -472,7 +478,7 @@ export default function Register() {
                           (values.localMunicipalityIds ?? [])
                             .map(
                               (mid) =>
-                                LIMPOPO_LOCAL_MUNICIPALITIES.find((m) => m.id === mid)?.name ?? mid,
+                                NKANGALA_LOCAL_MUNICIPALITIES.find((m) => m.id === mid)?.name ?? mid,
                             )
                             .join(', ') || '—'
                         }

@@ -1,4 +1,4 @@
-# Project 360 — Database Schema
+# EVIDENTIARY — Database Schema
 
 > MongoDB collections. All tenant-scoped documents include `tenantId`. Schemas are defined in `backend/src/modules/<feature>/<feature>.model.js`.
 

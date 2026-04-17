@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { openApiSpec } = require('../docs/openapi');
 
 const { authenticate } = require('../middleware/auth.middleware');
 const { resolveTenant, requireTenantMembership } = require('../middleware/tenant.middleware');
@@ -10,6 +11,11 @@ const tenantStack = [authenticate, resolveTenant, requireTenantMembership, valid
 
 router.get('/health', (req, res) => {
   res.status(200).json({ success: true, status: 'ok' });
+});
+
+// OpenAPI JSON spec (lightweight runtime docs surface)
+router.get('/docs.json', (req, res) => {
+  res.status(200).json(openApiSpec);
 });
 
 router.use('/auth', require('../modules/auth/auth.routes'));

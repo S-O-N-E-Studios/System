@@ -1,57 +1,61 @@
-/* Stage document requirements per v6.0 MVP doc §4.1 & §4.4 */
+/* Stage document requirements aligned to v8.0 workflow. */
 
 import type { ProjectStage } from '@/types';
 
 export interface StageDocumentSpec {
   documentName: string;
   category: string;
+  group?: string;
   recurring?: boolean; // Stage 5: Monthly reports can be uploaded multiple times
 }
 
 export const STAGE_DOCUMENT_REQUIREMENTS: Record<ProjectStage, StageDocumentSpec[]> = {
   0: [],
   1: [
-    { documentName: 'Signed Scoping Report', category: 'scoping-report' },
-    { documentName: 'Quotations for surveys and investigations', category: 'quotation' },
-    { documentName: 'Approval of quotations', category: 'quotation' },
-    { documentName: 'Appointment letters for service providers', category: 'appointment-letter' },
+    { documentName: 'Signed Scoping Report', category: 'scoping-report', group: 'Inception' },
+    { documentName: 'Specialist Quotations', category: 'quotation', group: 'Inception' },
+    { documentName: 'Quotation Approvals', category: 'quotation', group: 'Inception' },
+    { documentName: 'Appointment Letters', category: 'appointment-letter', group: 'Inception' },
   ],
   2: [
-    { documentName: 'Preliminary Designs', category: 'preliminary-design' },
-    { documentName: 'Preliminary Drawings', category: 'preliminary-design' },
-    { documentName: 'Signed Preliminary Design Report', category: 'preliminary-design-report' },
-    { documentName: 'Preliminary Cost Estimates', category: 'preliminary-cost-estimate' },
+    { documentName: 'Preliminary Design Report', category: 'preliminary-design-report', group: 'Planning' },
+    { documentName: 'Preliminary Drawings', category: 'preliminary-design', group: 'Planning' },
+    { documentName: 'Preliminary Cost Estimates', category: 'preliminary-cost-estimate', group: 'Planning' },
+    { documentName: 'Digital Survey', category: 'digital-survey', group: 'Specialist Inputs' },
+    { documentName: 'Geo-Technical Report', category: 'geotechnical', group: 'Specialist Inputs' },
+    { documentName: 'Environmental Report', category: 'environmental', group: 'Specialist Inputs' },
+    { documentName: 'Community Minutes', category: 'community-minutes', group: 'Specialist Inputs' },
   ],
   3: [
-    { documentName: 'Detailed Designs', category: 'detailed-design' },
-    { documentName: 'Detailed Drawings', category: 'detailed-design' },
-    { documentName: 'Signed Detailed Design Report', category: 'detailed-design-report' },
-    { documentName: 'Detailed Cost Estimates', category: 'detailed-cost-estimate' },
+    { documentName: 'Detailed Design Report', category: 'detailed-design-report', group: 'Execution' },
+    { documentName: 'Detailed Drawings', category: 'detailed-design', group: 'Execution' },
+    { documentName: 'Detailed Cost Estimates', category: 'detailed-cost-estimate', group: 'Execution' },
   ],
   4: [
-    { documentName: 'Tender Drawings', category: 'tender-drawing' },
-    { documentName: 'Tender Document', category: 'tender-document' },
-    { documentName: 'Tender Evaluation Report', category: 'tender-evaluation' },
-    { documentName: 'Appointment Letters of Contractor', category: 'appointment-letter' },
+    { documentName: 'Tender Drawings', category: 'tender-drawing', group: 'Tender' },
+    { documentName: 'Tender Document', category: 'tender-document', group: 'Tender' },
+    { documentName: 'Tender Evaluation Report', category: 'tender-evaluation', group: 'Tender' },
+    { documentName: 'Contractor Appointment Letter', category: 'appointment-letter', group: 'Tender' },
   ],
-  5: [
-    { documentName: 'Pre-commencement Documents', category: 'pre-commencement' },
-    { documentName: 'Monthly Cash Flows', category: 'monthly-cash-flow', recurring: true },
-    { documentName: 'Monthly Progress Reports', category: 'progress-report', recurring: true },
-    { documentName: 'Monthly Safety Reports', category: 'safety-report', recurring: true },
-    { documentName: 'Payment Certificates', category: 'payment-certificate', recurring: true },
-    { documentName: 'Activity Supporting Images', category: 'activity-image' },
-    { documentName: 'Final Accounts', category: 'final-account' },
-    { documentName: 'Practical Completion Certificates', category: 'practical-completion' },
-    { documentName: 'Completion Certificates', category: 'completion-certificate' },
+  5: [],
+  6: [{ documentName: 'Signed Contractor Appointment Letter', category: 'appointment-letter', group: 'Appointment' }],
+  7: [
+    { documentName: 'Monthly Progress Reports', category: 'progress-report', group: 'Construction', recurring: true },
+    { documentName: 'Monthly Safety Reports', category: 'safety-report', group: 'Construction', recurring: true },
+    { documentName: 'Monthly Cash Flows', category: 'monthly-cash-flow', group: 'Construction', recurring: true },
+    { documentName: 'Payment Certificates', category: 'payment-certificate', group: 'Construction', recurring: true },
+    { documentName: 'Meeting Minutes', category: 'meeting-minutes', group: 'Construction', recurring: true },
   ],
-  6: [
-    { documentName: 'As-built Drawings', category: 'as-built-drawing' },
-    { documentName: 'Final Approval Certificate', category: 'final-approval' },
-    { documentName: 'Proof of Payment', category: 'proof-of-payment' },
+  8: [
+    { documentName: 'Practical Completion Certificate', category: 'practical-completion', group: 'Close-Out' },
+    { documentName: 'Defects List', category: 'defects-list', group: 'Close-Out' },
   ],
-  7: [],
-  8: [],
-  9: [],
+  9: [
+    { documentName: 'As-built Drawings', category: 'as-built-drawing', group: 'Finalisation' },
+    { documentName: 'Final Accounts', category: 'final-account', group: 'Finalisation' },
+    { documentName: 'Final Approval Certificate', category: 'final-approval', group: 'Finalisation' },
+    { documentName: 'Proof of Payment', category: 'proof-of-payment', group: 'Finalisation' },
+    { documentName: 'Operations and Maintenance Manuals', category: 'om-manual', group: 'Finalisation' },
+  ],
   10: [],
 };

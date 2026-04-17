@@ -19,6 +19,11 @@ const tenantSchema = new mongoose.Schema(
       enum: ['provincial_gov', 'private_firm'],
       required: true,
     },
+    workflowProfile: {
+      type: String,
+      enum: ['municipal_v8', 'private_v8'],
+      default: null,
+    },
     plan: {
       type: String,
       default: 'trial',

@@ -42,7 +42,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', theme);
 
-      document.title = 'PROJECT 360';
+      document.title = 'EVIDENTIARY';
       syncAppFavicon();
     }
     set({ theme });

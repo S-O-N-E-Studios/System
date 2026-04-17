@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>P R O J E C T &nbsp; 3 6 0 &ensp;·&ensp; F R O N T E N D</strong><br/>
+  <strong>E V I D E N T I A R Y &ensp;·&ensp; F R O N T E N D</strong><br/>
   <em>React · TypeScript · Vite · Atlas Sahara Design System</em>
 </p>
 
@@ -63,7 +63,7 @@ Mock auth is on by default. Set `VITE_USE_MOCK_AUTH=false` in `.env` to use the 
 
 ## Design System — Atlas Sahara
 
-The Atlas Sahara design system gives Project 360 its distinctive identity: warm, authoritative, and purpose-built for engineering professionals and government stakeholders.
+The Atlas Sahara design system gives EVIDENTIARY its distinctive identity: warm, authoritative, and purpose-built for engineering professionals and government stakeholders.
 
 ### Colour Palette
 

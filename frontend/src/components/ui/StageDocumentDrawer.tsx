@@ -4,11 +4,11 @@ import Button from './Button';
 import ApprovalStatusBadge from './ApprovalStatusBadge';
 import ClientApprovalPanel from './ClientApprovalPanel';
 import { STAGE_NAMES, type ProjectStage, type StageDocumentRequirement } from '@/types';
-import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 
 interface StageDocumentDrawerProps {
   stage: ProjectStage;
   projectId?: string;
+  requirements: Array<{ documentName: string; category: string; group?: string }>;
   documents: StageDocumentRequirement[];
   gatePassed: boolean;
   onClose: () => void;
@@ -31,6 +31,7 @@ interface DrawerDocumentStatus {
 
 export default function StageDocumentDrawer({
   stage,
+  requirements,
   documents,
   gatePassed,
   onClose,
@@ -42,7 +43,6 @@ export default function StageDocumentDrawer({
   isAdvancing,
 }: StageDocumentDrawerProps) {
   const [isOpen] = useState(true);
-  const requirements = STAGE_DOCUMENT_REQUIREMENTS[stage];
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingUploadDoc, setPendingUploadDoc] = useState<{
@@ -73,6 +73,15 @@ export default function StageDocumentDrawer({
     .filter((d) => !d.uploaded)
     .map((d) => `${d.documentName} (${d.category})`)
     .join(', ');
+  const groupedDocStatus = docStatus.reduce<Record<string, DrawerDocumentStatus[]>>((acc, doc) => {
+    const requirement = requirements.find(
+      (req) => req.documentName === doc.documentName || req.category === doc.category,
+    );
+    const groupName = requirement?.group || 'Required Documents';
+    if (!acc[groupName]) acc[groupName] = [];
+    acc[groupName].push(doc);
+    return acc;
+  }, {});
 
   if (!isOpen) return null;
 
@@ -149,62 +158,69 @@ export default function StageDocumentDrawer({
             )}
           </div>
 
-          <div className="flex flex-col gap-0">
-            {docStatus.map((doc) => (
-              <div
-                key={doc.documentName}
-                className="flex items-center justify-between py-3 border-b border-[var(--border-default)] last:border-0"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  {doc.uploaded ? (
-                    <CheckCircle2 className="h-5 w-5 text-[var(--status-success)] shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-[var(--status-danger)] shrink-0 mt-0.5" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-[0.82rem] font-medium text-[var(--text-primary)]">
-                      {doc.documentName}
-                    </p>
-                    <div className="mt-1">
-                      <ApprovalStatusBadge status={doc.approvalStatus || 'not_required'} />
+          <div className="flex flex-col gap-5">
+            {Object.entries(groupedDocStatus).map(([group, docs]) => (
+              <div key={group}>
+                <p className="text-eyebrow mb-2">{group}</p>
+                <div className="flex flex-col gap-0 border border-[var(--border-default)] bg-[var(--bg-primary)]">
+                  {docs.map((doc) => (
+                    <div
+                      key={doc.documentName}
+                      className="flex items-center justify-between py-3 px-3 border-b border-[var(--border-default)] last:border-0"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        {doc.uploaded ? (
+                          <CheckCircle2 className="h-5 w-5 text-[var(--status-success)] shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-[var(--status-danger)] shrink-0 mt-0.5" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-[0.82rem] font-medium text-[var(--text-primary)]">
+                            {doc.documentName}
+                          </p>
+                          <div className="mt-1">
+                            <ApprovalStatusBadge status={doc.approvalStatus || 'not_required'} />
+                          </div>
+                          {doc.uploaded && doc.fileName && (
+                            <p className="text-[0.68rem] text-[var(--text-muted)] truncate">
+                              {doc.fileName}
+                            </p>
+                          )}
+                          <ClientApprovalPanel
+                            canApprove={Boolean(canApproveDocuments)}
+                            approvalStatus={doc.approvalStatus || 'not_required'}
+                            onApprove={
+                              doc.fileId
+                                ? () => onApproveDocument?.(doc.fileId!)
+                                : undefined
+                            }
+                            onReject={
+                              doc.fileId
+                                ? (reason) => onRejectDocument?.(doc.fileId!, reason)
+                                : undefined
+                            }
+                          />
+                        </div>
+                      </div>
+                      {!doc.uploaded && onUploadDocument && (
+                        <Button
+                          variant="secondary"
+                          className="!min-w-0 !px-3 !py-1.5 text-[0.7rem] shrink-0"
+                          onClick={() =>
+                            startUpload({
+                              documentName: doc.documentName,
+                              category: doc.category,
+                            })
+                          }
+                          disabled={isUploading}
+                        >
+                          <Upload className="h-3 w-3" />
+                          Upload
+                        </Button>
+                      )}
                     </div>
-                    {doc.uploaded && doc.fileName && (
-                      <p className="text-[0.68rem] text-[var(--text-muted)] truncate">
-                        {doc.fileName}
-                      </p>
-                    )}
-                    <ClientApprovalPanel
-                      canApprove={Boolean(canApproveDocuments)}
-                      approvalStatus={doc.approvalStatus || 'not_required'}
-                      onApprove={
-                        doc.fileId
-                          ? () => onApproveDocument?.(doc.fileId!)
-                          : undefined
-                      }
-                      onReject={
-                        doc.fileId
-                          ? (reason) => onRejectDocument?.(doc.fileId!, reason)
-                          : undefined
-                      }
-                    />
-                  </div>
+                  ))}
                 </div>
-                {!doc.uploaded && onUploadDocument && (
-                  <Button
-                    variant="secondary"
-                    className="!min-w-0 !px-3 !py-1.5 text-[0.7rem] shrink-0"
-                    onClick={() =>
-                      startUpload({
-                        documentName: doc.documentName,
-                        category: doc.category,
-                      })
-                    }
-                    disabled={isUploading}
-                  >
-                    <Upload className="h-3 w-3" />
-                    Upload
-                  </Button>
-                )}
               </div>
             ))}
           </div>

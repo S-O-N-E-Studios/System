@@ -71,7 +71,7 @@ const advanceStage = async (req, res) => {
   } catch (err) {
     // Gate failure — return the spec-exact 422 shape
     if (err.gateError) {
-      return sendStageGateFailed(res, err.stage, err.missing);
+      return sendStageGateFailed(res, err.stage, err.missing, err.activitiesMissingImages);
     }
     throw err; // Re-throw for global error handler
   }

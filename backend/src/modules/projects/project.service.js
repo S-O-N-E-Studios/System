@@ -1,8 +1,14 @@
 const projectRepo = require('./project.repository');
 const stageGateSvc = require('../stage-gate/stageGate.service');
 const CalendarEvent = require('../calendar/calendarEvent.model');
+const File = require('../files/file.model');
+const VariationOrder = require('../stage-gate/variationOrder.model');
 const { ROLES } = require('../../constants/roles');
 const { SERVICE_CATEGORY_LABEL_TO_KEY } = require('../../constants/serviceCategories');
+const {
+  getWorkflowProfileForTenant,
+  getStageDocumentSpecsForTenant,
+} = require('../../constants/workflowProfiles');
 
 const normalizeServiceCategory = (value) => {
   if (!value) return value;
@@ -27,6 +33,61 @@ const buildStage0Missing = (project) => {
     missing.push({ documentName: 'Project team contacts', category: 'stage0-contacts' });
   }
   return missing;
+};
+
+const getStage7Readiness = async (tenant, projectId) => {
+  const files = await File.find({
+    tenantId: tenant._id,
+    projectId,
+    stage: 7,
+    deletedAt: null,
+    billingPeriod: { $ne: null },
+    category: {
+      $in: ['progress-report', 'safety-report', 'monthly-cash-flow', 'payment-certificate', 'site-image'],
+    },
+  })
+    .select('category billingPeriod')
+    .lean();
+
+  const pendingVariationCount = await VariationOrder.countDocuments({
+    tenantId: tenant._id,
+    projectId,
+    status: 'pending_approval',
+  });
+
+  const byPeriod = new Map();
+  files.forEach((f) => {
+    const period = String(f.billingPeriod || '');
+    if (!period) return;
+    if (!byPeriod.has(period)) {
+      byPeriod.set(period, {
+        period,
+        progressReportPresent: false,
+        safetyReportPresent: false,
+        cashFlowPresent: false,
+        paymentCertificateCount: 0,
+        evidenceImageCount: 0,
+        reportingComplete: false,
+        evidenceMinimum: tenant?.evidenceConfig?.minImagesPerBillingPeriod || 3,
+        evidenceSufficient: false,
+      });
+    }
+    const row = byPeriod.get(period);
+    if (f.category === 'progress-report') row.progressReportPresent = true;
+    if (f.category === 'safety-report') row.safetyReportPresent = true;
+    if (f.category === 'monthly-cash-flow') row.cashFlowPresent = true;
+    if (f.category === 'payment-certificate') row.paymentCertificateCount += 1;
+    if (f.category === 'site-image') row.evidenceImageCount += 1;
+    row.reportingComplete =
+      row.progressReportPresent && row.safetyReportPresent && row.cashFlowPresent;
+    row.evidenceSufficient = row.evidenceImageCount >= row.evidenceMinimum;
+  });
+
+  const periods = [...byPeriod.values()].sort((a, b) => b.period.localeCompare(a.period));
+  return {
+    periods,
+    pendingVariationCount,
+  };
 };
 
 const listProjects = async (tenant, query, requestingUser) => {
@@ -112,12 +173,18 @@ const getStageStatus = async (tenant, projectId) => {
   if (!project) throw Object.assign(new Error('Project not found'), { status: 404 });
 
   const result = await stageGateSvc.checkStageGateWithActivities(
-    tenant._id, projectId, project.currentStage
+    tenant, projectId, project.currentStage
   );
+  const stageRequirements = getStageDocumentSpecsForTenant(tenant);
+  const stage7Readiness =
+    Number(project.currentStage) === 7 ? await getStage7Readiness(tenant, projectId) : null;
 
   return {
     projectId,
     currentStage: project.currentStage,
+    workflowProfile: getWorkflowProfileForTenant(tenant),
+    stageRequirements,
+    stage7Readiness,
     ...result,
   };
 };
@@ -154,7 +221,7 @@ const advanceStage = async (tenant, projectId, advancedBy) => {
     }
   } else if (project.currentStage !== 5) {
     const gateResult = await stageGateSvc.checkStageGateWithActivities(
-      tenant._id, projectId, project.currentStage
+      tenant, projectId, project.currentStage
     );
 
     if (!gateResult.gatePassed) {

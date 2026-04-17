@@ -1,4 +1,4 @@
-# Project 360 — Development Setup Guide
+# EVIDENTIARY — Development Setup Guide
 
 ---
 

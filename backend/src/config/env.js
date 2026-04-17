@@ -34,7 +34,7 @@ module.exports = {
   EMAIL_PORT: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
   EMAIL_USER: process.env.EMAIL_USER,
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS,
-  EMAIL_FROM: process.env.EMAIL_FROM || "noreply@project360.co.za",
+  EMAIL_FROM: process.env.EMAIL_FROM || "noreply@evidentiary.co.za",
   SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
 
   /** Optional: encrypts per-tenant SMTP passwords at rest (set in production). */

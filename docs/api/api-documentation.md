@@ -1,4 +1,4 @@
-# Project 360 — API Reference
+# EVIDENTIARY — API Reference
 
 > **Base URL:** `http://localhost:5000/api/v1`
 >

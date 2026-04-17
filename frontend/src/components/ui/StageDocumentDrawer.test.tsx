@@ -6,12 +6,17 @@ const mockDocuments = [
   { documentName: 'Signed Scoping Report', category: 'scoping-report', uploaded: true, fileName: 'report.pdf' },
   { documentName: 'Quotations', category: 'quotation', uploaded: false },
 ];
+const mockRequirements = mockDocuments.map((d) => ({
+  documentName: d.documentName,
+  category: d.category,
+}));
 
 describe('StageDocumentDrawer', () => {
   it('renders stage title', () => {
     render(
       <StageDocumentDrawer
         stage={1}
+        requirements={mockRequirements}
         documents={mockDocuments}
         gatePassed={false}
         onClose={vi.fn()}
@@ -24,6 +29,7 @@ describe('StageDocumentDrawer', () => {
     render(
       <StageDocumentDrawer
         stage={1}
+        requirements={mockRequirements}
         documents={mockDocuments}
         gatePassed={false}
         onClose={vi.fn()}
@@ -36,6 +42,7 @@ describe('StageDocumentDrawer', () => {
     render(
       <StageDocumentDrawer
         stage={1}
+        requirements={mockRequirements}
         documents={mockDocuments.map((d) => ({ ...d, uploaded: true }))}
         gatePassed={true}
         onClose={vi.fn()}
@@ -49,6 +56,7 @@ describe('StageDocumentDrawer', () => {
     render(
       <StageDocumentDrawer
         stage={1}
+        requirements={mockRequirements}
         documents={mockDocuments}
         gatePassed={false}
         onClose={onClose}
@@ -64,6 +72,7 @@ describe('StageDocumentDrawer', () => {
     render(
       <StageDocumentDrawer
         stage={1}
+        requirements={mockRequirements}
         documents={mockDocuments.map((d) => ({ ...d, uploaded: true }))}
         gatePassed={true}
         onClose={vi.fn()}
@@ -80,6 +89,7 @@ describe('StageDocumentDrawer', () => {
     render(
       <StageDocumentDrawer
         stage={1}
+        requirements={mockRequirements}
         documents={mockDocuments}
         gatePassed={false}
         onClose={vi.fn()}

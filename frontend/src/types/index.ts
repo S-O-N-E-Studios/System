@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Core Domain Types - Project 360 Engineering PM Platform v7.0
+   Core Domain Types - EVIDENTIARY Engineering PM Platform v7.0
    Atlas Sahara Design System · Multi-Tenant SaaS
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -328,6 +328,10 @@ export type DocumentType =
 export type FileCategory =
   | 'scoping-report'
   | 'appointment-letter'
+  | 'advert'
+  | 'recommendations'
+  | 'approval-record'
+  | 'sla'
   | 'quotation'
   | 'preliminary-design'
   | 'preliminary-cost-estimate'
@@ -338,19 +342,34 @@ export type FileCategory =
   | 'tender-drawing'
   | 'tender-document'
   | 'tender-evaluation'
+  | 'pre-evaluation-report'
+  | 'evaluation-report'
+  | 'adjudication-report'
+  | 'tender-register'
   | 'pre-commencement'
+  | 'site-handover-minutes'
+  | 'surety-guarantee'
+  | 'insurance-of-works'
+  | 'programme-of-works'
+  | 'key-personnel-register'
+  | 'safety-file-audit-report'
   | 'monthly-cash-flow'
   | 'progress-report'
   | 'safety-report'
   | 'payment-certificate'
   | 'meeting-minutes'
   | 'variation-certificate'
+  | 'extension-of-time'
   | 'practical-completion'
+  | 'defects-list'
   | 'completion-certificate'
   | 'final-account'
   | 'as-built-drawing'
   | 'final-approval'
   | 'proof-of-payment'
+  | 'om-manual'
+  | 'close-out-report'
+  | 'final-completion'
   | 'site-image'
   | 'drone-video'
   | 'activity-image'
@@ -381,6 +400,7 @@ export interface ProjectFile {
   storagePath?: string;
   mimeType: string;
   mediaType?: MediaType;
+  billingPeriod?: string;
   approvalStatus?: ApprovalStatus;
   approvedBy?: string;
   approvedAt?: string;

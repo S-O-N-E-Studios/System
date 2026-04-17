@@ -52,7 +52,7 @@ function fillBrandedSheet<T extends Record<string, unknown>>(
   columns: ExportColumn<T>[],
   rows: T[],
 ): void {
-  sheet.addRow([`PROJECT 360 — ${sheetLabel}`]);
+  sheet.addRow([`EVIDENTIARY — ${sheetLabel}`]);
   const titleRow = sheet.getRow(1);
   titleRow.font = { bold: true, size: 12, color: { argb: HEADER_FILL_ARGB } };
   titleRow.height = 22;
@@ -153,7 +153,7 @@ function drawPdfBrandBar(doc: jsPDF, pageW: number, margin: number) {
   doc.setTextColor(white.r, white.g, white.b);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('PROJECT 360', margin, 22);
+  doc.text('EVIDENTIARY', margin, 22);
   doc.setFont('helvetica', 'normal');
   const stamp = `Generated ${new Date().toLocaleString()}`;
   const tw = doc.getTextWidth(stamp);
@@ -419,7 +419,7 @@ export function buildNarrativePdfBlob({
 
   doc.setFontSize(7);
   doc.setTextColor(textMuted.r, textMuted.g, textMuted.b);
-  doc.text('PROJECT 360 · Confidential portfolio export', margin, pageH - 22);
+  doc.text('EVIDENTIARY · Confidential portfolio export', margin, pageH - 22);
 
   return doc.output('blob');
 }

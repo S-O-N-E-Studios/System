@@ -22,7 +22,7 @@ interface RegisterOrgRequest {
   adminLastName: string;
   adminEmail: string;
   adminPassword: string;
-  localMunicipalityIds?: string[];
+  localMunicipalities?: string[];
 }
 
 interface CheckSlugResponse {
@@ -73,7 +73,7 @@ export const authApi = {
       orgName: data.orgName,
       orgType: data.orgType,
       orgSlug: data.slug,
-      localMunicipalities: data.localMunicipalityIds,
+      localMunicipalities: data.localMunicipalities,
     };
     const res = await apiClient.post('/auth/register-org', payload);
     const body = res.data?.data || res.data;

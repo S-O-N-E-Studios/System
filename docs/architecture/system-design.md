@@ -1,8 +1,8 @@
-# Project 360 — System Design
+# EVIDENTIARY — System Design
 
 ## Overview
 
-Project 360 is a **multi-tenant engineering project management platform** using a MERN-adjacent stack: **React + TypeScript** frontend, **Express + Node.js** backend, and **MongoDB** database. The system is designed for provincial government departments and engineering consultancies managing infrastructure portfolios.
+EVIDENTIARY is a **multi-tenant engineering project management platform** using a MERN-adjacent stack: **React + TypeScript** frontend, **Express + Node.js** backend, and **MongoDB** database. The system is designed for provincial government departments and engineering consultancies managing infrastructure portfolios.
 
 ---
 
@@ -51,7 +51,7 @@ Project 360 is a **multi-tenant engineering project management platform** using 
 
 ## Multi-Tenancy Model
 
-Project 360 uses a **shared database, tenant-scoped** approach:
+EVIDENTIARY uses a **shared database, tenant-scoped** approach:
 
 - Every data document includes a `tenantId` field
 - Tenant resolution happens via the URL slug: `/:tenantSlug/...`

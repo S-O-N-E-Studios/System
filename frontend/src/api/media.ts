@@ -32,6 +32,7 @@ export const mediaApi = {
     sizeBytes: number;
     mediaType: 'image' | 'video';
     stage?: number;
+    billingPeriod?: string;
     captureDate?: string;
     captureGPS?: { lat: number; lng: number };
     description?: string;

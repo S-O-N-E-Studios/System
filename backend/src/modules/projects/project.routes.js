@@ -97,10 +97,10 @@ router.post('/:id/payment-forecast',
 );
 
 // Sub-routes: activities, funding sources, approvals, variations, media
-try { router.use('/:id/approvals', requireProjectScope, require('../stage-gate/stageGate.routes')); } catch (e) { /* module not yet available */ }
-try { router.use('/:id/variations', requireProjectScope, require('../stage-gate/variationOrder.routes')); } catch (e) { /* module not yet available */ }
-try { router.use('/:id/funding-sources', requireProjectScope, require('../funding-sources/fundingSource.routes')); } catch (e) { /* module not yet available */ }
-try { router.use('/:id/activities', requireProjectScope, require('../activities/activity.routes')); } catch (e) { /* module not yet available */ }
-try { router.use('/:id/media', requireProjectScope, require('../files/media.routes')); } catch (e) { /* module not yet available */ }
+router.use('/:id/approvals', requireProjectScope, require('../stage-gate/stageGate.routes'));
+router.use('/:id/variations', requireProjectScope, require('../stage-gate/variationOrder.routes'));
+router.use('/:id/funding-sources', requireProjectScope, require('../funding-sources/fundingSource.routes'));
+router.use('/:id/activities', requireProjectScope, require('../activities/activity.routes'));
+router.use('/:id/media', requireProjectScope, require('../files/media.routes'));
 
 module.exports = router;

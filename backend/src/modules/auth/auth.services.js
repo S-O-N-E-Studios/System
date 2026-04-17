@@ -25,12 +25,21 @@ const {
 const {
   sendPasswordResetEmail,
 } = require("../../utils/email");
+const { WORKFLOW_PROFILES } = require('../../constants/workflowProfiles');
 
 // Tenant and TemporaryAccess models imported here for org registration and client activation
 const Tenant = require("../tenants/tenant.model");
 const TemporaryAccess = require("../client-access/temporaryAccess.model");
 
 const SALT_ROUNDS = 10;
+const DEFAULT_NKANGALA_LOCAL_MUNICIPALITIES = [
+  'Victor Khanye Local Municipality',
+  'Emalahleni Local Municipality',
+  'Steve Tshwete Local Municipality',
+  'Emakhazeni Local Municipality',
+  'Thembisile Hani Local Municipality',
+  'Dr JS Moroka Local Municipality',
+];
 
 //  Login
 
@@ -176,12 +185,21 @@ const registerOrg = async (data) => {
   const existingUser = await authRepo.findUserByEmail(email);
 
   // Create tenant
+  const tenantMunicipalities =
+    orgType === 'provincial_gov'
+      ? (localMunicipalities?.length ? localMunicipalities : DEFAULT_NKANGALA_LOCAL_MUNICIPALITIES)
+      : [];
+
   const tenant = await Tenant.create({
     slug: orgSlug,
     name: orgName,
     orgType,
+    workflowProfile:
+      orgType === 'provincial_gov'
+        ? WORKFLOW_PROFILES.MUNICIPAL_V8
+        : WORKFLOW_PROFILES.PRIVATE_V8,
     emailDomain: emailDomain || null,
-    localMunicipalities: localMunicipalities || [],
+    localMunicipalities: tenantMunicipalities,
     status: "trial",
   });
 

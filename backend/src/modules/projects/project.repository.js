@@ -5,37 +5,7 @@
 
 const mongoose = require('mongoose');
 const Project  = require('./project.model');
-
-//  Payment and Forecast models (inline schemas — spec keeps them lightweight) 
-
-const paymentSchema = new mongoose.Schema({
-  tenantId:     { type: mongoose.Schema.Types.ObjectId, required: true },
-  projectId:    { type: mongoose.Schema.Types.ObjectId, required: true },
-  amount:       { type: Number, required: true, min: 1 },
-  paymentDate:  { type: Date,   required: true },
-  description:  { type: String, default: null },
-  certificateNo:{ type: String, default: null },
-  contractType: { type: String, enum: ['professional', 'geotechnical', 'construction'], required: true },
-  recordedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-}, { timestamps: true });
-
-paymentSchema.index({ tenantId: 1, projectId: 1 });
-paymentSchema.index({ projectId: 1, paymentDate: 1 });
-
-const forecastSchema = new mongoose.Schema({
-  tenantId:       { type: mongoose.Schema.Types.ObjectId, required: true },
-  projectId:      { type: mongoose.Schema.Types.ObjectId, required: true },
-  month:          { type: String, required: true }, // "YYYY-MM"
-  forecastAmount: { type: Number, required: true, min: 0 },
-  actualAmount:   { type: Number, default: 0, min: 0 },
-  contractType:   { type: String, enum: ['professional', 'geotechnical', 'construction'], required: true },
-}, { timestamps: true });
-
-forecastSchema.index({ tenantId: 1, projectId: 1 });
-forecastSchema.index({ projectId: 1, month: 1, contractType: 1 }, { unique: true });
-
-const Payment         = mongoose.model('Payment',         paymentSchema);
-const PaymentForecast = mongoose.model('PaymentForecast', forecastSchema);
+const { Payment, PaymentForecast } = require('../payments/payment.model');
 
 const withLifecycleProgress = (project) => {
   if (!project || typeof project !== 'object') return project;

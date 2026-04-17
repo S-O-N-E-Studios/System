@@ -4,12 +4,22 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NormalServices from './NormalServices';
 import { servicesApi } from '@/api/services';
+import apiClient from '@/api/client';
 
 vi.mock('@/api/services', () => ({
   servicesApi: {
     summary: vi.fn(),
     exportXlsx: vi.fn(),
     exportPdf: vi.fn(),
+  },
+}));
+
+vi.mock('@/api/client', () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -48,6 +58,7 @@ function renderNormalServices() {
 describe('NormalServices', () => {
   beforeEach(() => {
     vi.mocked(servicesApi.summary).mockResolvedValue(mockSummaries);
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { data: {} } });
   });
 
   it('renders Normal Services heading', async () => {

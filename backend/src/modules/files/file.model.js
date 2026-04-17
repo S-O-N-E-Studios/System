@@ -46,6 +46,11 @@ const fileSchema = new mongoose.Schema(
       enum: ['document', 'image', 'video'],
       default: 'document',
     },
+    billingPeriod: {
+      type: String,
+      default: null,
+      match: [/^\d{4}-\d{2}$/, 'Billing period must be in YYYY-MM format'],
+    },
     stage: {
       type: Number,
       enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, null],
@@ -121,6 +126,7 @@ const fileSchema = new mongoose.Schema(
 
 fileSchema.index({ tenantId: 1, projectId: 1 });
 fileSchema.index({ tenantId: 1, projectId: 1, stage: 1 });
+fileSchema.index({ tenantId: 1, projectId: 1, billingPeriod: 1 });
 fileSchema.index({ tenantId: 1, projectId: 1, category: 1 });
 fileSchema.index({ tenantId: 1, projectId: 1, clientVisible: 1 });
 fileSchema.index({ tenantId: 1, projectId: 1, approvalStatus: 1 });

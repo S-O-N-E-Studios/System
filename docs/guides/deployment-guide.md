@@ -1,4 +1,4 @@
-# Project 360 — Deployment Guide
+# EVIDENTIARY — Deployment Guide
 
 ---
 
@@ -43,7 +43,7 @@ Set these in the Vercel dashboard:
 
 | Variable | Value |
 |----------|-------|
-| `VITE_API_BASE_URL` | `https://api.project360.co.za/api/v1` |
+| `VITE_API_BASE_URL` | `https://api.evidentiary.co.za/api/v1` |
 | `VITE_USE_MOCK_AUTH` | `false` |
 | `VITE_MAP_PROVIDER` | `osm` (or `google`) |
 | `VITE_GOOGLE_MAPS_API_KEY` | Your key (if using Google Maps) |
@@ -84,7 +84,7 @@ All variables from `backend/.env.example` must be set, plus:
 | `PORT` | Platform-assigned or `5000` |
 | `USE_MEMORY_DB` | `false` |
 | `DATABASE_URL` | MongoDB Atlas connection string |
-| `CLIENT_URL` | `https://project360.co.za` |
+| `CLIENT_URL` | `https://evidentiary.co.za` |
 | `JWT_ACCESS_SECRET` | Strong random secret (32+ chars) |
 | `JWT_REFRESH_SECRET` | Different strong random secret |
 | `STORAGE_PROVIDER` | `s3` or `azure` |
@@ -96,8 +96,8 @@ A `Dockerfile` is provided in the backend:
 
 ```bash
 cd backend
-docker build -t project360-api .
-docker run -p 5000:5000 --env-file .env project360-api
+docker build -t evidentiary-api .
+docker run -p 5000:5000 --env-file .env evidentiary-api
 ```
 
 ---
@@ -172,7 +172,7 @@ AZURE_STORAGE_CONTAINER=project360
 ```
 EMAIL_PROVIDER=sendgrid
 SENDGRID_API_KEY=SG.xxxxx
-EMAIL_FROM=noreply@project360.co.za
+EMAIL_FROM=noreply@evidentiary.co.za
 ```
 
 ### SMTP
@@ -183,7 +183,7 @@ EMAIL_HOST=smtp.yourdomain.com
 EMAIL_PORT=587
 EMAIL_USER=...
 EMAIL_PASSWORD=...
-EMAIL_FROM=noreply@project360.co.za
+EMAIL_FROM=noreply@evidentiary.co.za
 ```
 
 ---
@@ -208,7 +208,7 @@ EMAIL_FROM=noreply@project360.co.za
 ### Health Check
 
 ```
-GET https://api.project360.co.za/api/v1/health
+GET https://api.evidentiary.co.za/api/v1/health
 ```
 
 Use your platform's health check feature to ping this endpoint.
@@ -227,7 +227,7 @@ The backend uses a structured logger (`src/config/logger.js`). In production:
 
 | Subdomain | Target |
 |-----------|--------|
-| `project360.co.za` | Vercel frontend |
-| `api.project360.co.za` | Backend server |
+| `evidentiary.co.za` | Vercel frontend |
+| `api.evidentiary.co.za` | Backend server |
 
 Set up DNS records as required by your hosting platforms. Both should use HTTPS.

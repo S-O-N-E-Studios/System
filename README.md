@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>P R O J E C T &nbsp; 3 6 0</strong><br/>
+  <strong>E V I D E N T I A R Y</strong><br/>
   <em>Engineering Project Management Platform</em>
 </p>
 
@@ -11,7 +11,7 @@
 
 ## Overview
 
-Project 360 is a **multi-tenant engineering project management platform** built for provincial government departments and consulting firms that manage infrastructure portfolios — water, sanitation, roads, energy, sport, and waste.
+EVIDENTIARY is a **multi-tenant engineering project management platform** built for provincial government departments and consulting firms that manage infrastructure portfolios — water, sanitation, roads, energy, sport, and waste.
 
 The platform tracks projects through an **11-stage lifecycle** (Multi-Year Planning → Complete), enforces **stage-gate document requirements** with client approval workflows, manages **variation orders**, **payment certificates**, and **funding source allocations**, and provides **IDP**, **Services**, **Kanban**, **Calendar**, **Maps**, and **Reports** views for full portfolio visibility.
 
@@ -232,7 +232,7 @@ Each module follows the pattern: `model → repository → service → controlle
 | `JWT_ACCESS_EXPIRES_IN` | `1h` | Access token TTL |
 | `JWT_REFRESH_EXPIRES_IN` | `7d` | Refresh token TTL |
 | `EMAIL_PROVIDER` | `smtp` | `smtp` or `sendgrid` |
-| `EMAIL_FROM` | `noreply@project360.co.za` | Sender address |
+| `EMAIL_FROM` | `noreply@evidentiary.co.za` | Sender address |
 | `STORAGE_PROVIDER` | `local` | `local`, `s3`, or `azure` |
 
 ### Frontend (`frontend/.env`)

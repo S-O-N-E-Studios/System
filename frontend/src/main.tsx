@@ -49,7 +49,7 @@ if (savedPeriwinkle && savedSand) {
   applyCustomAccentColors({ periwinkleHex: savedPeriwinkle, sandHex: savedSand });
 }
 
-document.title = 'PROJECT 360';
+document.title = 'EVIDENTIARY';
 
 syncAppFavicon();
 

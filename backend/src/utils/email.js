@@ -57,7 +57,7 @@ const resolveTenantOutbound = (tenant) => {
     auth: oe.authUser ? { user: oe.authUser, pass: pass || '' } : undefined,
   });
 
-  const name = (oe.fromName && String(oe.fromName).trim()) || tenant.name || 'Project 360';
+  const name = (oe.fromName && String(oe.fromName).trim()) || tenant.name || 'EVIDENTIARY';
   const from = `"${name.replace(/"/g, '')}" <${oe.fromAddress}>`;
   const replyTo = oe.replyTo || undefined;
 
@@ -75,7 +75,7 @@ const resolveMailer = (tenant) => {
   }
   return {
     transport: getPlatformTransporter(),
-    from: `"Project 360" <${env.EMAIL_FROM}>`,
+    from: `"EVIDENTIARY" <${env.EMAIL_FROM}>`,
     replyTo: undefined,
   };
 };
@@ -124,9 +124,9 @@ const sendPasswordResetEmail = async (to, resetToken, { tenant } = {}) => {
 
   await sendEmail({
     to,
-    subject: 'Reset your Project 360 password',
+    subject: 'Reset your EVIDENTIARY password',
     html: `
-      <p>You requested a password reset for your Project 360 account.</p>
+      <p>You requested a password reset for your EVIDENTIARY account.</p>
       <p>Click the link below to set a new password. This link expires in <strong>1 hour</strong>.</p>
       <p><a href="${resetUrl}">${resetUrl}</a></p>
       <p>If you did not request this, you can safely ignore this email.</p>
@@ -140,9 +140,9 @@ const sendInviteEmail = async (to, inviteToken, { orgName, invitedByName, role }
 
   await sendEmail({
     to,
-    subject: `You've been invited to ${orgName} on Project 360`,
+    subject: `You've been invited to ${orgName} on EVIDENTIARY`,
     html: `
-      <p>${invitedByName} has invited you to join <strong>${orgName}</strong> on Project 360 as a <strong>${role}</strong>.</p>
+      <p>${invitedByName} has invited you to join <strong>${orgName}</strong> on EVIDENTIARY as a <strong>${role}</strong>.</p>
       <p>Click the link below to accept your invitation and create your account. This link expires in <strong>72 hours</strong>.</p>
       <p><a href="${acceptUrl}">${acceptUrl}</a></p>
     `,
@@ -164,9 +164,9 @@ const sendClientActivationEmail = async (to, activationToken, { orgName, project
 
   await sendEmail({
     to,
-    subject: `You have been granted project access on Project 360 — ${orgName}`,
+    subject: `You have been granted project access on EVIDENTIARY — ${orgName}`,
     html: `
-      <p>You have been given temporary read-only access to the following project(s) in <strong>${orgName}</strong> on Project 360:</p>
+      <p>You have been given temporary read-only access to the following project(s) in <strong>${orgName}</strong> on EVIDENTIARY:</p>
       ${projectList}
       <p>Your access expires on <strong>${expiryDate}</strong>.</p>
       <p>Click the link below to activate your account. This activation link expires in <strong>7 days</strong>.</p>
@@ -192,9 +192,9 @@ const sendClientAccessExpiryWarning = async (to, { orgName, projectNames, expire
 
   await sendEmail({
     to,
-    subject: `Your Project 360 access expires in 24 hours — ${orgName}`,
+    subject: `Your EVIDENTIARY access expires in 24 hours — ${orgName}`,
     html: `
-      <p>Your temporary access to the following project(s) in <strong>${orgName}</strong> on Project 360 will expire in <strong>24 hours</strong>:</p>
+      <p>Your temporary access to the following project(s) in <strong>${orgName}</strong> on EVIDENTIARY will expire in <strong>24 hours</strong>:</p>
       ${projectList}
       <p>Access expires: <strong>${expiryDate}</strong></p>
       <p>If you need an extension, please contact the organisation that granted your access.</p>

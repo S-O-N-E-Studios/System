@@ -30,13 +30,18 @@ const sendConflict = (res, message) => sendError(res, "CONFLICT", message, 409);
 const sendValidationError = (res, message, details = null) =>
   sendError(res, "VALIDATION_ERROR", message, 422, details);
 
-const sendStageGateFailed = (res, stage, missing) =>
-  res.status(422).json({
+const sendStageGateFailed = (res, stage, missing, activitiesMissingImages = undefined) => {
+  const payload = {
     success: false,
     error: "STAGE_GATE_FAILED",
     stage,
     missing,
-  });
+  };
+  if (activitiesMissingImages !== undefined) {
+    payload.activitiesMissingImages = activitiesMissingImages;
+  }
+  return res.status(422).json(payload);
+};
 
 const sendWrongStageDocument = (res, documentStage) =>
   res.status(400).json({

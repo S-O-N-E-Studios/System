@@ -36,6 +36,7 @@ import { useCan } from '@/rbac/useCan';
 import {
   advanceProjectStage,
   fetchProjectStageStatus,
+  type StageRequiredDoc,
   type StageMissingDoc,
 } from '@/api/projectStage';
 import { filesApi } from '@/api/files';
@@ -84,6 +85,12 @@ function entityId<T extends { id?: string; _id?: string }>(entity: T | null | un
   return entity.id || entity._id || '';
 }
 
+function currentBillingPeriod(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${now.getFullYear()}-${month}`;
+}
+
 export default function ProjectDetail() {
   const { tenantSlug, id } = useParams<{ tenantSlug: string; id: string }>();
   const [activeTab, setActiveTab] = useState<typeof detailTabs[number]>('Overview');
@@ -95,6 +102,28 @@ export default function ProjectDetail() {
   const countdown = useCountdown(project?.completionDate || '2026-12-31');
   const [currentStage, setCurrentStage] = useState<ProjectStage>(1);
   const [stageMissingDocs, setStageMissingDocs] = useState<StageMissingDoc[]>([]);
+  const [stageRequiredDocs, setStageRequiredDocs] = useState<StageRequiredDoc[]>([]);
+  const [stageRequirementsMap, setStageRequirementsMap] = useState<Record<string, StageRequiredDoc[]>>({});
+  const [stage7Readiness, setStage7Readiness] = useState<{
+    periods: Array<{
+      period: string;
+      progressReportPresent: boolean;
+      safetyReportPresent: boolean;
+      cashFlowPresent: boolean;
+      paymentCertificateCount: number;
+      evidenceImageCount: number;
+      reportingComplete: boolean;
+      evidenceMinimum: number;
+      evidenceSufficient: boolean;
+    }>;
+    pendingVariationCount: number;
+  } | null>(null);
+  const [activitiesMissingImages, setActivitiesMissingImages] = useState<Array<{
+    activityId: string;
+    name: string;
+    imageCount: number;
+    required: number;
+  }>>([]);
   const [isStageLoading, setIsStageLoading] = useState(false);
   const [isStageStatusLoaded, setIsStageStatusLoaded] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
@@ -163,7 +192,7 @@ export default function ProjectDetail() {
   const profServicesDocs = (() => {
     const out: { documentName: string; category: string; stage: number; uploaded: boolean; fileName?: string }[] = [];
     ([1, 2, 3, 4] as const).forEach((stage) => {
-      const reqs = STAGE_DOCUMENT_REQUIREMENTS[stage];
+      const reqs = stageRequirementsMap[String(stage)] || STAGE_DOCUMENT_REQUIREMENTS[stage];
       const stageFiles = filesByStage[stage] ?? [];
       reqs.forEach((r) => {
         const match = stageFiles.find((f) => f.category === r.category);
@@ -180,7 +209,18 @@ export default function ProjectDetail() {
   })();
 
   const geoTechDocs = (() => {
-    const geoCategories = ['geotechnical', 'digital-survey', 'environmental'];
+    const geoReqs =
+      stageRequirementsMap['2']?.filter((r) =>
+        ['geotechnical', 'digital-survey', 'environmental', 'community-minutes'].includes(r.category),
+      ) || [];
+    const geoCategories = Array.from(
+      new Set([
+        ...geoReqs.map((r) => r.category),
+        'geotechnical',
+        'digital-survey',
+        'environmental',
+      ]),
+    );
     const allFiles = Object.values(filesByStage).flat();
     const geoFiles = allFiles.filter((f) => geoCategories.includes(f.category));
 
@@ -195,11 +235,14 @@ export default function ProjectDetail() {
       });
     }
 
-    const reqs = [
-      { name: 'Geotechnical Investigation Report', category: 'geotechnical' },
-      { name: 'Digital Survey Data', category: 'digital-survey' },
-      { name: 'Environmental Impact Assessment', category: 'environmental' },
-    ];
+    const reqs =
+      geoReqs.length > 0
+        ? geoReqs.map((r) => ({ name: r.documentName, category: r.category }))
+        : [
+            { name: 'Geotechnical Investigation Report', category: 'geotechnical' },
+            { name: 'Digital Survey Data', category: 'digital-survey' },
+            { name: 'Environmental Impact Assessment', category: 'environmental' },
+          ];
     for (const r of reqs) {
       if (![...docMap.values()].some((d) => d.category === r.category)) {
         docMap.set(r.name, { name: r.name, category: r.category, uploaded: false });
@@ -212,6 +255,22 @@ export default function ProjectDetail() {
   const visibleDocs = isClientTemp
     ? allProjectFiles.filter((f) => f.category !== 'payment-certificate' && f.category !== 'proof-of-payment')
     : allProjectFiles;
+  const stage7BlockingPeriods = (stage7Readiness?.periods || []).filter(
+    (row) => !row.reportingComplete || !row.evidenceSufficient || row.paymentCertificateCount === 0,
+  );
+  const stage7AdvanceWarning =
+    currentStage === 7 && stage7Readiness
+      ? [
+          stage7BlockingPeriods.length > 0
+            ? `${stage7BlockingPeriods.length} billing period(s) still blocked`
+            : '',
+          stage7Readiness.pendingVariationCount > 0
+            ? `${stage7Readiness.pendingVariationCount} variation order(s) pending approval`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('; ')
+      : '';
 
   useEffect(() => {
     let cancelled = false;
@@ -284,11 +343,19 @@ export default function ProjectDetail() {
 
         setCurrentStage(status.currentStage);
         setStageMissingDocs(status.missing);
+        setStageRequiredDocs(status.requiredDocuments);
+        setStageRequirementsMap(status.stageRequirements || {});
+        setStage7Readiness(status.stage7Readiness || null);
+        setActivitiesMissingImages(status.activitiesMissingImages || []);
         setIsStageStatusLoaded(true);
       } catch {
         // Keep currentStage defaults if backend is not wired yet.
         if (cancelled) return;
         setStageMissingDocs([]);
+        setStageRequiredDocs([]);
+        setStageRequirementsMap({});
+        setStage7Readiness(null);
+        setActivitiesMissingImages([]);
         setIsStageStatusLoaded(false);
       } finally {
         if (cancelled) return;
@@ -310,11 +377,18 @@ export default function ProjectDetail() {
 
       // Fetch when user opens the Files tab or opens a stage drawer.
       const shouldFetchAllStages = activeTab === 'Files';
-      const targetStages: ProjectStage[] = shouldFetchAllStages
-        ? ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as ProjectStage[])
-        : stageDrawerOpen != null
-          ? [stageDrawerOpen]
-          : [];
+      let targetStages: ProjectStage[] = [];
+      if (shouldFetchAllStages) {
+        targetStages = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as ProjectStage[];
+      } else if (activeTab === 'Professional Services') {
+        targetStages = [1, 2, 3, 4] as ProjectStage[];
+      } else if (activeTab === 'Geo-Technical') {
+        targetStages = [2] as ProjectStage[];
+      } else if (activeTab === 'Construction') {
+        targetStages = [7] as ProjectStage[];
+      } else if (stageDrawerOpen != null) {
+        targetStages = [stageDrawerOpen];
+      }
 
       if (targetStages.length === 0) return;
 
@@ -499,6 +573,10 @@ export default function ProjectDetail() {
       const status = await fetchProjectStageStatus({ tenantSlug, projectId: id });
       setCurrentStage(status.currentStage);
       setStageMissingDocs(status.missing);
+      setStageRequiredDocs(status.requiredDocuments);
+      setStageRequirementsMap(status.stageRequirements || {});
+      setStage7Readiness(status.stage7Readiness || null);
+      setActivitiesMissingImages(status.activitiesMissingImages || []);
       setIsStageStatusLoaded(true);
       addToast({ type: 'success', message: 'Stage 0 complete. Project moved to Stage 1.' });
     } catch {
@@ -735,8 +813,17 @@ export default function ProjectDetail() {
             <StageDocumentDrawer
               stage={stageDrawerOpen}
               projectId={id ?? ''}
+              requirements={
+                stageDrawerOpen === currentStage && stageRequiredDocs.length > 0
+                  ? stageRequiredDocs
+                  : stageRequirementsMap[String(stageDrawerOpen)] || STAGE_DOCUMENT_REQUIREMENTS[stageDrawerOpen]
+              }
               documents={
-                STAGE_DOCUMENT_REQUIREMENTS[stageDrawerOpen].map((r) => {
+                (
+                  stageDrawerOpen === currentStage && stageRequiredDocs.length > 0
+                    ? stageRequiredDocs
+                    : stageRequirementsMap[String(stageDrawerOpen)] || STAGE_DOCUMENT_REQUIREMENTS[stageDrawerOpen]
+                ).map((r) => {
                   const isPastStage = stageDrawerOpen < currentStage;
                   const isCurrentStage = stageDrawerOpen === currentStage;
                   const isMissing =
@@ -786,10 +873,12 @@ export default function ProjectDetail() {
                       if (!stage) return;
 
                       try {
+                        const billingPeriod = stage === 7 ? currentBillingPeriod() : undefined;
                         await filesApi.uploadStageDocument({
                           tenantSlug,
                           projectId: id,
                           stage,
+                          billingPeriod,
                           category,
                           file,
                         });
@@ -809,6 +898,10 @@ export default function ProjectDetail() {
                         });
                         setCurrentStage(status.currentStage);
                         setStageMissingDocs(status.missing);
+                        setStageRequiredDocs(status.requiredDocuments);
+                        setStageRequirementsMap(status.stageRequirements || {});
+                        setStage7Readiness(status.stage7Readiness || null);
+                        setActivitiesMissingImages(status.activitiesMissingImages || []);
                         setIsStageStatusLoaded(true);
                       } catch {
                         // Ignore; gate UI will refresh on the next stage-status load.
@@ -843,6 +936,10 @@ export default function ProjectDetail() {
                 await Promise.all([reloadApprovals(), fetchProjectStageStatus({ tenantSlug, projectId: id }).then((status) => {
                   setCurrentStage(status.currentStage);
                   setStageMissingDocs(status.missing);
+                  setStageRequiredDocs(status.requiredDocuments);
+                  setStageRequirementsMap(status.stageRequirements || {});
+                  setStage7Readiness(status.stage7Readiness || null);
+                  setActivitiesMissingImages(status.activitiesMissingImages || []);
                 }).catch(() => undefined)]);
               }}
               onRejectDocument={async (fileId, reason) => {
@@ -854,6 +951,10 @@ export default function ProjectDetail() {
                 await Promise.all([reloadApprovals(), fetchProjectStageStatus({ tenantSlug, projectId: id }).then((status) => {
                   setCurrentStage(status.currentStage);
                   setStageMissingDocs(status.missing);
+                  setStageRequiredDocs(status.requiredDocuments);
+                  setStageRequirementsMap(status.stageRequirements || {});
+                  setStage7Readiness(status.stage7Readiness || null);
+                  setActivitiesMissingImages(status.activitiesMissingImages || []);
                 }).catch(() => undefined)]);
               }}
               onAdvanceStage={
@@ -862,6 +963,12 @@ export default function ProjectDetail() {
                   : stageDrawerOpen === currentStage
                     ? () => {
                         void (async () => {
+                          if (stage7AdvanceWarning) {
+                            const proceed = window.confirm(
+                              `Stage 7 still has unresolved checks: ${stage7AdvanceWarning}. Continue advancing anyway?`,
+                            );
+                            if (!proceed) return;
+                          }
                           setIsAdvancing(true);
 
                           let succeeded = false;
@@ -877,6 +984,12 @@ export default function ProjectDetail() {
                               const body = err.response?.data as {
                                 error?: string;
                                 missing?: StageMissingDoc[];
+                                activitiesMissingImages?: Array<{
+                                  activityId: string;
+                                  name: string;
+                                  imageCount: number;
+                                  required: number;
+                                }>;
                               };
                               const missing = Array.isArray(body?.missing)
                                 ? body.missing.filter(
@@ -887,19 +1000,27 @@ export default function ProjectDetail() {
                                       typeof m.category === 'string',
                                   )
                                 : [];
+                              const missingActivityImages = Array.isArray(body?.activitiesMissingImages)
+                                ? body.activitiesMissingImages
+                                : [];
                               if (missing.length > 0) {
                                 setStageMissingDocs(missing);
                               }
+                              setActivitiesMissingImages(missingActivityImages);
                               const label =
                                 missing.length > 0
                                   ? missing.map((m) => m.documentName).join(', ')
                                   : 'Required documents';
+                              const activityLabel =
+                                missingActivityImages.length > 0
+                                  ? `; ${missingActivityImages.length} completed activit${missingActivityImages.length === 1 ? 'y is' : 'ies are'} below minimum images`
+                                  : '';
                               addToast({
                                 type: 'error',
                                 message:
                                   body?.error === 'STAGE_GATE_FAILED'
-                                    ? `Stage gate blocked. Missing: ${label}`
-                                    : `Cannot advance stage. ${label}`,
+                                    ? `Stage gate blocked. Missing: ${label}${activityLabel}`
+                                    : `Cannot advance stage. ${label}${activityLabel}`,
                               });
                             } else {
                               addToast({
@@ -916,6 +1037,10 @@ export default function ProjectDetail() {
                             });
                             setCurrentStage(status.currentStage);
                             setStageMissingDocs(status.missing);
+                            setStageRequiredDocs(status.requiredDocuments);
+                            setStageRequirementsMap(status.stageRequirements || {});
+                            setStage7Readiness(status.stage7Readiness || null);
+                            setActivitiesMissingImages(status.activitiesMissingImages || []);
                           } catch {
                             // If stage-status cannot be reloaded, keep current UI state.
                             setIsStageStatusLoaded(false);
@@ -1128,7 +1253,13 @@ export default function ProjectDetail() {
               {([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as ProjectStage[]).map((stage) => {
                 const stageFiles = filesByStage[stage] ?? [];
 
-                const stageReqs = STAGE_DOCUMENT_REQUIREMENTS[stage];
+                const stageReqs = stageRequirementsMap[String(stage)] || STAGE_DOCUMENT_REQUIREMENTS[stage];
+                const stageReqGroups = stageReqs.reduce<Record<string, typeof stageReqs>>((acc, req) => {
+                  const group = req.group || 'Required Documents';
+                  if (!acc[group]) acc[group] = [];
+                  acc[group].push(req);
+                  return acc;
+                }, {});
 
                 return (
                   <div key={stage} className="border border-[var(--border-default)] bg-[var(--bg-surface)]">
@@ -1170,112 +1301,121 @@ export default function ProjectDetail() {
                         </>
                       ) : (
                         <div className="space-y-4">
-                          {stageReqs.map((req) => {
-                            const matchingFiles = stageFiles.filter((f) => f.category === req.category);
-                            const isProofOfPayment = req.category === 'proof-of-payment';
+                          {Object.entries(stageReqGroups).map(([groupName, groupReqs]) => (
+                            <div key={`${stage}-${groupName}`} className="border border-[var(--border-default)] bg-[var(--bg-primary)]">
+                              <div className="px-3 py-2 border-b border-[var(--border-default)]">
+                                <p className="text-eyebrow">{groupName}</p>
+                              </div>
+                              <div className="px-3 py-2 space-y-4">
+                                {groupReqs.map((req) => {
+                                  const matchingFiles = stageFiles.filter((f) => f.category === req.category);
+                                  const isProofOfPayment = req.category === 'proof-of-payment';
 
-                            return (
-                              <div
-                                key={`${stage}-${req.category}`}
-                                className="py-3 border-b border-[var(--border-default)] last:border-0"
-                              >
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="min-w-0">
-                                    <p className="text-[0.85rem] font-medium text-[var(--text-primary)]">
-                                      {req.documentName}
-                                    </p>
-                                    <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">
-                                      {req.category.replace(/-/g, ' ')}
-                                    </p>
-                                  </div>
-
-                                  <div className="text-right shrink-0">
-                                    {matchingFiles.length > 0 ? (
-                                      <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold text-[var(--status-success)]">
-                                        <Check className="h-3.5 w-3.5" />
-                                        Uploaded
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold text-[var(--status-danger)]">
-                                        <X className="h-3.5 w-3.5" />
-                                        Missing
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {matchingFiles.length > 0 && (
-                                  <div className="mt-3 space-y-2">
-                                    {matchingFiles.map((file) => (
-                                      <div key={entityId(file as ProjectFile & { _id?: string })} className="flex items-center justify-between gap-4">
+                                  return (
+                                    <div
+                                      key={`${stage}-${groupName}-${req.category}`}
+                                      className="py-3 border-b border-[var(--border-default)] last:border-0"
+                                    >
+                                      <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0">
-                                          <p className="text-[0.78rem] text-[var(--text-primary)] truncate">
-                                            {file.originalName || file.filename || 'Untitled file'}
+                                          <p className="text-[0.85rem] font-medium text-[var(--text-primary)]">
+                                            {req.documentName}
                                           </p>
-                                          <p className="text-[0.6rem] text-[var(--text-muted)]">
-                                            Uploaded {new Date(file.createdAt).toLocaleDateString('en-GB')}
+                                          <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">
+                                            {req.category.replace(/-/g, ' ')}
                                           </p>
-                                          <div className="mt-1">
-                                            <ApprovalStatusBadge status={file.approvalStatus || 'not_required'} />
-                                          </div>
                                         </div>
-                                        <div className="flex flex-col items-end gap-2 shrink-0">
-                                          <label className="flex items-center gap-2 shrink-0">
-                                            <input
-                                              type="checkbox"
-                                              checked={file.clientVisible}
-                                              disabled={isProofOfPayment}
-                                              onChange={async (e) => {
-                                                try {
-                                                  await filesApi.setVisibility({
-                                                    tenantSlug,
-                                                    fileId: entityId(file as ProjectFile & { _id?: string }),
-                                                    clientVisible: e.target.checked,
-                                                  });
-                                                  setFilesByStage((prev) => ({
-                                                    ...prev,
-                                                    [stage]: prev[stage].map((f) =>
-                                                      entityId(f as ProjectFile & { _id?: string }) === entityId(file as ProjectFile & { _id?: string })
-                                                        ? { ...f, clientVisible: e.target.checked }
-                                                        : f
-                                                    ),
-                                                  }));
-                                                } catch {
-                                                  // Ignore; UI will refresh next fetch.
-                                                }
-                                              }}
-                                            />
-                                            <span className="text-[0.7rem] text-[var(--text-muted)]">
-                                              Client Visible
+
+                                        <div className="text-right shrink-0">
+                                          {matchingFiles.length > 0 ? (
+                                            <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold text-[var(--status-success)]">
+                                              <Check className="h-3.5 w-3.5" />
+                                              Uploaded
                                             </span>
-                                          </label>
-                                          {canApproveDocuments && file.approvalStatus === 'pending' && (
-                                            <div className="flex items-center gap-2">
-                                              <Button
-                                                variant="secondary"
-                                                className="!py-1 !px-2 text-[11px]"
-                                                onClick={async () => {
-                                                  const approval = approvals.find(
-                                                    (a) => a.fileId === entityId(file as ProjectFile & { _id?: string }),
-                                                  );
-                                                  const approvalId = entityId(approval as StageApproval & { _id?: string });
-                                                  if (!approvalId || !id) return;
-                                                  await stageApprovalsApi.approve(id, approvalId);
-                                                  await reloadApprovals();
-                                                }}
-                                              >
-                                                Approve
-                                              </Button>
-                                            </div>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold text-[var(--status-danger)]">
+                                              <X className="h-3.5 w-3.5" />
+                                              Missing
+                                            </span>
                                           )}
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
-                                )}
+
+                                      {matchingFiles.length > 0 && (
+                                        <div className="mt-3 space-y-2">
+                                          {matchingFiles.map((file) => (
+                                            <div key={entityId(file as ProjectFile & { _id?: string })} className="flex items-center justify-between gap-4">
+                                              <div className="min-w-0">
+                                                <p className="text-[0.78rem] text-[var(--text-primary)] truncate">
+                                                  {file.originalName || file.filename || 'Untitled file'}
+                                                </p>
+                                                <p className="text-[0.6rem] text-[var(--text-muted)]">
+                                                  Uploaded {new Date(file.createdAt).toLocaleDateString('en-GB')}
+                                                </p>
+                                                <div className="mt-1">
+                                                  <ApprovalStatusBadge status={file.approvalStatus || 'not_required'} />
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-col items-end gap-2 shrink-0">
+                                                <label className="flex items-center gap-2 shrink-0">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={file.clientVisible}
+                                                    disabled={isProofOfPayment}
+                                                    onChange={async (e) => {
+                                                      try {
+                                                        await filesApi.setVisibility({
+                                                          tenantSlug,
+                                                          fileId: entityId(file as ProjectFile & { _id?: string }),
+                                                          clientVisible: e.target.checked,
+                                                        });
+                                                        setFilesByStage((prev) => ({
+                                                          ...prev,
+                                                          [stage]: prev[stage].map((f) =>
+                                                            entityId(f as ProjectFile & { _id?: string }) === entityId(file as ProjectFile & { _id?: string })
+                                                              ? { ...f, clientVisible: e.target.checked }
+                                                              : f
+                                                          ),
+                                                        }));
+                                                      } catch {
+                                                        // Ignore; UI will refresh next fetch.
+                                                      }
+                                                    }}
+                                                  />
+                                                  <span className="text-[0.7rem] text-[var(--text-muted)]">
+                                                    Client Visible
+                                                  </span>
+                                                </label>
+                                                {canApproveDocuments && file.approvalStatus === 'pending' && (
+                                                  <div className="flex items-center gap-2">
+                                                    <Button
+                                                      variant="secondary"
+                                                      className="!py-1 !px-2 text-[11px]"
+                                                      onClick={async () => {
+                                                        const approval = approvals.find(
+                                                          (a) => a.fileId === entityId(file as ProjectFile & { _id?: string }),
+                                                        );
+                                                        const approvalId = entityId(approval as StageApproval & { _id?: string });
+                                                        if (!approvalId || !id) return;
+                                                        await stageApprovalsApi.approve(id, approvalId);
+                                                        await reloadApprovals();
+                                                      }}
+                                                    >
+                                                      Approve
+                                                    </Button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1386,6 +1526,73 @@ export default function ProjectDetail() {
       {/* ═══ Construction Tab ═══ */}
       {activeTab === 'Construction' && (
         <div className="space-y-8">
+          {stage7Readiness && (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+              <h3 className="text-h3 mb-2">Stage 7 Billing Readiness</h3>
+              <p className="text-body mb-4">
+                Monthly reporting and evidence checks used during payment certificate review.
+              </p>
+              <div className="mb-4 rounded border border-[var(--border-default)] bg-[var(--bg-surface-alt)] px-3 py-2 text-[0.75rem] text-[var(--text-muted)]">
+                Stage 7 uploads are auto-tagged with the current billing period (`YYYY-MM`).
+              </div>
+              {(stage7Readiness.pendingVariationCount > 0 || stage7BlockingPeriods.length > 0) && (
+                <div className="mb-4 rounded border border-[var(--status-review)] bg-[var(--accent-sand)] px-3 py-2 text-[0.75rem] text-[var(--status-review)]">
+                  {stage7BlockingPeriods.length > 0 && (
+                    <span>{stage7BlockingPeriods.length} billing period(s) are blocked for approval checks. </span>
+                  )}
+                  {stage7Readiness.pendingVariationCount > 0 && (
+                    <span>{stage7Readiness.pendingVariationCount} variation order(s) pending approval.</span>
+                  )}
+                </div>
+              )}
+              {activitiesMissingImages.length > 0 && (
+                <div className="mb-4 rounded border border-[var(--status-danger)] bg-[var(--bg-surface-alt)] px-3 py-2 text-[0.75rem] text-[var(--status-danger)]">
+                  {activitiesMissingImages.length} completed activit{activitiesMissingImages.length === 1 ? 'y is' : 'ies are'} below minimum image evidence.
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-[0.78rem]">
+                  <thead>
+                    <tr className="bg-[var(--accent-sand)]">
+                      <th className="text-left px-3 py-2">Period</th>
+                      <th className="text-left px-3 py-2">Progress</th>
+                      <th className="text-left px-3 py-2">Safety</th>
+                      <th className="text-left px-3 py-2">Cash Flow</th>
+                      <th className="text-left px-3 py-2">Images</th>
+                      <th className="text-left px-3 py-2">Certificates</th>
+                      <th className="text-left px-3 py-2">Readiness</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stage7Readiness.periods.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-3 py-3 text-[var(--text-muted)]">
+                          No Stage 7 billing periods captured yet.
+                        </td>
+                      </tr>
+                    )}
+                    {stage7Readiness.periods.map((row) => (
+                      <tr key={row.period} className="border-t border-[var(--border-default)]">
+                        <td className="px-3 py-2">{row.period}</td>
+                        <td className="px-3 py-2">{row.progressReportPresent ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2">{row.safetyReportPresent ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2">{row.cashFlowPresent ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2">
+                          {row.evidenceImageCount}/{row.evidenceMinimum}
+                        </td>
+                        <td className="px-3 py-2">{row.paymentCertificateCount}</td>
+                        <td className="px-3 py-2">
+                          {row.reportingComplete && row.evidenceSufficient && row.paymentCertificateCount > 0
+                            ? 'Ready'
+                            : 'Blocked'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
@@ -1489,21 +1696,31 @@ export default function ProjectDetail() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
               <p className="text-eyebrow mb-1">Original Contract Value</p>
-              <p className="text-currency">{formatRands(project?.contractValueOriginal || 0)}</p>
+              <p className="text-currency">
+                {isClientTemp
+                  ? '—— Restricted'
+                  : formatRands(project?.contractValueOriginal || 0)}
+              </p>
             </div>
             <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
               <p className="text-eyebrow mb-1">Total Variations</p>
               <p className="text-currency">
-                {formatRands(
-                  variations
-                    .filter((v) => v.status === 'approved')
-                    .reduce((sum, v) => sum + (v.approvedAmount ?? 0), 0),
-                )}
+                {isClientTemp
+                  ? '—— Restricted'
+                  : formatRands(
+                      variations
+                        .filter((v) => v.status === 'approved')
+                        .reduce((sum, v) => sum + (v.approvedAmount ?? 0), 0),
+                    )}
               </p>
             </div>
             <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
               <p className="text-eyebrow mb-1">Adjusted Contract Value</p>
-              <p className="text-currency">{formatRands(project?.contractValueAdjusted || 0)}</p>
+              <p className="text-currency">
+                {isClientTemp
+                  ? '—— Restricted'
+                  : formatRands(project?.contractValueAdjusted || 0)}
+              </p>
             </div>
           </div>
 
@@ -1545,8 +1762,16 @@ export default function ProjectDetail() {
                     >
                       <td className="py-2">{vo.variationNumber}</td>
                       <td className="py-2 max-w-[280px] truncate">{vo.description}</td>
-                      <td className="py-2 text-right">{formatRands(vo.estimatedAmount)}</td>
-                      <td className="py-2 text-right">{vo.approvedAmount != null ? formatRands(vo.approvedAmount) : '—'}</td>
+                      <td className="py-2 text-right">
+                        {isClientTemp ? '—— Restricted' : formatRands(vo.estimatedAmount)}
+                      </td>
+                      <td className="py-2 text-right">
+                        {isClientTemp
+                          ? '—— Restricted'
+                          : vo.approvedAmount != null
+                            ? formatRands(vo.approvedAmount)
+                            : '—'}
+                      </td>
                       <td className="py-2">
                         <span className="text-xs text-[var(--text-secondary)]">{vo.status.replace(/_/g, ' ')}</span>
                       </td>
@@ -1615,6 +1840,7 @@ export default function ProjectDetail() {
                   sizeBytes: file.size,
                   mediaType,
                   stage: currentStage,
+                  billingPeriod: currentStage === 7 ? currentBillingPeriod() : undefined,
                   captureDate,
                   description,
                 });
