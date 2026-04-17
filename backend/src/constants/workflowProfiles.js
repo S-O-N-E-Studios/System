@@ -68,12 +68,27 @@ const MUNICIPAL_STAGE_DOCUMENT_MAP = {
   9: ['final-approval', 'proof-of-payment', 'final-account', 'as-built-drawing', 'om-manual'],
 };
 
+const MUNICIPAL_APPROVAL_REQUIRED_CATEGORIES = [
+  'scoping-report',
+  'preliminary-design-report',
+  'detailed-design-report',
+  'tender-document',
+  'tender-evaluation',
+  'appointment-letter',
+  'payment-certificate',
+  'variation-certificate',
+  'practical-completion',
+  'final-approval',
+  'proof-of-payment',
+];
+
 const PRIVATE_STAGE_DOCUMENT_MAP = {
   ...MUNICIPAL_STAGE_DOCUMENT_MAP,
 };
 const PRIVATE_STAGE_DOCUMENT_SPECS = {
   ...MUNICIPAL_STAGE_DOCUMENT_SPECS,
 };
+const PRIVATE_APPROVAL_REQUIRED_CATEGORIES = [...MUNICIPAL_APPROVAL_REQUIRED_CATEGORIES];
 
 const getWorkflowProfileForTenant = (tenant) => {
   if (tenant?.workflowProfile) return tenant.workflowProfile;
@@ -93,6 +108,12 @@ const getStageDocumentSpecsForTenant = (tenant) => {
   return MUNICIPAL_STAGE_DOCUMENT_SPECS;
 };
 
+const getApprovalRequiredCategoriesForTenant = (tenant) => {
+  const profile = getWorkflowProfileForTenant(tenant);
+  if (profile === WORKFLOW_PROFILES.PRIVATE_V8) return PRIVATE_APPROVAL_REQUIRED_CATEGORIES;
+  return MUNICIPAL_APPROVAL_REQUIRED_CATEGORIES;
+};
+
 module.exports = {
   WORKFLOW_PROFILES,
   MUNICIPAL_STAGE_DOCUMENT_MAP,
@@ -100,4 +121,5 @@ module.exports = {
   getWorkflowProfileForTenant,
   getStageDocumentMapForTenant,
   getStageDocumentSpecsForTenant,
+  getApprovalRequiredCategoriesForTenant,
 };

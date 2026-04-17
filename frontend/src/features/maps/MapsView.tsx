@@ -51,7 +51,7 @@ export default function MapsView() {
     let cancelled = false;
     (async () => {
       try {
-        const { projects: apiProjects } = await projectsApi.list({ limit: 2000 });
+        const { projects: apiProjects } = await projectsApi.list({ limit: 100 });
         if (cancelled) return;
         const mapped: MapProjectRow[] = (apiProjects || []).map((p): MapProjectRow => {
           const lat = p.location?.lat;

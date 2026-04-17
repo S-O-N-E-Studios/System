@@ -1,0 +1,250 @@
+import apiClient from './client';
+import { useTenantStore } from '@/store/tenantStore';
+
+function slug() {
+  return useTenantStore.getState().getSlug() || '';
+}
+
+export type TopLevelStage = {
+  id: number;
+  key: string;
+  label: string;
+};
+
+export type WorkflowSummary = {
+  projectId: string;
+  stageTopLevel: number;
+  stageCheckpoint: string;
+  topLevelStages: TopLevelStage[];
+  legacyStage?: number;
+  gateRequirements?: WorkflowGateRequirement[];
+  canAdvance?: boolean;
+};
+
+export type WorkflowGateRequirement = {
+  code: string;
+  checkpoint: string;
+  entityType: string;
+  entityKey: string;
+  detail: string;
+};
+
+export type ProcurementStepKey = 'advert' | 'recommendations' | 'approval' | 'appointment_letter' | 'sla';
+export type ProcurementStepStatus = 'approved' | 'not_approved' | 'not_applicable';
+
+export type ProcurementTrail = {
+  _id: string;
+  appointmentType: string;
+  assignee?: {
+    name?: string | null;
+    firm?: string | null;
+    contactEmail?: string | null;
+  };
+  isComplete: boolean;
+  steps: Array<{
+    stepKey: ProcurementStepKey;
+    status: ProcurementStepStatus;
+    reason?: string | null;
+  }>;
+};
+
+export type PerformanceSnapshot = {
+  _id: string;
+  period: string;
+  consultant: {
+    rag: 'red' | 'amber' | 'green';
+    progressProjectedPct: number;
+    progressActualPct: number;
+    expenditureProjectedPct: number;
+    expenditureActualPct: number;
+  };
+  construction: {
+    rag: 'red' | 'amber' | 'green';
+    progressProjectedPct: number;
+    progressActualPct: number;
+    expenditureProjectedPct: number;
+    expenditureActualPct: number;
+    timeProjectedPct: number;
+    timeActualPct: number;
+  };
+};
+
+export type ExtensionOfTimeRequest = {
+  _id: string;
+  referenceNumber: string;
+  reason: string;
+  requestedDays: number;
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'withdrawn';
+  rejectionReason?: string | null;
+  assignedApproverId?: string | null;
+  supportingFileIds?: string[];
+  consultantRecommendationFileId?: string | null;
+  pmuRecommendationFileId?: string | null;
+  approvalFileId?: string | null;
+  requestedDaysThreshold?: number | null;
+  thresholdWarningNote?: string | null;
+  thresholdExceeded?: boolean;
+};
+
+export type PenaltyRecord = {
+  _id: string;
+  penaltyType: 'delay' | 'quality' | 'contractual' | 'other';
+  amountCents: number;
+  reason: string;
+  status: 'draft' | 'approved' | 'waived';
+  assignedApproverId?: string | null;
+  supportingFileIds?: string[];
+  thresholdAmountCents?: number | null;
+  thresholdWarningNote?: string | null;
+  thresholdExceeded?: boolean;
+};
+
+export type AuditLogEntry = {
+  _id: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  actorName?: string | null;
+  actorRole?: string | null;
+  timestamp: string;
+  overrideFlag?: boolean;
+};
+
+export const workflowApi = {
+  getWorkflow: async (projectId: string): Promise<WorkflowSummary> => {
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/workflow`);
+    return res.data?.data || res.data;
+  },
+
+  advanceWorkflow: async (projectId: string) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/workflow/advance`);
+    return res.data?.data || res.data;
+  },
+
+  listPerformance: async (projectId: string): Promise<{ latest: PerformanceSnapshot | null; snapshots: PerformanceSnapshot[] }> => {
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/performance`);
+    const body = res.data?.data || res.data;
+    return { latest: body?.latest || null, snapshots: body?.snapshots || [] };
+  },
+
+  upsertPerformance: async (
+    projectId: string,
+    payload: {
+      period: string;
+      consultant: {
+        rag: 'red' | 'amber' | 'green';
+        progressProjectedPct: number;
+        progressActualPct: number;
+        expenditureProjectedPct: number;
+        expenditureActualPct: number;
+      };
+      construction: {
+        rag: 'red' | 'amber' | 'green';
+        progressProjectedPct: number;
+        progressActualPct: number;
+        expenditureProjectedPct: number;
+        expenditureActualPct: number;
+        timeProjectedPct: number;
+        timeActualPct: number;
+      };
+    }
+  ) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/performance/snapshots`, payload);
+    return res.data?.data?.snapshot || res.data?.snapshot;
+  },
+
+  listProcurementTrails: async (projectId: string): Promise<ProcurementTrail[]> => {
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/procurement-trails`);
+    const body = res.data?.data || res.data;
+    return body?.trails || [];
+  },
+
+  createProcurementTrail: async (projectId: string, payload: { appointmentType: string }) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/procurement-trails`, payload);
+    return res.data?.data?.trail || res.data?.trail;
+  },
+
+  reviewProcurementStep: async (
+    projectId: string,
+    trailId: string,
+    stepKey: ProcurementStepKey,
+    payload: { status: ProcurementStepStatus; reason?: string }
+  ) => {
+    const res = await apiClient.post(
+      `/${slug()}/projects/${projectId}/procurement-trails/${trailId}/steps/${stepKey}/review`,
+      payload
+    );
+    return res.data?.data?.trail || res.data?.trail;
+  },
+
+  listExtensionOfTime: async (projectId: string): Promise<ExtensionOfTimeRequest[]> => {
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/extension-of-time`);
+    const body = res.data?.data || res.data;
+    return body?.requests || [];
+  },
+
+  createExtensionOfTime: async (
+    projectId: string,
+    payload: {
+      reason: string;
+      requestedDays: number;
+      consultantRecommendationFileId?: string;
+      pmuRecommendationFileId?: string;
+      approvalFileId?: string;
+      supportingFileIds?: string[];
+      assignedApproverId?: string;
+      requestedDaysThreshold?: number;
+      thresholdExceeded?: boolean;
+      thresholdWarningNote?: string;
+    }
+  ) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/extension-of-time`, payload);
+    return res.data?.data?.request || res.data?.request;
+  },
+
+  listPenalties: async (projectId: string): Promise<PenaltyRecord[]> => {
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/penalties`);
+    const body = res.data?.data || res.data;
+    return body?.penalties || [];
+  },
+
+  createPenalty: async (
+    projectId: string,
+    payload: {
+      penaltyType: PenaltyRecord['penaltyType'];
+      amountCents: number;
+      reason: string;
+      supportingFileIds?: string[];
+      assignedApproverId?: string;
+      thresholdAmountCents?: number;
+      thresholdExceeded?: boolean;
+      thresholdWarningNote?: string;
+    }
+  ) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/penalties`, payload);
+    return res.data?.data?.penalty || res.data?.penalty;
+  },
+
+  listAuditLog: async (
+    projectId: string,
+    params?: {
+      page?: number;
+      limit?: number;
+      action?: string;
+      overrideOnly?: boolean;
+      entityType?: string;
+      actor?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    }
+  ): Promise<{ entries: AuditLogEntry[]; page: number; limit: number; total: number }> => {
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/audit`, { params });
+    const body = res.data?.data || res.data;
+    return {
+      entries: body?.entries || [],
+      page: body?.page || 1,
+      limit: body?.limit || 50,
+      total: body?.total || 0,
+    };
+  },
+};

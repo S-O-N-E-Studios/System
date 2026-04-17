@@ -1,19 +1,29 @@
 /** Placeholder for empty values in UI (no em dashes) */
 export const EMPTY_PLACEHOLDER = 'N/A';
 
+const ZAR_WHOLE_FORMATTER = new Intl.NumberFormat('en-ZA', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+function toFiniteNumber(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return value;
+}
+
 /**
  * Format integer cents as ZAR currency string: R X,XXX,XXX
  */
 export function formatCurrency(amountInCents: number): string {
-  const rands = amountInCents / 100;
-  return `R ${rands.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const rands = toFiniteNumber(amountInCents) / 100;
+  return `R ${ZAR_WHOLE_FORMATTER.format(rands)}`;
 }
 
 /**
  * Format a raw number (already in rands) as ZAR
  */
 export function formatRands(amount: number): string {
-  return `R ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `R ${ZAR_WHOLE_FORMATTER.format(toFiniteNumber(amount))}`;
 }
 
 /**

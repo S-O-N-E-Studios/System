@@ -11,9 +11,17 @@ const withLifecycleProgress = (project) => {
   if (!project || typeof project !== 'object') return project;
   const stage = Number(project.currentStage);
   const bounded = Number.isFinite(stage) ? Math.max(0, Math.min(10, Math.round(stage))) : 0;
+  const topLevelStage = Number(project.stageTopLevel);
+  const boundedTopLevel = Number.isFinite(topLevelStage)
+    ? Math.max(1, Math.min(5, Math.round(topLevelStage)))
+    : null;
+  const topLevelPercentComplete = boundedTopLevel
+    ? Math.round((boundedTopLevel / 5) * 100)
+    : null;
   return {
     ...project,
     percentComplete: Math.round((bounded / 10) * 100),
+    topLevelPercentComplete,
   };
 };
 
@@ -27,6 +35,7 @@ const buildProjectFilter = (tenantId, query = {}) => {
   if (query.localMunicipality) filter.localMunicipality = query.localMunicipality;
   if (query.deptId)            filter.deptId            = query.deptId;
   if (query.stage)             filter.currentStage      = parseInt(query.stage, 10);
+  if (query.stageTopLevel)     filter.stageTopLevel     = parseInt(query.stageTopLevel, 10);
   if (query.contractType)      filter.contractTypes     = query.contractType;
 
   if (query.search) {

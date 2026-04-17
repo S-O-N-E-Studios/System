@@ -53,7 +53,7 @@ const fileSchema = new mongoose.Schema(
     },
     stage: {
       type: Number,
-      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, null],
+      enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, null],
       default: null,
     },
     category: {

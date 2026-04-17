@@ -7,7 +7,7 @@
 //  *   router.delete('/tenants/:id', authenticate, requireSuperAdmin, controller)
 
 
-const { ROLES, ADMIN_ROLES, WRITER_ROLES } = require('../constants/roles');
+const { ROLES, ADMIN_ROLES, WRITER_ROLES, APPROVER_ROLES } = require('../constants/roles');
 const { sendForbidden, sendUnauthorized }  = require('../utils/apiResponse');
 
 
@@ -43,6 +43,7 @@ const requireDeptAdmin = requireRole([ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.
 
 //  PM, DEPT_ADMIN, ORG_ADMIN, SUPER_ADMIN 
 const requirePM = requireRole(WRITER_ROLES);
+const requireApprover = requireRole([ROLES.SUPER_ADMIN, ...APPROVER_ROLES]);
 
 //  Any authenticated user except CLIENT_TEMP 
 const requirePermanentUser = requireRole([
@@ -91,6 +92,7 @@ module.exports = {
   requireOrgAdmin,
   requireDeptAdmin,
   requirePM,
+  requireApprover,
   requirePermanentUser,
   denyClientTemp,
   requireDeptScope,

@@ -45,6 +45,7 @@ const createProjectSchema = Joi.object({
   geoTecEngineer: Joi.string().trim().allow(null, ''),
   contractor: Joi.string().trim().allow(null, ''),
   linkedMultiYearPlanId: Joi.string().hex().length(24).allow(null, ''),
+  projectDurationType: Joi.string().valid('one_year', 'multi_year').default('one_year'),
   stage0Contacts: Joi.array().items(stage0ContactSchema).default([]),
 });
 
@@ -68,6 +69,7 @@ const updateProjectSchema = Joi.object({
   geoTecEngineer: Joi.string().trim().allow(null, ''),
   contractor: Joi.string().trim().allow(null, ''),
   linkedMultiYearPlanId: Joi.string().hex().length(24).allow(null, ''),
+  projectDurationType: Joi.string().valid('one_year', 'multi_year'),
   stage0Contacts: Joi.array().items(stage0ContactSchema),
   stage0CompletedAt: Joi.date().iso().allow(null),
 });

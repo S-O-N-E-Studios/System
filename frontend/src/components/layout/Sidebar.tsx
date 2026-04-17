@@ -14,6 +14,7 @@ import {
   Landmark,
   FileSpreadsheet,
   Layers,
+  CheckSquare,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
@@ -48,6 +49,7 @@ export default function Sidebar() {
     { label: 'Multi-Year Planning', icon: <CalendarDays className="h-4 w-4 shrink-0" />, path: 'planning', permission: 'view_planning' },
     { label: 'IDP View', icon: <FileSpreadsheet className="h-4 w-4 shrink-0" />, path: 'idp', permission: 'view_idp' },
     { label: 'Normal Services', icon: <Layers className="h-4 w-4 shrink-0" />, path: 'services', permission: 'view_services' },
+    { label: 'Approvals', icon: <CheckSquare className="h-4 w-4 shrink-0" />, path: 'approvals', permission: 'approve_documents' },
     {
       label: 'Kanban Board',
       icon: <Columns3 className="h-4 w-4 shrink-0" />,

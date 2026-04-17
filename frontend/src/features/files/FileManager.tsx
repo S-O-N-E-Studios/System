@@ -51,6 +51,10 @@ interface FileCard {
   downloadUrl?: string;
 }
 
+function entityId<T extends { id?: string; _id?: string }>(item: T): string {
+  return item.id || item._id || '';
+}
+
 function fileCategoryToDocumentType(category: FileCategory): DocumentType {
   if (category === 'payment-certificate') return 'payment_certificate';
   if (category === 'tender-document' || category === 'tender-evaluation') return 'tender_document';
@@ -77,7 +81,7 @@ function mapProjectFileToFileCard(pf: ProjectFile): FileCard {
   });
   const size = pf.sizeBytes ?? pf.size;
   return {
-    id: pf.id,
+    id: entityId(pf as ProjectFile & { _id?: string }),
     name: pf.originalName,
     documentType: fileCategoryToDocumentType(pf.category),
     size,
@@ -148,13 +152,13 @@ export default function FileManager() {
       filesApi.list({
         tenantSlug: tenantSlug!,
         page: 1,
-        pageSize: 200,
+        pageSize: 100,
       }),
     enabled: Boolean(tenantSlug),
   });
   const { data: projectsPage } = useQuery({
     queryKey: ['projects', 'for-file-manager', tenantSlug],
-    queryFn: () => projectsApi.list({ limit: 200 }),
+    queryFn: () => projectsApi.list({ limit: 100 }),
     enabled: Boolean(tenantSlug),
   });
 
@@ -177,11 +181,12 @@ export default function FileManager() {
 
   useEffect(() => {
     if (!selectedProjectId && projectsPage?.projects?.length) {
-      setSelectedProjectId(projectsPage.projects[0].id);
+      const firstProjectId = entityId(projectsPage.projects[0] as { id?: string; _id?: string });
+      if (firstProjectId) setSelectedProjectId(firstProjectId);
     }
   }, [projectsPage, selectedProjectId]);
 
-  const projectNameById = new Map((projectsPage?.projects || []).map((project) => [project.id, project.name]));
+  const projectNameById = new Map((projectsPage?.projects || []).map((project) => [entityId(project as { id?: string; _id?: string }), project.name]));
   const allFiles = fetchedFiles.map((file) => ({
     ...file,
     project: projectNameById.get(file.project.replace('Project ', '')) || file.project,
@@ -382,7 +387,7 @@ export default function FileManager() {
             >
               <option value="">Select project</option>
               {(projectsPage?.projects || []).map((project) => (
-                <option key={project.id} value={project.id}>
+                <option key={entityId(project as { id?: string; _id?: string })} value={entityId(project as { id?: string; _id?: string })}>
                   {project.name}
                 </option>
               ))}

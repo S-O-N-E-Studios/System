@@ -3,7 +3,11 @@
 const fileRepo = require('./file.repository');
 const StageApproval = require('../stage-gate/stageApproval.model');
 const Project = require('../projects/project.model');
-const { APPROVAL_REQUIRED_CATEGORIES } = require('../../constants/fileCategories');
+const { getApprovalRequiredCategoriesForTenant } = require('../../constants/workflowProfiles');
+const { ROLES } = require('../../constants/roles');
+const userRepo = require('../users/user.repository');
+const { sendEmail } = require('../../utils/email');
+const env = require('../../config/env');
 const storage = require('../../utils/storage');
 const STAGE7_BILLING_CATEGORIES = new Set([
   'progress-report',
@@ -27,7 +31,7 @@ const assertProjectExists = async (tenantId, projectId) => {
     tenantId,
     deletedAt: null,
   })
-    .select('_id currentStage')
+    .select('_id currentStage name')
     .lean();
   if (!project) {
     throw Object.assign(new Error('Project not found'), { status: 404 });
@@ -35,8 +39,43 @@ const assertProjectExists = async (tenantId, projectId) => {
   return project;
 };
 
+const notifyClientApproversForPendingApproval = async (tenant, project, approval, file) => {
+  const approvers = await userRepo.findTenantMembers(
+    tenant._id,
+    { role: ROLES.CLIENT_APPROVER },
+    { page: 1, limit: 100 }
+  );
+  if (!approvers.length) return;
+
+  const approvalUrl = `${env.CLIENT_URL}/${encodeURIComponent(tenant.slug)}/projects/${project._id}`;
+  await Promise.all(
+    approvers
+      .filter((user) => Boolean(user.email))
+      .map((user) =>
+        sendEmail({
+          to: user.email,
+          subject: `Client approval required: ${project.name || 'Project'} (${file.category})`,
+          html: `
+            <p>A document is waiting on client approval in EVIDENTIARY.</p>
+            <p><strong>Project:</strong> ${project.name || project._id}</p>
+            <p><strong>Category:</strong> ${file.category}</p>
+            <p><strong>Status:</strong> Waiting on client approval</p>
+            <p>Open the project to approve or reject:</p>
+            <p><a href="${approvalUrl}">${approvalUrl}</a></p>
+          `,
+          tenant,
+        })
+      )
+  );
+
+  approval.notificationSentAt = new Date();
+  approval.notificationSentCount = Number(approval.notificationSentCount || 0) + 1;
+  await approval.save();
+};
+
 const registerFile = async (tenant, data, userId) => {
-  const needsApproval = APPROVAL_REQUIRED_CATEGORIES.includes(data.category);
+  const approvalCategories = getApprovalRequiredCategoriesForTenant(tenant);
+  const needsApproval = approvalCategories.includes(data.category);
   const project = await assertProjectExists(tenant._id, data.projectId);
   const stage = Number(data.stage);
   const billingPeriod = data.billingPeriod ? String(data.billingPeriod).trim() : '';
@@ -77,7 +116,7 @@ const registerFile = async (tenant, data, userId) => {
   const file = await fileRepo.create(doc);
 
   if (needsApproval) {
-    await StageApproval.create({
+    const approval = await StageApproval.create({
       tenantId: tenant._id,
       projectId: data.projectId,
       stage: stageForApproval,
@@ -85,6 +124,11 @@ const registerFile = async (tenant, data, userId) => {
       fileId: file._id,
       approvalStatus: 'pending',
     });
+    try {
+      await notifyClientApproversForPendingApproval(tenant, project, approval, file);
+    } catch {
+      // Do not block file registration if notification fails.
+    }
   }
 
   return file;

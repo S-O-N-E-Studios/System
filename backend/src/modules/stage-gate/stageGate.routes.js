@@ -30,4 +30,10 @@ router.post(
   asyncHandler(ctrl.rejectDocument),
 );
 
+router.post(
+  '/:approvalId/notify-client',
+  requireRole(APPROVER_ROLES),
+  asyncHandler(ctrl.resendClientApprovalNotification),
+);
+
 module.exports = router;

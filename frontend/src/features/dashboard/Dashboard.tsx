@@ -82,7 +82,7 @@ export default function Dashboard() {
 
   const { data: allProjects } = useQuery({
     queryKey: ['projects', 'map', tenantSlug],
-    queryFn: () => projectsApi.list({ limit: 2000 }),
+    queryFn: () => projectsApi.list({ limit: 100 }),
     enabled: Boolean(tenantSlug),
   });
 

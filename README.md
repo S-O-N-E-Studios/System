@@ -68,7 +68,8 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-The backend ships with `USE_MEMORY_DB=true` by default — **no MongoDB install required** for local development.
+The backend now defaults to `USE_MEMORY_DB=false`, so it will connect to your configured MongoDB URI first.
+Set `USE_MEMORY_DB=true` only when you explicitly want an in-memory database for local/testing workflows.
 
 ### 3. Start development servers
 
@@ -225,7 +226,7 @@ Each module follows the pattern: `model → repository → service → controlle
 | `NODE_ENV` | `development` | Environment |
 | `CLIENT_URL` | `http://localhost:3000` | CORS origin |
 | `DATABASE_URL` | `mongodb://localhost:27017/project360` | MongoDB connection |
-| `USE_MEMORY_DB` | `true` | In-memory DB for dev |
+| `USE_MEMORY_DB` | `false` | In-memory DB override (when true, bypasses configured Mongo URI) |
 | `JWT_SECRET` | — | Fallback JWT secret |
 | `JWT_ACCESS_SECRET` | — | Access token secret |
 | `JWT_REFRESH_SECRET` | — | Refresh token secret |

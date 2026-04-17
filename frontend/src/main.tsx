@@ -16,7 +16,20 @@ import { syncAppFavicon } from '@/utils/syncAppFavicon';
 // Hydrate auth session on load via cookie-based refresh tokens.
 useAuthStore.getState().setLoading(true);
 
+const pathname = window.location.pathname || '/';
+const isPublicAuthRoute =
+  pathname === '/' ||
+  pathname === '/login' ||
+  pathname === '/register' ||
+  pathname.startsWith('/invite/') ||
+  pathname.startsWith('/client-access/') ||
+  pathname === '/access-expired';
+
 void (async () => {
+  if (isPublicAuthRoute) {
+    useAuthStore.getState().setLoading(false);
+    return;
+  }
   try {
     const tokens = await authApi.refreshToken();
     useAuthStore.getState().refreshTokens(tokens);

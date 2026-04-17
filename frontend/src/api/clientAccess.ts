@@ -90,6 +90,18 @@ export const clientAccessApi = {
   revoke: async (tenantSlug: string, id: string): Promise<void> => {
     await apiClient.patch(`/${tenantSlug}/client-access/${id}/revoke`);
   },
+
+  grant: async (
+    tenantSlug: string,
+    payload: {
+      clientEmail: string;
+      projectIds: string[];
+      expiresAt: string;
+      canApproveDocuments?: boolean;
+    }
+  ): Promise<void> => {
+    await apiClient.post(`/${tenantSlug}/client-access`, payload);
+  },
 };
 
 export async function fetchClientAccessGrants(params: {

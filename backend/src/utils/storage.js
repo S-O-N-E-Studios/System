@@ -78,8 +78,11 @@ const getAzureDownloadPresignedUrl = async (_storagePath) => {
  */
 const getUploadUrl = (storagePath, mimeType) => {
   if (env.isTest) return Promise.resolve(`https://mock-storage.test/${storagePath}`);
+  if (!env.AWS_REGION || !env.AWS_S3_BUCKET) {
+    return Promise.resolve(`placeholder://${storagePath}`);
+  }
   if (env.STORAGE_PROVIDER === 'azure') return getAzureUploadPresignedUrl(storagePath, mimeType);
-  return getS3UploadPresignedUrl(storagePath, mimeType);
+  return getS3UploadPresignedUrl(storagePath, mimeType).catch(() => `placeholder://${storagePath}`);
 };
 
 /**
@@ -87,8 +90,11 @@ const getUploadUrl = (storagePath, mimeType) => {
  */
 const getDownloadUrl = (storagePath) => {
   if (env.isTest) return Promise.resolve(`https://mock-storage.test/${storagePath}`);
+  if (!env.AWS_REGION || !env.AWS_S3_BUCKET) {
+    return Promise.resolve(`placeholder://${storagePath}`);
+  }
   if (env.STORAGE_PROVIDER === 'azure') return getAzureDownloadPresignedUrl(storagePath);
-  return getS3DownloadPresignedUrl(storagePath);
+  return getS3DownloadPresignedUrl(storagePath).catch(() => `placeholder://${storagePath}`);
 };
 
 module.exports = { buildStoragePath, getUploadUrl, getDownloadUrl };

@@ -1,15 +1,9 @@
 import type { ApprovalStatus } from '@/types';
+import { APPROVAL_STATUS_LABELS } from '@/utils/statusLabels';
 
 interface ApprovalStatusBadgeProps {
   status?: ApprovalStatus;
 }
-
-const labelByStatus: Record<ApprovalStatus, string> = {
-  approved: 'Approved',
-  pending: 'Pending',
-  rejected: 'Rejected',
-  not_required: 'Not Required',
-};
 
 const classByStatus: Record<ApprovalStatus, string> = {
   approved: 'bg-[var(--status-success)]/10 text-[var(--status-success)] border-[var(--status-success)]/30',
@@ -26,7 +20,7 @@ export default function ApprovalStatusBadge({ status = 'not_required' }: Approva
         classByStatus[status],
       ].join(' ')}
     >
-      {labelByStatus[status]}
+      {APPROVAL_STATUS_LABELS[status]}
     </span>
   );
 }

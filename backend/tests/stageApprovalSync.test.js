@@ -156,5 +156,56 @@ describe("stage approval sync", () => {
     expect(refreshedFile.rejectionReason).toBe("Insufficient detail");
     expect(events.length).toBe(1);
   });
+
+  it("blocks Stage 9 approval for non-org-admin approver role", async () => {
+    const tenant = await Tenant.create({
+      slug: "stage9-tenant",
+      name: "Stage9 Tenant",
+      orgType: "private_firm",
+      status: "active",
+    });
+    const userId = new mongoose.Types.ObjectId();
+    const project = await Project.create({
+      tenantId: tenant._id,
+      name: "Project C",
+      serviceCategory: "roads_stormwater",
+      contractValueOriginal: 1000000,
+      contractValueAdjusted: 1000000,
+      createdBy: userId,
+    });
+    const file = await File.create({
+      tenantId: tenant._id,
+      projectId: project._id,
+      originalName: "final-approval.pdf",
+      storagePath: "s3://bucket/final-approval.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 1000,
+      category: "final-approval",
+      stage: 9,
+      approvalStatus: "pending",
+      uploadedBy: userId,
+    });
+    const approval = await StageApproval.create({
+      tenantId: tenant._id,
+      projectId: project._id,
+      stage: 9,
+      documentCategory: "final-approval",
+      fileId: file._id,
+      approvalStatus: "pending",
+    });
+
+    const req = {
+      tenant: { _id: tenant._id },
+      user: { sub: userId, role: "CLIENT_APPROVER" },
+      tenantMembership: { role: "CLIENT_APPROVER" },
+      params: { id: project._id.toString(), approvalId: approval._id.toString() },
+    };
+    const res = makeRes();
+
+    await expect(stageGateController.approveDocument(req, res)).rejects.toMatchObject({
+      status: 403,
+      code: "FORBIDDEN",
+    });
+  });
 });
 

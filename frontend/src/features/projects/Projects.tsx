@@ -12,6 +12,14 @@ import { formatDate, formatRands } from '@/utils/formatters';
 import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
 import { exportPdf, exportXlsx } from '@/utils/clientExports';
 import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
+import {
+  TABLE_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  TABLE_ROW_BASE,
+  TABLE_ROW_INTERACTIVE,
+  TABLE_SURFACE,
+} from '@/utils/tableStyles';
 import { useAuthStore } from '@/store/authStore';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import { fetchClientTempScope } from '@/api/clientAccess';
@@ -151,6 +159,7 @@ export default function Projects() {
   const [activeTab, setActiveTab] = useState<ContractTab>('ps');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | ''>('');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'needs_action' | 'active' | 'planning' | 'done'>('all');
   const [exportOpen, setExportOpen] = useState(false);
 
   const { user } = useAuthStore();
@@ -227,12 +236,33 @@ export default function Projects() {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
         const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
         const matchesClientScope = !isClientTemp || allowedProjectIds.includes(p.id);
-        return matchesSearch && matchesService && matchesClientScope;
+        const matchesQuickFilter =
+          quickFilter === 'all'
+            ? true
+            : quickFilter === 'needs_action'
+              ? p.status === 'review' || p.constructionStatus === 'at_risk' || p.constructionStatus === 'delayed'
+              : quickFilter === 'active'
+                ? p.status === 'active'
+                : quickFilter === 'planning'
+                  ? p.status === 'planning'
+                  : p.status === 'done' || p.constructionStatus === 'complete';
+        return matchesSearch && matchesService && matchesClientScope && matchesQuickFilter;
       }),
-    [portfolioProjects, searchQuery, serviceCategoryFilter, isClientTemp, allowedProjectIds],
+    [portfolioProjects, searchQuery, serviceCategoryFilter, isClientTemp, allowedProjectIds, quickFilter],
   );
 
   const showEmpty = filteredProjects.length === 0;
+  const summary = useMemo(() => {
+    const inScope = portfolioProjects.filter((p) => !isClientTemp || allowedProjectIds.includes(p.id));
+    return {
+      total: inScope.length,
+      active: inScope.filter((p) => p.status === 'active').length,
+      needsAction: inScope.filter(
+        (p) => p.status === 'review' || p.constructionStatus === 'at_risk' || p.constructionStatus === 'delayed',
+      ).length,
+      completed: inScope.filter((p) => p.status === 'done' || p.constructionStatus === 'complete').length,
+    };
+  }, [portfolioProjects, isClientTemp, allowedProjectIds]);
 
   type ProjectExportRow = {
     projectName: string;
@@ -357,10 +387,32 @@ export default function Projects() {
             <option key={k} value={k}>{SERVICE_CATEGORY_LABELS[k]}</option>
           ))}
         </select>
-        <Button variant="secondary" className="!min-w-0 !px-4">
-          <Filter className="h-3.5 w-3.5" />
-          Filter
-        </Button>
+        <div className="flex items-center gap-2">
+          <Filter className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'needs_action', label: 'Needs Action' },
+            { key: 'active', label: 'Active' },
+            { key: 'planning', label: 'Planning' },
+            { key: 'done', label: 'Complete' },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() =>
+                setQuickFilter(item.key as 'all' | 'needs_action' | 'active' | 'planning' | 'done')
+              }
+              className={[
+                'px-2.5 py-1.5 text-[0.72rem] border',
+                quickFilter === item.key
+                  ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-glow)]'
+                  : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
         <Button
           variant="secondary"
           className="!min-w-0 !px-4"
@@ -371,9 +423,28 @@ export default function Projects() {
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Total Projects</p>
+          <p className="text-[1rem] text-[var(--text-primary)]">{summary.total}</p>
+        </div>
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Active</p>
+          <p className="text-[1rem] text-[var(--status-active)]">{summary.active}</p>
+        </div>
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Needs Action</p>
+          <p className="text-[1rem] text-[var(--status-review)]">{summary.needsAction}</p>
+        </div>
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Completed</p>
+          <p className="text-[1rem] text-[var(--status-success)]">{summary.completed}</p>
+        </div>
+      </div>
+
       {/* Professional Services Table */}
       {activeTab === 'ps' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className={TABLE_SURFACE}>
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
@@ -393,9 +464,9 @@ export default function Projects() {
               <col className="w-[2%]" />
             </colgroup>
             <thead>
-              <tr style={{ background: 'var(--table-header-bg)' }}>
+              <tr className={TABLE_HEAD_ROW}>
                 {['Project Name', 'Ref', 'Service Category', 'Local Municipality', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
-                  <th key={h} className="text-table-header text-left px-3 py-3 truncate">{h}</th>
+                  <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -405,7 +476,8 @@ export default function Projects() {
                   <tr
                     className={[
                       'group border-b border-[var(--border)] cursor-pointer transition-all duration-300',
-                      'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
+                      TABLE_ROW_INTERACTIVE,
+                      TABLE_ROW_BASE,
                       i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                     ].join(' ')}
                   >
@@ -518,7 +590,7 @@ export default function Projects() {
 
       {/* Geo-Technical Table */}
       {activeTab === 'geo' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className={TABLE_SURFACE}>
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
@@ -527,9 +599,9 @@ export default function Projects() {
           ) : (
           <table className="w-full min-w-[800px] table-fixed">
             <thead>
-              <tr style={{ background: 'var(--table-header-bg)' }}>
+              <tr className={TABLE_HEAD_ROW}>
                 {['Project Name', 'Geo-Tec Engineer', 'Project Value', 'Geo-Tec Report', 'Expenditure', 'Challenges', 'Recommendation', 'DDR Status'].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 truncate">{h}</th>
+                  <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -538,12 +610,12 @@ export default function Projects() {
                 <tr
                   key={p.id}
                   className={[
-                    'border-b border-[var(--border)] cursor-pointer transition-all duration-300',
-                    'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
+                    TABLE_ROW_BASE,
+                    TABLE_ROW_INTERACTIVE,
                     i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                   ].join(' ')}
                 >
-                  <td className="px-4 py-3 min-w-0">
+                  <td className={`${TABLE_CELL} min-w-0`}>
                     <div className="flex items-center gap-2 min-w-0">
                       {!isClientTemp && (
                         <button
@@ -575,23 +647,23 @@ export default function Projects() {
                       </Link>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-table-cell min-w-0 truncate">
+                  <td className={`${TABLE_CELL} min-w-0 truncate`}>
                     {p.geoTecEngineer || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
-                    <td className="px-4 py-3 text-currency">
+                    <td className={`${TABLE_CELL} text-currency`}>
                       {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
                     </td>
-                  <td className="px-4 py-3">
+                  <td className={TABLE_CELL}>
                     <StatusBadge status={p.geoTecReport === 'submitted' ? 'active' : p.geoTecReport === 'in_review' ? 'review' : 'planning'}>
                       {p.geoTecReport === 'submitted' ? 'Submitted' : p.geoTecReport === 'in_review' ? 'In Review' : 'Pending'}
                     </StatusBadge>
                   </td>
-                  <td className="px-4 py-3 text-currency">
+                  <td className={`${TABLE_CELL} text-currency`}>
                     {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
                   </td>
-                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.challenges || 'N/A'}</td>
-                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.recommendation || 'N/A'}</td>
-                  <td className="px-4 py-3">
+                  <td className={`${TABLE_CELL} max-w-[200px] truncate`}>{p.challenges || 'N/A'}</td>
+                  <td className={`${TABLE_CELL} max-w-[200px] truncate`}>{p.recommendation || 'N/A'}</td>
+                  <td className={TABLE_CELL}>
                     <StatusBadge status={p.ddrStatus === 'complete' ? 'done' : p.ddrStatus === 'in_review' ? 'review' : 'planning'}>
                       {p.ddrStatus === 'complete' ? 'Complete' : p.ddrStatus === 'in_review' ? 'In Review' : 'Pending'}
                     </StatusBadge>
@@ -606,7 +678,7 @@ export default function Projects() {
 
       {/* Construction Management Table */}
       {activeTab === 'cm' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className={TABLE_SURFACE}>
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
@@ -615,9 +687,9 @@ export default function Projects() {
           ) : (
           <table className="w-full min-w-[800px] table-fixed">
             <thead>
-              <tr style={{ background: 'var(--table-header-bg)' }}>
+              <tr className={TABLE_HEAD_ROW}>
                 {['Project Name', 'Contractor', 'Contract Value', 'Start Date', 'Completion Date', 'Expenditure', '% Complete', 'Status'].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 truncate">{h}</th>
+                  <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -626,12 +698,12 @@ export default function Projects() {
                 <tr
                   key={p.id}
                   className={[
-                    'border-b border-[var(--border)] cursor-pointer transition-all duration-300',
-                    'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
+                    TABLE_ROW_BASE,
+                    TABLE_ROW_INTERACTIVE,
                     i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                   ].join(' ')}
                 >
-                  <td className="px-4 py-3 min-w-0">
+                  <td className={`${TABLE_CELL} min-w-0`}>
                     <div className="flex items-center gap-2 min-w-0">
                       {!isClientTemp && (
                         <button
@@ -663,21 +735,21 @@ export default function Projects() {
                       </Link>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-table-cell min-w-0 truncate">
+                  <td className={`${TABLE_CELL} min-w-0 truncate`}>
                     {p.contractor || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
-                  <td className="px-4 py-3 text-currency">
+                  <td className={`${TABLE_CELL} text-currency`}>
                     {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
                   </td>
-                  <td className="px-4 py-3 text-table-cell text-[var(--text-muted)]">{p.startDate}</td>
-                  <td className="px-4 py-3 text-table-cell">{p.completionDate}</td>
-                  <td className="px-4 py-3 text-currency">
+                  <td className={`${TABLE_CELL} text-[var(--text-muted)]`}>{p.startDate}</td>
+                  <td className={TABLE_CELL}>{p.completionDate}</td>
+                  <td className={`${TABLE_CELL} text-currency`}>
                     {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
                   </td>
-                  <td className="px-4 py-3 w-[160px]">
+                  <td className={`${TABLE_CELL} w-[160px]`}>
                     <ProgressBar value={p.percentComplete} height={4} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={TABLE_CELL}>
                     <StatusBadge status={
                       p.constructionStatus === 'on_track' ? 'active' :
                       p.constructionStatus === 'at_risk' ? 'review' :

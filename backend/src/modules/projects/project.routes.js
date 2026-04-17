@@ -102,5 +102,11 @@ router.use('/:id/variations', requireProjectScope, require('../stage-gate/variat
 router.use('/:id/funding-sources', requireProjectScope, require('../funding-sources/fundingSource.routes'));
 router.use('/:id/activities', requireProjectScope, require('../activities/activity.routes'));
 router.use('/:id/media', requireProjectScope, require('../files/media.routes'));
+router.use('/:id/workflow', requireProjectScope, require('../workflow/workflow.routes'));
+router.use('/:id/procurement-trails', requireProjectScope, require('../procurement-trails/procurementTrail.routes'));
+router.use('/:id/extension-of-time', requireProjectScope, require('../extension-of-time/extensionOfTime.routes'));
+router.use('/:id/penalties', requireProjectScope, require('../penalties/penalty.routes'));
+router.use('/:id/performance', requireProjectScope, require('../performance/performance.routes'));
+router.use('/:id/audit', requireProjectScope, require('../audit/audit.routes'));
 
 module.exports = router;

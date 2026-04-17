@@ -7,6 +7,8 @@ import type { OrgType, TenantSummary } from '@/types';
 import { clientAccessCheck } from '@/api/clientAccess';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import { organizationApi } from '@/api/organization';
+import { canForRole } from '@/rbac/permissions';
+import type { Permission } from '@/rbac/permissions';
 
 /** Role for the tenant in the current URL (not tenants[0]). */
 function tenantAccessForSlug(
@@ -274,6 +276,38 @@ export function SuperAdminGuard() {
   const { user } = useAuthStore();
 
   if (!user || user.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+}
+
+/**
+ * Route-level guard for permission-based access.
+ * Keeps route protection aligned with sidebar/menu permission visibility.
+ */
+export function PermissionGuard({
+  permission,
+  fallbackTo,
+}: {
+  permission: Permission;
+  fallbackTo?: string;
+}) {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const { user } = useAuthStore();
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const tenantRole = tenantAccessForSlug(user.tenants, tenantSlug)?.role ?? user.role;
+  if (!canForRole(tenantRole, permission)) {
+    if (fallbackTo && tenantSlug) {
+      return <Navigate to={`/${tenantSlug}/${fallbackTo}`} replace />;
+    }
+    if (tenantSlug) {
+      return <Navigate to={`/${tenantSlug}/projects`} replace />;
+    }
     return <Navigate to="/" replace />;
   }
 

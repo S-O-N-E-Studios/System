@@ -29,6 +29,12 @@ import {
 } from '@/api/notifications';
 import ClientAccessSettings from './ClientAccessSettings';
 import InviteUserModal, { INVITE_USER_MODAL_ID, type InviteTenantRole } from './InviteUserModal';
+import {
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  TABLE_ROW_BASE,
+  TABLE_SURFACE,
+} from '@/utils/tableStyles';
 
 const DEFAULT_PERIWINKLE = '#C0642C';
 const DEFAULT_SAND = '#B89040';
@@ -521,13 +527,13 @@ export default function Settings() {
                   Invite User
                 </Button>
               </div>
-              <div className="overflow-x-auto">
+              <div className={TABLE_SURFACE}>
                 <table className="w-full min-w-[720px]" style={{ tableLayout: 'fixed' }}>
                   <colgroup>{USERS_TABLE_COL_WIDTHS.map((w) => (<col key={w} style={{ width: w }} />))}</colgroup>
                   <thead>
-                    <tr style={{ background: 'var(--table-header-bg)' }}>
+                    <tr className={TABLE_HEAD_ROW}>
                       {['Name', 'Email', 'Role', 'Status', 'Actions'].map((h) => (
-                        <th key={h} className="text-table-header text-left px-4 py-3">{h}</th>
+                        <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -535,7 +541,7 @@ export default function Settings() {
                     {teamMembers.map((u, i) => (
                       <tr
                         key={u.id ? String(u.id) : `${u.email}-${i}`}
-                        className={`border-b border-[var(--border)] align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
+                        className={`${TABLE_ROW_BASE} align-middle ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}
                       >
                         {/* Name + avatar */}
                         <td className="px-4 py-3 max-w-0 overflow-hidden">

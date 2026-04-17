@@ -9,7 +9,7 @@ const File = require('./file.model');
 const storage = require('../../utils/storage');
 
 const mediaListQuerySchema = Joi.object({
-  stage: Joi.number().integer().min(1).max(9),
+  stage: Joi.number().integer().min(0).max(10),
   type: Joi.string().valid('image', 'video'),
   activityId: Joi.string().hex().length(24),
   page: Joi.number().integer().min(1).default(1),
@@ -22,7 +22,7 @@ const registerMediaSchema = Joi.object({
   mimeType: Joi.string().required(),
   sizeBytes: Joi.number().integer().min(0).default(0),
   mediaType: Joi.string().valid('image', 'video').required(),
-  stage: Joi.number().integer().min(1).max(9).allow(null),
+  stage: Joi.number().integer().min(0).max(10).allow(null),
   billingPeriod: Joi.string().pattern(/^\d{4}-\d{2}$/).allow(null, ''),
   captureDate: Joi.date().iso().allow(null),
   captureGPS: Joi.object({

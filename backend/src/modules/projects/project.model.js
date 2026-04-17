@@ -76,6 +76,16 @@ const projectSchema = new mongoose.Schema(
       enum: ['active', 'on-hold', 'complete', 'cancelled'],
       default: 'active',
     },
+    stageTopLevel: {
+      type: Number,
+      enum: [1, 2, 3, 4, 5],
+      default: 1,
+    },
+    stageCheckpoint: {
+      type: String,
+      default: 'stage1.consultant_appointment',
+      trim: true,
+    },
     currentStage: {
       type: Number,
       min: 0,
@@ -174,6 +184,11 @@ const projectSchema = new mongoose.Schema(
       ref: 'MultiYearPlan',
       default: null,
     },
+    projectDurationType: {
+      type: String,
+      enum: ['one_year', 'multi_year'],
+      default: 'one_year',
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -196,6 +211,8 @@ projectSchema.index({ tenantId: 1, status: 1 });
 projectSchema.index({ tenantId: 1, serviceCategory: 1 });
 projectSchema.index({ tenantId: 1, localMunicipality: 1 });
 projectSchema.index({ tenantId: 1, currentStage: 1 });
+projectSchema.index({ tenantId: 1, stageTopLevel: 1 });
+projectSchema.index({ tenantId: 1, stageTopLevel: 1, stageCheckpoint: 1 });
 projectSchema.index({ deptId: 1 });
 projectSchema.index({ deletedAt: 1 });
 

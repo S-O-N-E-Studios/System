@@ -7,6 +7,8 @@ import {
   projectFormSchemaForOrgType,
   type OrgType,
   type ProjectFormData,
+  type Stage0Contact,
+  type MultiYearPlan,
 } from '@/types';
 import { SERVICE_CATEGORY_LABELS } from '@/types';
 import FormInput from '@/components/ui/FormInput';
@@ -16,6 +18,7 @@ import { useUiStore } from '@/store/uiStore';
 import { organizationApi } from '@/api/organization';
 import { projectsApi } from '@/api/projects';
 import { filesApi } from '@/api/files';
+import { planningApi } from '@/api/planning';
 import { ArrowLeft, Upload, X as XIcon, FileText } from 'lucide-react';
 
 const FALLBACK_MUNICIPALITIES = [
@@ -50,6 +53,10 @@ function ProjectFormBody({
   const [appointmentDate, setAppointmentDate] = useState('');
   const [completionDate, setCompletionDate] = useState('');
   const [isPrefilling, setIsPrefilling] = useState(isEdit);
+  const [stage0Contacts, setStage0Contacts] = useState<Stage0Contact[]>([
+    { firstName: '', lastName: '', email: '', inviteStatus: 'pending' },
+  ]);
+  const [availablePlans, setAvailablePlans] = useState<MultiYearPlan[]>([]);
 
   const schema = useMemo(() => projectFormSchemaForOrgType(orgType), [orgType]);
 
@@ -57,6 +64,7 @@ function ProjectFormBody({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(schema),
@@ -68,10 +76,12 @@ function ProjectFormBody({
       serviceCategory: undefined,
       localMunicipality: '',
       idpProjectNo: '',
+      projectDurationType: 'one_year',
     },
   });
 
   const isProvincial = orgType === 'provincial_gov';
+  const projectDurationType = watch('projectDurationType');
 
   useEffect(() => {
     let cancelled = false;
@@ -94,12 +104,19 @@ function ProjectFormBody({
           serviceCategory: project.serviceCategory,
           localMunicipality: project.localMunicipality || '',
           idpProjectNo: project.idpProjectNo || '',
+          projectDurationType: project.projectDurationType || 'one_year',
           location: {
             address: project.location?.address || '',
           },
+          linkedMultiYearPlanId: project.linkedMultiYearPlanId || '',
           geoTecEngineer: project.geoTecEngineer || '',
           contractor: project.contractor || '',
         });
+        setStage0Contacts(
+          (project.stage0Contacts || []).length > 0
+            ? (project.stage0Contacts || [])
+            : [{ firstName: '', lastName: '', email: '', inviteStatus: 'pending' }]
+        );
         setAppointmentDate(project.appointmentDate?.slice(0, 10) || '');
         setCompletionDate(project.completionDate?.slice(0, 10) || '');
       } catch {
@@ -117,6 +134,23 @@ function ProjectFormBody({
     };
   }, [addToast, isEdit, navigate, projectId, reset, tenantSlug]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPlans() {
+      if (!tenantSlug) return;
+      try {
+        const res = await planningApi.list({ limit: 100 });
+        if (!cancelled) setAvailablePlans(res.plans || []);
+      } catch {
+        if (!cancelled) setAvailablePlans([]);
+      }
+    }
+    void loadPlans();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug]);
+
   if (isPrefilling) {
     return (
       <div className="animate-fade-in max-w-3xl p-8 text-[0.82rem] text-[var(--text-muted)] border border-[var(--border)] bg-[var(--bg-card)]">
@@ -126,12 +160,33 @@ function ProjectFormBody({
   }
 
   const onSubmit = async (values: ProjectFormData) => {
+    const contacts = stage0Contacts
+      .map((c) => ({
+        firstName: c.firstName.trim(),
+        lastName: c.lastName.trim(),
+        email: c.email.trim(),
+        inviteStatus: c.inviteStatus,
+      }))
+      .filter((c) => c.firstName && c.lastName && c.email);
+    if (contacts.length === 0) {
+      addToast({ type: 'error', message: 'Add at least one Stage 0 team contact.' });
+      return;
+    }
+    if (values.projectDurationType === 'multi_year' && !values.linkedMultiYearPlanId) {
+      addToast({ type: 'error', message: 'Select a linked multi-year plan for multi-year projects.' });
+      return;
+    }
     try {
       const payload = {
         name: values.name,
         serviceCategory: values.serviceCategory,
         localMunicipality: values.localMunicipality || undefined,
         idpProjectNo: values.idpProjectNo || undefined,
+        projectDurationType: values.projectDurationType,
+        linkedMultiYearPlanId:
+          values.projectDurationType === 'multi_year'
+            ? values.linkedMultiYearPlanId || undefined
+            : undefined,
         contractTypes: values.contractTypes,
         contractValueOriginal: Math.round((values.contractValue || 0) * 100),
         status: values.status,
@@ -140,6 +195,7 @@ function ProjectFormBody({
         contractor: values.contractor || undefined,
         appointmentDate: appointmentDate || undefined,
         completionDate: completionDate || undefined,
+        stage0Contacts: contacts,
       };
 
       const project = isEdit && projectId
@@ -218,6 +274,32 @@ function ProjectFormBody({
             error={errors.contractValue?.message}
             {...register('contractValue', { valueAsNumber: true })}
           />
+
+          <div className="flex flex-col gap-1">
+            <label className="text-eyebrow text-[var(--text-muted)]">Project Duration</label>
+            <select
+              className="w-full bg-transparent border-0 border-b border-[var(--border)] py-2 font-body text-[0.82rem] font-light text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-[border-color] duration-200"
+              {...register('projectDurationType')}
+            >
+              <option value="one_year" className="bg-[var(--bg-card)]">One-year project</option>
+              <option value="multi_year" className="bg-[var(--bg-card)]">Multi-year project</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-eyebrow text-[var(--text-muted)]">Linked Multi-Year Plan</label>
+            <select
+              className="w-full bg-transparent border-0 border-b border-[var(--border)] py-2 font-body text-[0.82rem] font-light text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-[border-color] duration-200"
+              {...register('linkedMultiYearPlanId')}
+              disabled={projectDurationType !== 'multi_year'}
+            >
+              <option value="" className="bg-[var(--bg-card)]">Select plan (required for multi-year)</option>
+              {availablePlans.map((plan) => (
+                <option key={plan.id} value={plan.id} className="bg-[var(--bg-card)]">
+                  {plan.projectName} - FY {plan.financialYear}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-eyebrow text-[var(--text-muted)]">Status</label>
@@ -310,6 +392,89 @@ function ProjectFormBody({
               onChange={setCompletionDate}
               min={appointmentDate || undefined}
             />
+          </div>
+        </div>
+
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 space-y-6">
+          <h3 className="text-h3">Stage 0 Onboarding Contacts</h3>
+          <p className="text-[0.72rem] text-[var(--text-muted)]">
+            Capture the invite list during project creation. This no longer lives in Project Overview.
+          </p>
+          <div className="space-y-3">
+            {stage0Contacts.map((contact, index) => (
+              <div key={`stage0-contact-${index}`} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <input
+                  value={contact.firstName}
+                  onChange={(e) =>
+                    setStage0Contacts((prev) =>
+                      prev.map((c, i) => (i === index ? { ...c, firstName: e.target.value } : c))
+                    )
+                  }
+                  className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem]"
+                  placeholder="First name"
+                />
+                <input
+                  value={contact.lastName}
+                  onChange={(e) =>
+                    setStage0Contacts((prev) =>
+                      prev.map((c, i) => (i === index ? { ...c, lastName: e.target.value } : c))
+                    )
+                  }
+                  className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem]"
+                  placeholder="Surname"
+                />
+                <input
+                  value={contact.email}
+                  onChange={(e) =>
+                    setStage0Contacts((prev) =>
+                      prev.map((c, i) => (i === index ? { ...c, email: e.target.value } : c))
+                    )
+                  }
+                  className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem] md:col-span-2"
+                  placeholder="Email address"
+                />
+                <div className="flex gap-2">
+                  <select
+                    value={contact.inviteStatus}
+                    onChange={(e) =>
+                      setStage0Contacts((prev) =>
+                        prev.map((c, i) =>
+                          i === index ? { ...c, inviteStatus: e.target.value as Stage0Contact['inviteStatus'] } : c
+                        )
+                      )
+                    }
+                    className="flex-1 bg-transparent border border-[var(--border-default)] px-2 py-2 text-[0.78rem]"
+                  >
+                    <option value="pending" className="bg-[var(--bg-card)]">pending</option>
+                    <option value="invite_sent" className="bg-[var(--bg-card)]">invite sent</option>
+                    <option value="invited" className="bg-[var(--bg-card)]">invited</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStage0Contacts((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)))
+                    }
+                    className="px-2 border border-[var(--border-default)] text-[0.72rem] text-[var(--text-muted)] hover:text-[var(--status-danger)]"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                setStage0Contacts((prev) => [
+                  ...prev,
+                  { firstName: '', lastName: '', email: '', inviteStatus: 'pending' },
+                ])
+              }
+            >
+              Add Contact
+            </Button>
           </div>
         </div>
 

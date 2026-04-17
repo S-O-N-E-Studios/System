@@ -59,6 +59,9 @@ const errorHandler = (err, req, res, next) => {
     error:   code,
     message,
   };
+  if (err.details !== undefined) {
+    body.details = err.details;
+  }
 
   // Only include stack trace in development
   if (env.isDevelopment && err.stack) {

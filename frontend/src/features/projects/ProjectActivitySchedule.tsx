@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import type { Activity, ScheduleActivity, ScheduleActivityStatus, SupportingImage } from '@/types';
-import { formatDate } from '@/utils/formatters';
+import { formatDate, formatRands } from '@/utils/formatters';
 import GanttChart from '@/components/ui/GanttChart';
 import ActivityImageUploader from '@/components/ui/ActivityImageUploader';
 import { Clock, TrendingUp, TrendingDown } from 'lucide-react';
@@ -11,6 +11,7 @@ import { uploadActivityImage, removeActivityImage } from '@/api/activityImages';
 import { activitiesApi } from '@/api/activities';
 import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
 import { projectsApi } from '@/api/projects';
+import { STAGE_NAMES } from '@/types';
 
 type ScheduleRow = ScheduleActivity & { expectedFunds: number; actualFunds: number };
 
@@ -20,6 +21,7 @@ type ProjectScheduleMeta = {
   startDate: string;
   completionDate: string;
   progress: number;
+  currentStage: number;
 };
 
 function mapActivityStatus(s: string): ScheduleActivityStatus {
@@ -68,6 +70,54 @@ function useCountdown(targetDate: string) {
   return { days, hours, minutes, seconds, isExpired: remaining <= 0 };
 }
 
+const LIFECYCLE_STAGE_WEIGHTS: Array<{ stage: number; weight: number }> = [
+  { stage: 0, weight: 5 },
+  { stage: 1, weight: 8 },
+  { stage: 2, weight: 10 },
+  { stage: 3, weight: 12 },
+  { stage: 4, weight: 10 },
+  { stage: 5, weight: 8 },
+  { stage: 6, weight: 8 },
+  { stage: 7, weight: 22 },
+  { stage: 8, weight: 10 },
+  { stage: 9, weight: 5 },
+  { stage: 10, weight: 2 },
+];
+
+function buildLifecycleFallbackActivities(
+  startDateIso: string,
+  endDateIso: string,
+  currentStage: number
+): ScheduleRow[] {
+  const start = new Date(startDateIso);
+  const end = new Date(endDateIso);
+  const totalMs = Math.max(24 * 60 * 60 * 1000, end.getTime() - start.getTime());
+  const totalWeight = LIFECYCLE_STAGE_WEIGHTS.reduce((sum, s) => sum + s.weight, 0);
+  let elapsedWeight = 0;
+  return LIFECYCLE_STAGE_WEIGHTS.map((entry) => {
+    const stageStartRatio = elapsedWeight / totalWeight;
+    elapsedWeight += entry.weight;
+    const stageEndRatio = elapsedWeight / totalWeight;
+    const rowStart = new Date(start.getTime() + Math.floor(totalMs * stageStartRatio));
+    const rowEnd = new Date(start.getTime() + Math.floor(totalMs * stageEndRatio));
+    const status: ScheduleActivityStatus =
+      entry.stage < currentStage
+        ? 'complete'
+        : entry.stage === currentStage
+          ? 'on_track'
+          : 'at_risk';
+    return {
+      id: `lifecycle-stage-${entry.stage}`,
+      name: `Stage ${entry.stage}: ${STAGE_NAMES[entry.stage as keyof typeof STAGE_NAMES]}`,
+      startDate: rowStart.toISOString().slice(0, 10),
+      endDate: rowEnd.toISOString().slice(0, 10),
+      status,
+      expectedFunds: 0,
+      actualFunds: 0,
+    };
+  });
+}
+
 export default function ProjectActivitySchedule() {
   const { tenantSlug, id: projectId } = useParams<{ tenantSlug: string; id: string }>();
   const { user } = useAuthStore();
@@ -112,6 +162,7 @@ export default function ProjectActivitySchedule() {
             typeof p.percentComplete === 'number'
               ? p.percentComplete
               : progressFromLifecycleStage(p.currentStage),
+          currentStage: Number(p.currentStage || 0),
         });
         setImagesByActivityId(
           Object.fromEntries(acts.map((a) => [a.id, [...(a.supportingImages ?? [])]])),
@@ -137,6 +188,12 @@ export default function ProjectActivitySchedule() {
   const countdown = useCountdown(project?.completionDate ?? new Date().toISOString().slice(0, 10));
 
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const effectiveScheduleActivities = useMemo(() => {
+    if (!project) return scheduleActivities;
+    return scheduleActivities.length > 0
+      ? scheduleActivities
+      : buildLifecycleFallbackActivities(project.startDate, project.completionDate, project.currentStage);
+  }, [project, scheduleActivities]);
   const selectedActivity = useMemo(
     () => rows.find((a) => a.id === selectedActivityId) ?? null,
     [rows, selectedActivityId],
@@ -198,17 +255,16 @@ export default function ProjectActivitySchedule() {
       </div>
 
       {/* Gantt chart */}
-      {scheduleActivities.length === 0 ? (
-        <div className="p-6 text-[0.82rem] text-[var(--text-muted)] border border-[var(--border-default)] bg-[var(--bg-surface)]">
-          No activities yet for this project.
-        </div>
-      ) : (
-        <GanttChart
-          activities={scheduleActivities}
-          startMonth={new Date(project.startDate)}
-          endMonth={new Date(project.completionDate)}
-          onActivityClick={(activityId) => setSelectedActivityId(activityId)}
-        />
+      <GanttChart
+        activities={effectiveScheduleActivities}
+        startMonth={new Date(project.startDate)}
+        endMonth={new Date(project.completionDate)}
+        onActivityClick={(activityId) => setSelectedActivityId(activityId)}
+      />
+      {scheduleActivities.length === 0 && (
+        <p className="text-[0.75rem] text-[var(--text-muted)]">
+          Showing lifecycle-based timeline because no detailed activity schedule has been captured yet.
+        </p>
       )}
 
       {selectedActivityId && selectedActivity && (
@@ -286,14 +342,14 @@ export default function ProjectActivitySchedule() {
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
               <th className="text-table-header text-left px-4 py-3">Activity</th>
-              <th className="text-table-header text-right px-4 py-3">Expected (R&apos;000)</th>
-              <th className="text-table-header text-right px-4 py-3">Actual (R&apos;000)</th>
+              <th className="text-table-header text-right px-4 py-3">Expected (ZAR)</th>
+              <th className="text-table-header text-right px-4 py-3">Actual (ZAR)</th>
               <th className="text-table-header text-right px-4 py-3">Variance</th>
               <th className="text-table-header text-left px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
-            {scheduleActivities.map((act, i) => {
+            {effectiveScheduleActivities.map((act, i) => {
               const variance = act.actualFunds - act.expectedFunds;
               const isOver = variance > 0;
               const isUnder = variance < 0 && act.actualFunds > 0;
@@ -310,13 +366,13 @@ export default function ProjectActivitySchedule() {
                     className="px-4 py-3 text-right text-[0.82rem]"
                     style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--text-muted)' }}
                   >
-                    {isClientTemp ? '—— Restricted' : act.expectedFunds}
+                    {isClientTemp ? '—— Restricted' : formatRands(act.expectedFunds)}
                   </td>
                   <td
                     className="px-4 py-3 text-right text-[0.82rem]"
                     style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--text-financial)' }}
                   >
-                    {isClientTemp ? '—— Restricted' : act.actualFunds || 'N/A'}
+                    {isClientTemp ? '—— Restricted' : act.actualFunds ? formatRands(act.actualFunds) : 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {isClientTemp ? (
@@ -335,7 +391,11 @@ export default function ProjectActivitySchedule() {
                       >
                         {isOver && <TrendingUp className="h-3 w-3" />}
                         {isUnder && <TrendingDown className="h-3 w-3" />}
-                        {variance > 0 ? `+${variance}` : variance === 0 ? '0' : String(variance)}
+                        {variance > 0
+                          ? `+${formatRands(variance)}`
+                          : variance === 0
+                            ? formatRands(0)
+                            : formatRands(variance)}
                       </span>
                     ) : (
                       <span className="text-[0.78rem] text-[var(--text-muted)]">N/A</span>

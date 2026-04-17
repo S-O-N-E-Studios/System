@@ -7,6 +7,7 @@ import {
   ClientGuard,
   DeptGuard,
   SuperAdminGuard,
+  PermissionGuard,
 } from './guards';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import RouteErrorBoundary from '@/components/ui/RouteErrorBoundary';
@@ -43,6 +44,7 @@ const Calendar = lazy(() => import('@/features/calendar/Calendar'));
 const Grants = lazy(() => import('@/features/grants/Grants'));
 const IDPView = lazy(() => import('@/features/idp/IDPView'));
 const NormalServices = lazy(() => import('@/features/services/NormalServices'));
+const Approvals = lazy(() => import('@/features/approvals/Approvals'));
 const Reports = lazy(() => import('@/features/reports/Reports'));
 const MapsView = lazy(() => import('@/features/maps/MapsView'));
 const FileManager = lazy(() => import('@/features/files/FileManager'));
@@ -92,6 +94,11 @@ export const router = createBrowserRouter([
                   { path: 'dashboard', element: <LazyRoute component={Dashboard} /> },
                   { path: 'idp', element: <LazyRoute component={IDPView} /> },
                   { path: 'services', element: <LazyRoute component={NormalServices} /> },
+                  {
+                    path: 'approvals',
+                    element: <PermissionGuard permission="approve_documents" fallbackTo="dashboard" />,
+                    children: [{ index: true, element: <LazyRoute component={Approvals} /> }],
+                  },
                   { path: 'planning', element: <LazyRoute component={Planning} /> },
                   { path: 'kanban', element: <LazyRoute component={Kanban} /> },
                   { path: 'calendar', element: <LazyRoute component={Calendar} /> },
@@ -117,7 +124,12 @@ export const router = createBrowserRouter([
               {
                 path: 'projects/new',
                 element: <ClientGuard />,
-                children: [{ index: true, element: <LazyRoute component={ProjectForm} /> }],
+                children: [
+                  {
+                    element: <PermissionGuard permission="create_project" fallbackTo="projects" />,
+                    children: [{ index: true, element: <LazyRoute component={ProjectForm} /> }],
+                  },
+                ],
               },
               {
                 path: 'projects/:id',
@@ -129,7 +141,12 @@ export const router = createBrowserRouter([
               {
                 path: 'projects/:id/edit',
                 element: <ClientGuard />,
-                children: [{ index: true, element: <LazyRoute component={ProjectForm} /> }],
+                children: [
+                  {
+                    element: <PermissionGuard permission="edit_project" fallbackTo="projects" />,
+                    children: [{ index: true, element: <LazyRoute component={ProjectForm} /> }],
+                  },
+                ],
               },
 
               { path: 'profile', element: <LazyRoute component={Profile} /> },

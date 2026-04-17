@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -14,7 +15,6 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
-import StageTimeline from '@/components/ui/StageTimeline';
 import StageDocumentDrawer from '@/components/ui/StageDocumentDrawer';
 import PaymentForecastChart from '@/components/ui/PaymentForecastChart';
 import ApprovalStatusBadge from '@/components/ui/ApprovalStatusBadge';
@@ -23,12 +23,12 @@ import MediaGallery from '@/components/ui/MediaGallery';
 import { formatRands } from '@/utils/formatters';
 import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
 import { ArrowLeft, Edit, FileText, Clock, Check, X, Star } from 'lucide-react';
-import ProjectLocationMap from '@/components/ui/ProjectLocationMap';
 import ProjectActivitySchedule from './ProjectActivitySchedule';
 import ProjectPaymentHistory from './ProjectPaymentHistory';
+import ProjectWorkflow from './ProjectWorkflow';
 import { STAGE_DOCUMENT_REQUIREMENTS } from '@/constants/stageDocuments';
 import { STAGE_NAMES } from '@/types';
-import type { Project, ProjectFile, ProjectStage, Stage0Contact } from '@/types';
+import type { Project, ProjectFile, ProjectStage } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
@@ -41,23 +41,43 @@ import {
 } from '@/api/projectStage';
 import { filesApi } from '@/api/files';
 import { projectsApi } from '@/api/projects';
-import { planningApi } from '@/api/planning';
 import apiClient from '@/api/client';
 import { stageApprovalsApi } from '@/api/stageApprovals';
 import { variationsApi } from '@/api/variations';
 import { mediaApi } from '@/api/media';
-import type { ApprovalStatus, StageApproval, VariationOrder, MultiYearPlan } from '@/types';
+import { workflowApi } from '@/api/workflow';
+import type { ApprovalStatus, StageApproval, VariationOrder } from '@/types';
+import {
+  TABLE_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  TABLE_ROW_BASE,
+  TABLE_SURFACE,
+} from '@/utils/tableStyles';
 
 const detailTabs = [
   'Overview',
-  'Professional Services',
-  'Geo-Technical',
-  'Construction',
-  'Activity Schedule',
-  'Files',
-  'Funding Sources',
-  'Variation Orders',
-  'Media',
+  'Workflow',
+  'Gantt Chart',
+  'Construction Ops',
+  'Finance',
+  'Evidence',
+  'Audit Trail',
+] as const;
+
+const TOP_LEVEL_STAGES = [
+  { id: 1, label: 'Initiation' },
+  { id: 2, label: 'Project Planning' },
+  { id: 3, label: 'Project Execution' },
+  { id: 4, label: 'Monitoring and Control' },
+  { id: 5, label: 'Closure' },
+] as const;
+
+const AUDIT_PRESETS = [
+  { id: 'all', label: 'All', action: '', overrideOnly: false },
+  { id: 'approvals', label: 'Approvals', action: 'document.approved', overrideOnly: false },
+  { id: 'workflow', label: 'Workflow Gates', action: 'workflow.advanced', overrideOnly: false },
+  { id: 'overrides', label: 'Overrides', action: '', overrideOnly: true },
 ] as const;
 
 
@@ -89,6 +109,11 @@ function currentBillingPeriod(): string {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   return `${now.getFullYear()}-${month}`;
+}
+
+function centsToRands(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n / 100 : 0;
 }
 
 export default function ProjectDetail() {
@@ -127,13 +152,6 @@ export default function ProjectDetail() {
   const [isStageLoading, setIsStageLoading] = useState(false);
   const [isStageStatusLoaded, setIsStageStatusLoaded] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
-  const [isCompletingStage0, setIsCompletingStage0] = useState(false);
-  const [stage0Address, setStage0Address] = useState('');
-  const [stage0AppointmentDate, setStage0AppointmentDate] = useState('');
-  const [stage0CompletionDate, setStage0CompletionDate] = useState('');
-  const [stage0Contacts, setStage0Contacts] = useState<Stage0Contact[]>([]);
-  const [stage0LinkedPlanId, setStage0LinkedPlanId] = useState('');
-  const [availablePlans, setAvailablePlans] = useState<MultiYearPlan[]>([]);
 
   const { user } = useAuthStore();
   const { addToast } = useUiStore();
@@ -174,82 +192,34 @@ export default function ProjectDetail() {
   const [selectedVariation, setSelectedVariation] = useState<VariationOrder | null>(null);
   const [mediaItems, setMediaItems] = useState<ProjectFile[]>([]);
   const [isMediaLoading, setIsMediaLoading] = useState(false);
+  const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [auditOverrideOnly, setAuditOverrideOnly] = useState(false);
+  const [auditDateFrom, setAuditDateFrom] = useState('');
+  const [auditDateTo, setAuditDateTo] = useState('');
+  const [auditPage, setAuditPage] = useState(1);
 
-  const contractValue = project?.contractValueAdjusted || project?.contractValueOriginal || project?.contractValue || 0;
-  const expenditure = project?.expenditureToDate || 0;
-  const balance = project?.balance ?? (contractValue - expenditure);
+  const contractValue = centsToRands(
+    project?.contractValueAdjusted ?? project?.contractValueOriginal ?? project?.contractValue ?? 0
+  );
+  const expenditure = centsToRands(project?.expenditureToDate ?? 0);
+  const balance =
+    project?.balance != null ? centsToRands(project.balance) : (contractValue - expenditure);
   const percentComplete =
     project?.percentComplete ?? progressFromLifecycleStage(currentStage);
+  const topLevelStage = Number(project?.stageTopLevel || 1);
 
   const projectRecord = project as (Project & Record<string, unknown>) | null;
   const paymentPlan: { year: number; q1: number; q2: number; q3: number; q4: number }[] =
     (projectRecord?.paymentPlan as { year: number; q1: number; q2: number; q3: number; q4: number }[]) || [];
+  const paymentPlanTotals = paymentPlan.map((row) => ({
+    year: row.year,
+    total: row.q1 + row.q2 + row.q3 + row.q4,
+  }));
+  const paymentPlanGrandTotal = paymentPlanTotals.reduce((sum, row) => sum + row.total, 0);
   const forecastMonthly: { month: string; amount: number }[] =
     (projectRecord?.paymentForecast as { month: string; amount: number }[]) || [];
   const actualMonthly: { month: string; amount: number }[] =
     (projectRecord?.paymentActual as { month: string; amount: number }[]) || [];
-
-  const profServicesDocs = (() => {
-    const out: { documentName: string; category: string; stage: number; uploaded: boolean; fileName?: string }[] = [];
-    ([1, 2, 3, 4] as const).forEach((stage) => {
-      const reqs = stageRequirementsMap[String(stage)] || STAGE_DOCUMENT_REQUIREMENTS[stage];
-      const stageFiles = filesByStage[stage] ?? [];
-      reqs.forEach((r) => {
-        const match = stageFiles.find((f) => f.category === r.category);
-        out.push({
-          documentName: r.documentName,
-          category: r.category,
-          stage,
-          uploaded: Boolean(match) || stage < currentStage,
-          fileName: match?.originalName ?? match?.filename ?? undefined,
-        });
-      });
-    });
-    return out;
-  })();
-
-  const geoTechDocs = (() => {
-    const geoReqs =
-      stageRequirementsMap['2']?.filter((r) =>
-        ['geotechnical', 'digital-survey', 'environmental', 'community-minutes'].includes(r.category),
-      ) || [];
-    const geoCategories = Array.from(
-      new Set([
-        ...geoReqs.map((r) => r.category),
-        'geotechnical',
-        'digital-survey',
-        'environmental',
-      ]),
-    );
-    const allFiles = Object.values(filesByStage).flat();
-    const geoFiles = allFiles.filter((f) => geoCategories.includes(f.category));
-
-    const docMap = new Map<string, { name: string; category: string; uploaded: boolean; fileName?: string }>();
-    for (const f of geoFiles) {
-      const key = f.originalName || f.filename || f.id;
-      docMap.set(key, {
-        name: f.originalName || f.filename || 'Untitled',
-        category: f.category,
-        uploaded: true,
-        fileName: f.originalName || f.filename,
-      });
-    }
-
-    const reqs =
-      geoReqs.length > 0
-        ? geoReqs.map((r) => ({ name: r.documentName, category: r.category }))
-        : [
-            { name: 'Geotechnical Investigation Report', category: 'geotechnical' },
-            { name: 'Digital Survey Data', category: 'digital-survey' },
-            { name: 'Environmental Impact Assessment', category: 'environmental' },
-          ];
-    for (const r of reqs) {
-      if (![...docMap.values()].some((d) => d.category === r.category)) {
-        docMap.set(r.name, { name: r.name, category: r.category, uploaded: false });
-      }
-    }
-    return [...docMap.values()];
-  })();
 
   const allProjectFiles = Object.values(filesByStage).flat();
   const visibleDocs = isClientTemp
@@ -271,6 +241,20 @@ export default function ProjectDetail() {
           .filter(Boolean)
           .join('; ')
       : '';
+  const auditQuery = useQuery({
+    queryKey: ['project-detail-audit', id, auditActionFilter, auditOverrideOnly, auditDateFrom, auditDateTo, auditPage],
+    queryFn: () =>
+      workflowApi.listAuditLog(id || '', {
+        limit: 15,
+        page: auditPage,
+        action: auditActionFilter || undefined,
+        overrideOnly: auditOverrideOnly || undefined,
+        dateFrom: auditDateFrom || undefined,
+        dateTo: auditDateTo || undefined,
+      }),
+    enabled: Boolean(id) && activeTab === 'Audit Trail',
+  });
+  const auditEntries = auditQuery.data?.entries || [];
 
   useEffect(() => {
     let cancelled = false;
@@ -282,15 +266,6 @@ export default function ProjectDetail() {
         if (!cancelled) {
           setProject(res);
           if (res.currentStage) setCurrentStage(res.currentStage);
-          setStage0Address(res.location?.address || '');
-          setStage0AppointmentDate(res.appointmentDate?.slice(0, 10) || '');
-          setStage0CompletionDate(res.completionDate?.slice(0, 10) || '');
-          setStage0LinkedPlanId(res.linkedMultiYearPlanId || '');
-          setStage0Contacts(
-            (res.stage0Contacts || []).length > 0
-              ? (res.stage0Contacts || [])
-              : [{ firstName: '', lastName: '', email: '', inviteStatus: 'pending' }]
-          );
         }
       } catch {
         // Keep defaults if API unavailable
@@ -301,23 +276,6 @@ export default function ProjectDetail() {
     void loadProject();
     return () => { cancelled = true; };
   }, [tenantSlug, id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadPlans() {
-      if (!tenantSlug) return;
-      try {
-        const res = await planningApi.list({ limit: 200 });
-        if (!cancelled) setAvailablePlans(res.plans || []);
-      } catch {
-        if (!cancelled) setAvailablePlans([]);
-      }
-    }
-    void loadPlans();
-    return () => {
-      cancelled = true;
-    };
-  }, [tenantSlug]);
 
   useEffect(() => {
     if (!tenantSlug || !id) return;
@@ -375,16 +333,12 @@ export default function ProjectDetail() {
     async function loadFiles() {
       if (!tenantSlug || !id) return;
 
-      // Fetch when user opens the Files tab or opens a stage drawer.
-      const shouldFetchAllStages = activeTab === 'Files';
+      // Fetch when user opens the Evidence tab or opens a stage drawer.
+      const shouldFetchAllStages = activeTab === 'Evidence';
       let targetStages: ProjectStage[] = [];
       if (shouldFetchAllStages) {
         targetStages = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as ProjectStage[];
-      } else if (activeTab === 'Professional Services') {
-        targetStages = [1, 2, 3, 4] as ProjectStage[];
-      } else if (activeTab === 'Geo-Technical') {
-        targetStages = [2] as ProjectStage[];
-      } else if (activeTab === 'Construction') {
+      } else if (activeTab === 'Construction Ops') {
         targetStages = [7] as ProjectStage[];
       } else if (stageDrawerOpen != null) {
         targetStages = [stageDrawerOpen];
@@ -403,7 +357,7 @@ export default function ProjectDetail() {
               stage,
               clientVisible: isClientTemp ? true : undefined,
               page: 1,
-              pageSize: 200,
+              pageSize: 100,
             });
 
             if (cancelled) return;
@@ -434,7 +388,7 @@ export default function ProjectDetail() {
     let cancelled = false;
     async function loadApprovals() {
       if (!id) return;
-      if (!(activeTab === 'Files' || stageDrawerOpen != null)) return;
+      if (!(activeTab === 'Evidence' || stageDrawerOpen != null)) return;
       setIsApprovalsLoading(true);
       try {
         const list = await stageApprovalsApi.list(id);
@@ -454,7 +408,7 @@ export default function ProjectDetail() {
   useEffect(() => {
     let cancelled = false;
     async function loadVariations() {
-      if (!id || activeTab !== 'Variation Orders') return;
+      if (!id || activeTab !== 'Finance') return;
       try {
         const list = await variationsApi.list(id);
         if (!cancelled) setVariations(list);
@@ -471,10 +425,10 @@ export default function ProjectDetail() {
   useEffect(() => {
     let cancelled = false;
     async function loadMedia() {
-      if (!id || activeTab !== 'Media') return;
+      if (!id || activeTab !== 'Evidence') return;
       setIsMediaLoading(true);
       try {
-        const payload = await mediaApi.list(id, { page: 1, limit: 200 });
+        const payload = await mediaApi.list(id, { page: 1, limit: 100 });
         if (!cancelled) setMediaItems(payload.media);
       } catch {
         if (!cancelled) setMediaItems([]);
@@ -488,7 +442,6 @@ export default function ProjectDetail() {
     };
   }, [id, activeTab]);
 
-  const completedStages: ProjectStage[] = [];
   const approvalForFile = (fileId?: string) =>
     approvals.find((a) => entityId(a as StageApproval & { _id?: string }) === fileId || a.fileId === fileId);
 
@@ -505,89 +458,6 @@ export default function ProjectDetail() {
   if (!tenantSlug || !id) {
     return <Navigate to="/" replace />;
   }
-
-  const updateStage0Contact = (
-    index: number,
-    field: keyof Stage0Contact,
-    value: string
-  ) => {
-    setStage0Contacts((prev) =>
-      prev.map((contact, i) =>
-        i === index ? { ...contact, [field]: value } : contact
-      )
-    );
-  };
-
-  const addStage0Contact = () => {
-    setStage0Contacts((prev) => [
-      ...prev,
-      { firstName: '', lastName: '', email: '', inviteStatus: 'pending' },
-    ]);
-  };
-
-  const removeStage0Contact = (index: number) => {
-    setStage0Contacts((prev) =>
-      prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)
-    );
-  };
-
-  const completeStage0 = async () => {
-    if (!tenantSlug || !id) return;
-    const contacts = stage0Contacts
-      .map((c) => ({
-        firstName: c.firstName.trim(),
-        lastName: c.lastName.trim(),
-        email: c.email.trim(),
-        inviteStatus: c.inviteStatus,
-      }))
-      .filter((c) => c.firstName && c.lastName && c.email);
-
-    if (!stage0Address.trim()) {
-      addToast({ type: 'error', message: 'Stage 0 requires a project address.' });
-      return;
-    }
-    if (!stage0LinkedPlanId) {
-      addToast({ type: 'error', message: 'Stage 0 requires a linked multi-year plan.' });
-      return;
-    }
-    if (!stage0AppointmentDate || !stage0CompletionDate) {
-      addToast({ type: 'error', message: 'Stage 0 requires appointment and completion dates.' });
-      return;
-    }
-    if (contacts.length === 0) {
-      addToast({ type: 'error', message: 'Add at least one team contact for Stage 0.' });
-      return;
-    }
-
-    setIsCompletingStage0(true);
-    try {
-      const updated = await projectsApi.update(id, {
-        location: { ...(project?.location || {}), address: stage0Address.trim() },
-        appointmentDate: stage0AppointmentDate,
-        completionDate: stage0CompletionDate,
-        linkedMultiYearPlanId: stage0LinkedPlanId,
-        stage0Contacts: contacts,
-      });
-      setProject(updated);
-      await advanceProjectStage({ tenantSlug, projectId: id });
-      const status = await fetchProjectStageStatus({ tenantSlug, projectId: id });
-      setCurrentStage(status.currentStage);
-      setStageMissingDocs(status.missing);
-      setStageRequiredDocs(status.requiredDocuments);
-      setStageRequirementsMap(status.stageRequirements || {});
-      setStage7Readiness(status.stage7Readiness || null);
-      setActivitiesMissingImages(status.activitiesMissingImages || []);
-      setIsStageStatusLoaded(true);
-      addToast({ type: 'success', message: 'Stage 0 complete. Project moved to Stage 1.' });
-    } catch {
-      addToast({
-        type: 'error',
-        message: 'Could not complete Stage 0. Ensure all required onboarding fields are filled.',
-      });
-    } finally {
-      setIsCompletingStage0(false);
-    }
-  };
 
   return (
     <div className="animate-fade-in">
@@ -695,120 +565,59 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* 6-Stage Project Lifecycle Timeline (v6.0) */}
-          <StageTimeline
-            currentStage={currentStage}
-            completedStages={completedStages}
-            onStageClick={(stage) => setStageDrawerOpen(stage)}
-          />
-          {currentStage === 0 && !isClientTemp && (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
-              <h3 className="text-h3 mb-2">Stage 0: Project Onboarding</h3>
-              <p className="text-body text-[var(--text-muted)] mb-6">
-                Complete all required setup and team invitation details before moving to Stage 1.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="text-eyebrow text-[var(--text-muted)]">Project Address</label>
-                  <input
-                    value={stage0Address}
-                    onChange={(e) => setStage0Address(e.target.value)}
-                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
-                    placeholder="Street, city, province"
-                  />
-                </div>
-                <div>
-                  <label className="text-eyebrow text-[var(--text-muted)]">Multi-Year Plan</label>
-                  <select
-                    value={stage0LinkedPlanId}
-                    onChange={(e) => setStage0LinkedPlanId(e.target.value)}
-                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
-                  >
-                    <option value="" className="bg-[var(--bg-card)]">Select a plan</option>
-                    {availablePlans.map((plan) => (
-                      <option key={plan.id} value={plan.id} className="bg-[var(--bg-card)]">
-                        {plan.projectName} - FY {plan.financialYear}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-eyebrow text-[var(--text-muted)]">Appointment Date</label>
-                  <input
-                    type="date"
-                    value={stage0AppointmentDate}
-                    onChange={(e) => setStage0AppointmentDate(e.target.value)}
-                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
-                  />
-                </div>
-                <div>
-                  <label className="text-eyebrow text-[var(--text-muted)]">Target Completion</label>
-                  <input
-                    type="date"
-                    value={stage0CompletionDate}
-                    onChange={(e) => setStage0CompletionDate(e.target.value)}
-                    className="w-full bg-transparent border border-[var(--border-default)] px-3 py-2 mt-1 text-[0.85rem]"
-                  />
-                </div>
+          <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-h3">Workflow Progress</h3>
+                <p className="text-body text-[var(--text-muted)]">
+                  Primary project workflow is tracked across 5 top-level stages.
+                </p>
               </div>
-
-              <h4 className="text-h3 text-[0.95rem] mb-3">Team Contacts & Invite Status</h4>
-              <div className="space-y-3">
-                {stage0Contacts.map((contact, index) => (
-                  <div key={`stage0-contact-${index}`} className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                    <input
-                      value={contact.firstName}
-                      onChange={(e) => updateStage0Contact(index, 'firstName', e.target.value)}
-                      className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem]"
-                      placeholder="First name"
-                    />
-                    <input
-                      value={contact.lastName}
-                      onChange={(e) => updateStage0Contact(index, 'lastName', e.target.value)}
-                      className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem]"
-                      placeholder="Surname"
-                    />
-                    <input
-                      value={contact.email}
-                      onChange={(e) => updateStage0Contact(index, 'email', e.target.value)}
-                      className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.82rem] md:col-span-2"
-                      placeholder="Email address"
-                    />
-                    <div className="flex gap-2">
-                      <select
-                        value={contact.inviteStatus}
-                        onChange={(e) =>
-                          updateStage0Contact(index, 'inviteStatus', e.target.value as Stage0Contact['inviteStatus'])
-                        }
-                        className="flex-1 bg-transparent border border-[var(--border-default)] px-2 py-2 text-[0.78rem]"
-                      >
-                        <option value="pending" className="bg-[var(--bg-card)]">pending</option>
-                        <option value="invite_sent" className="bg-[var(--bg-card)]">invite sent</option>
-                        <option value="invited" className="bg-[var(--bg-card)]">invited</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => removeStage0Contact(index)}
-                        className="px-2 border border-[var(--border-default)] text-[0.72rem] text-[var(--text-muted)] hover:text-[var(--status-danger)]"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between mt-4">
-                <Button variant="secondary" onClick={addStage0Contact}>Add Contact</Button>
-                <Button
-                  variant="primary"
-                  onClick={() => void completeStage0()}
-                  isLoading={isCompletingStage0}
-                >
-                  Save Stage 0 and Continue to Stage 1
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setActiveTab('Workflow')}
+              >
+                Open Workflow
+              </Button>
             </div>
-          )}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              {TOP_LEVEL_STAGES.map((stage) => {
+                const isActive = stage.id === topLevelStage;
+                const isDone = stage.id < topLevelStage;
+                return (
+                  <div
+                    key={stage.id}
+                    className={[
+                      'border px-3 py-4',
+                      isActive
+                        ? 'border-[var(--accent-sand)] bg-[var(--accent-sand-glow)]'
+                        : isDone
+                          ? 'border-[var(--status-success)] bg-[var(--bg-surface-alt)]'
+                          : 'border-[var(--border-default)] bg-[var(--bg-surface)]',
+                    ].join(' ')}
+                  >
+                    <p className="text-[0.62rem] uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1">
+                      Stage {stage.id}
+                    </p>
+                    <p className="text-[0.82rem] text-[var(--text-primary)]">{stage.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 pt-4 border-t border-[var(--border-default)] flex items-center justify-between gap-3">
+              <p className="text-[0.72rem] text-[var(--text-muted)]">
+                Legacy 0-10 stage drawer remains available during migration.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setStageDrawerOpen(currentStage)}
+              >
+                Open Legacy Stage Drawer
+              </Button>
+            </div>
+          </div>
           {stageDrawerOpen != null && (
             <StageDocumentDrawer
               stage={stageDrawerOpen}
@@ -842,6 +651,7 @@ export default function ProjectDetail() {
                     (firstFile?.approvalStatus as ApprovalStatus | undefined) ||
                     approvalForFile(firstFileId)?.approvalStatus ||
                     'not_required';
+                  const fileApproval = approvalForFile(firstFileId);
 
                   const uploaded = isPastStage || (isCurrentStage && !isMissing);
                   const fileName = uploaded ? firstFileName : undefined;
@@ -853,6 +663,8 @@ export default function ProjectDetail() {
                     fileId: firstFileId || undefined,
                     fileName,
                     approvalStatus: fileApprovalStatus,
+                    notificationSentAt: fileApproval?.notificationSentAt,
+                    notificationSentCount: fileApproval?.notificationSentCount,
                   };
                 })
               }
@@ -870,7 +682,7 @@ export default function ProjectDetail() {
                   : async ({ documentName, category, file }) => {
                       if (!tenantSlug || !id) return;
                       const stage = stageDrawerOpen;
-                      if (!stage) return;
+                      if (stage == null) return;
 
                       try {
                         const billingPeriod = stage === 7 ? currentBillingPeriod() : undefined;
@@ -915,7 +727,7 @@ export default function ProjectDetail() {
                           stage,
                           clientVisible: undefined,
                           page: 1,
-                          pageSize: 200,
+                          pageSize: 100,
                         });
                         setFilesByStage((prev) => ({
                           ...prev,
@@ -956,6 +768,14 @@ export default function ProjectDetail() {
                   setStage7Readiness(status.stage7Readiness || null);
                   setActivitiesMissingImages(status.activitiesMissingImages || []);
                 }).catch(() => undefined)]);
+              }}
+              onNotifyClient={async (fileId) => {
+                if (!id) return;
+                const approval = approvals.find((a) => a.fileId === fileId);
+                const approvalId = entityId(approval as StageApproval & { _id?: string });
+                if (!approvalId) return;
+                await stageApprovalsApi.notifyClient(id, approvalId);
+                await reloadApprovals();
               }}
               onAdvanceStage={
                 isClientTemp
@@ -1061,16 +881,16 @@ export default function ProjectDetail() {
             {/* Multi-year Payment Plan - enlarged for readability */}
             <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] px-6 py-5 w-full">
               <h3 className="text-h3 mb-4">Multi-Year Payment Plan</h3>
-              <div className="overflow-x-auto">
+              <div className={TABLE_SURFACE}>
                 <table className="min-w-full text-[0.85rem]">
                   <thead>
-                    <tr className="bg-[var(--accent-sand)]">
-                      <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Year</th>
-                      <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Q1</th>
-                      <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Q2</th>
-                      <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Q3</th>
-                      <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Q4</th>
-                      <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Total</th>
+                    <tr className={TABLE_HEAD_ROW}>
+                      <th className={`${TABLE_HEAD_CELL} font-medium`}>Year</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Q1</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Q2</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Q3</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Q4</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1086,22 +906,22 @@ export default function ProjectDetail() {
                       return (
                         <tr
                           key={row.year}
-                          className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
+                          className={`${TABLE_ROW_BASE} ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
                         >
-                          <td className="px-4 py-3 text-[0.85rem] font-medium text-[var(--text-primary)]">{row.year}</td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <td className={`${TABLE_CELL} text-[0.85rem] font-medium text-[var(--text-primary)]`}>{row.year}</td>
+                          <td className={`${TABLE_CELL} text-right text-financial text-[0.85rem]`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q1 ? formatRands(row.q1) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <td className={`${TABLE_CELL} text-right text-financial text-[0.85rem]`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q2 ? formatRands(row.q2) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <td className={`${TABLE_CELL} text-right text-financial text-[0.85rem]`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q3 ? formatRands(row.q3) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.85rem]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <td className={`${TABLE_CELL} text-right text-financial text-[0.85rem]`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : row.q4 ? formatRands(row.q4) : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-right text-financial text-[0.9rem] font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <td className={`${TABLE_CELL} text-right text-financial text-[0.9rem] font-semibold`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                             {isClientTemp ? '—— Restricted' : formatRands(total)}
                           </td>
                         </tr>
@@ -1195,18 +1015,11 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Location + Key Info */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ProjectLocationMap
-              address={project?.location?.address || project?.localMunicipality || 'N/A'}
-              lat={project?.location?.lat ?? -25.4753}
-              lng={project?.location?.lng ?? 30.9694}
-              gpsFormatted={project?.gpsFormatted || (project?.location?.lat != null ? `${project.location.lat}, ${project.location.lng}` : '')}
-            />
-
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+          {/* Key info + planning summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
               <h3 className="text-h3 mb-4">Key Information</h3>
-              <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                 {[
                   { label: 'Department', value: (projectRecord?.department as { name: string } | undefined)?.name || 'N/A' },
                   { label: 'Start Date', value: project?.startDate ? new Date(project.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A' },
@@ -1214,6 +1027,8 @@ export default function ProjectDetail() {
                   { label: 'Project Manager', value: (typeof project?.projectManager === 'object' ? (project.projectManager as unknown as { fullName: string })?.fullName : project?.projectManager) || 'N/A' },
                   { label: 'Contractor', value: project?.contractor || 'N/A' },
                   { label: 'Geo-Tec Engineer', value: project?.geoTecEngineer || 'N/A' },
+                  { label: 'Duration Type', value: project?.projectDurationType === 'multi_year' ? 'Multi-year' : 'One-year' },
+                  { label: 'Linked Plan', value: project?.linkedMultiYearPlanId ? project.linkedMultiYearPlanId : 'N/A' },
                 ].map((row) => (
                   <div key={row.label} className="flex items-baseline justify-between py-2 border-b border-[var(--border-default)]">
                     <span className="text-[0.7rem] text-[var(--text-muted)]">{row.label}</span>
@@ -1226,19 +1041,131 @@ export default function ProjectDetail() {
                 <ProgressBar value={percentComplete} height={4} />
               </div>
             </div>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+              <h3 className="text-h3 mb-4">Multi-Year Planning</h3>
+              <div className="space-y-3">
+                <div className="border border-[var(--border-default)] p-3 bg-[var(--bg-surface-alt)]">
+                  <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">Plan Horizon</p>
+                  <p className="text-[0.88rem] text-[var(--text-primary)]">
+                    {paymentPlanTotals.length > 0 ? `${paymentPlanTotals.length} year(s)` : 'Not captured'}
+                  </p>
+                </div>
+                <div className="border border-[var(--border-default)] p-3 bg-[var(--bg-surface-alt)]">
+                  <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">Planned Total</p>
+                  <p className="text-[0.88rem] text-[var(--text-primary)]">
+                    {isClientTemp ? '—— Restricted' : formatRands(paymentPlanGrandTotal)}
+                  </p>
+                </div>
+                <div className="border border-[var(--border-default)] p-3 bg-[var(--bg-surface-alt)]">
+                  <p className="text-[0.65rem] text-[var(--text-muted)] uppercase tracking-wider">Annual Totals</p>
+                  {paymentPlanTotals.length === 0 ? (
+                    <p className="text-[0.75rem] text-[var(--text-muted)] mt-1">No annual values captured yet.</p>
+                  ) : (
+                    <div className="mt-1 space-y-1">
+                      {paymentPlanTotals.slice(0, 4).map((row) => (
+                        <p key={row.year} className="text-[0.75rem] text-[var(--text-primary)] flex items-center justify-between">
+                          <span>{row.year}</span>
+                          <span>{isClientTemp ? '—— Restricted' : formatRands(row.total)}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ═══ Activity Schedule Tab ═══ */}
-      {activeTab === 'Activity Schedule' && <ProjectActivitySchedule />}
+      {activeTab === 'Workflow' && (
+        <ProjectWorkflow projectId={id} />
+      )}
 
-      {/* Expenditure (legacy) - Payment History */}
-      {activeTab === 'Files' && id && (
+      {activeTab === 'Gantt Chart' && (
+        <ProjectActivitySchedule />
+      )}
+
+      {/* ═══ Construction Ops Tab ═══ */}
+      {activeTab === 'Construction Ops' && (
+        <div className="space-y-8">
+          <div className="space-y-8">
+            {stage7Readiness && (
+              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+                <h3 className="text-h3 mb-2">Stage 7 Billing Readiness</h3>
+                <p className="text-body mb-4">
+                  Monthly reporting and evidence checks used during payment certificate review.
+                </p>
+                <div className="mb-4 rounded border border-[var(--border-default)] bg-[var(--bg-surface-alt)] px-3 py-2 text-[0.75rem] text-[var(--text-muted)]">
+                  Stage 7 uploads are auto-tagged with the current billing period (`YYYY-MM`).
+                </div>
+                {(stage7Readiness.pendingVariationCount > 0 || stage7BlockingPeriods.length > 0) && (
+                  <div className="mb-4 rounded border border-[var(--status-review)] bg-[var(--accent-sand)] px-3 py-2 text-[0.75rem] text-[var(--status-review)]">
+                    {stage7BlockingPeriods.length > 0 && (
+                      <span>{stage7BlockingPeriods.length} billing period(s) are blocked for approval checks. </span>
+                    )}
+                    {stage7Readiness.pendingVariationCount > 0 && (
+                      <span>{stage7Readiness.pendingVariationCount} variation order(s) pending approval.</span>
+                    )}
+                  </div>
+                )}
+                {activitiesMissingImages.length > 0 && (
+                  <div className="mb-4 rounded border border-[var(--status-danger)] bg-[var(--bg-surface-alt)] px-3 py-2 text-[0.75rem] text-[var(--status-danger)]">
+                    {activitiesMissingImages.length} completed activit{activitiesMissingImages.length === 1 ? 'y is' : 'ies are'} below minimum image evidence.
+                  </div>
+                )}
+                <div className={TABLE_SURFACE}>
+                  <table className="min-w-full text-[0.78rem]">
+                    <thead>
+                      <tr className={TABLE_HEAD_ROW}>
+                        <th className={TABLE_HEAD_CELL}>Period</th>
+                        <th className={TABLE_HEAD_CELL}>Progress</th>
+                        <th className={TABLE_HEAD_CELL}>Safety</th>
+                        <th className={TABLE_HEAD_CELL}>Cash Flow</th>
+                        <th className={TABLE_HEAD_CELL}>Images</th>
+                        <th className={TABLE_HEAD_CELL}>Certificates</th>
+                        <th className={TABLE_HEAD_CELL}>Readiness</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stage7Readiness.periods.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-3 text-[var(--text-muted)]">
+                            No Stage 7 billing periods captured yet.
+                          </td>
+                        </tr>
+                      )}
+                      {stage7Readiness.periods.map((row) => (
+                        <tr key={row.period} className={TABLE_ROW_BASE}>
+                          <td className={TABLE_CELL}>{row.period}</td>
+                          <td className={TABLE_CELL}>{row.progressReportPresent ? 'Yes' : 'No'}</td>
+                          <td className={TABLE_CELL}>{row.safetyReportPresent ? 'Yes' : 'No'}</td>
+                          <td className={TABLE_CELL}>{row.cashFlowPresent ? 'Yes' : 'No'}</td>
+                          <td className={TABLE_CELL}>
+                            {row.evidenceImageCount}/{row.evidenceMinimum}
+                          </td>
+                          <td className={TABLE_CELL}>{row.paymentCertificateCount}</td>
+                          <td className={TABLE_CELL}>
+                            {row.reportingComplete && row.evidenceSufficient && row.paymentCertificateCount > 0
+                              ? 'Ready'
+                              : 'Blocked'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Evidence Tab ═══ */}
+      {activeTab === 'Evidence' && id && (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-8">
-          <h3 className="text-h3 mb-4">Project Files</h3>
+          <h3 className="text-h3 mb-4">Evidence</h3>
           <p className="text-body mb-6">
-            Stage-organised documents. Admin/PM can toggle which uploaded files are marked as client-visible.
+            Stage-organised documents and site media evidence for reviews, approvals, and auditability.
           </p>
 
           {isFilesLoading ? (
@@ -1424,175 +1351,54 @@ export default function ProjectDetail() {
               })}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ═══ Professional Services Tab ═══ */}
-      {activeTab === 'Professional Services' && (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
-          <h3 className="text-h3 mb-4">Stage Documents (Inception → Procurement)</h3>
-          <p className="text-body mb-6">
-            Checklist of required documents for stages 1–4: scoping, preliminary design, detailed design, and tender documentation.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[0.85rem]">
-              <thead>
-                <tr className="bg-[var(--accent-sand)]">
-                  <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Stage</th>
-                  <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Document</th>
-                  <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Category</th>
-                  <th className="text-center px-4 py-3 text-[var(--text-primary)] font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {profServicesDocs.map((doc, i) => (
-                  <tr
-                    key={`${doc.stage}-${doc.documentName}`}
-                    className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
-                  >
-                    <td className="px-4 py-3 text-[var(--text-primary)]">{doc.stage}</td>
-                    <td className="px-4 py-3 text-[var(--text-primary)]">{doc.documentName}</td>
-                    <td className="px-4 py-3 text-[var(--text-muted)]">
-                      {doc.category.replace(/-/g, ' ')}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {doc.uploaded ? (
-                        <span className="inline-flex items-center gap-1 text-[var(--status-success)]">
-                          <Check className="h-3.5 w-3.5" />
-                          Uploaded
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[var(--status-danger)]">
-                          <X className="h-3.5 w-3.5" />
-                          Missing
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-8 border-t border-[var(--border-default)] pt-6">
+            <h4 className="text-h3 mb-3">Site Media</h4>
+            {isMediaLoading ? (
+              <p className="text-sm text-[var(--text-muted)]">Loading media...</p>
+            ) : (
+              <MediaGallery
+                media={mediaItems}
+                canUpload={!isClientTemp && canUploadMedia}
+                canDelete={!isClientTemp && canUploadMedia}
+                onUpload={async (file, mediaType, captureDate, description) => {
+                  if (!id) return;
+                  const upload = await mediaApi.getUploadUrl(id, file.name);
+                  await fetch(upload.url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                    body: file,
+                  });
+                  await mediaApi.register(id, {
+                    originalName: file.name,
+                    storagePath: upload.key,
+                    mimeType: file.type || 'application/octet-stream',
+                    sizeBytes: file.size,
+                    mediaType,
+                    stage: currentStage,
+                    billingPeriod: currentStage === 7 ? currentBillingPeriod() : undefined,
+                    captureDate,
+                    description,
+                  });
+                  const refreshed = await mediaApi.list(id, { page: 1, limit: 100 });
+                  setMediaItems(refreshed.media);
+                }}
+                onDelete={async (mediaId) => {
+                  if (!id) return;
+                  await mediaApi.delete(id, mediaId);
+                  setMediaItems((prev) =>
+                    prev.filter((item) => entityId(item as ProjectFile & { _id?: string }) !== mediaId),
+                  );
+                }}
+              />
+            )}
           </div>
         </div>
       )}
 
-      {/* ═══ Geo-Technical Tab ═══ */}
-      {activeTab === 'Geo-Technical' && (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
-          <h3 className="text-h3 mb-4">Geo-Technical & Survey Documents</h3>
-          <p className="text-body mb-6">
-            Geotechnical reports, digital surveys, and environmental assessments required for site works.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[0.85rem]">
-              <thead>
-                <tr className="bg-[var(--accent-sand)]">
-                  <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Document</th>
-                  <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Category</th>
-                  <th className="text-center px-4 py-3 text-[var(--text-primary)] font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {geoTechDocs.map((doc, i) => (
-                  <tr
-                    key={doc.name}
-                    className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
-                  >
-                    <td className="px-4 py-3 text-[var(--text-primary)]">{doc.name}</td>
-                    <td className="px-4 py-3 text-[var(--text-muted)]">
-                      {doc.category.replace(/-/g, ' ')}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {doc.uploaded ? (
-                        <span className="inline-flex items-center gap-1 text-[var(--status-success)]">
-                          <Check className="h-3.5 w-3.5" />
-                          Uploaded
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[var(--status-danger)]">
-                          <X className="h-3.5 w-3.5" />
-                          Missing
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ Construction Tab ═══ */}
-      {activeTab === 'Construction' && (
+      {/* ═══ Finance Tab ═══ */}
+      {activeTab === 'Finance' && (
         <div className="space-y-8">
-          {stage7Readiness && (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
-              <h3 className="text-h3 mb-2">Stage 7 Billing Readiness</h3>
-              <p className="text-body mb-4">
-                Monthly reporting and evidence checks used during payment certificate review.
-              </p>
-              <div className="mb-4 rounded border border-[var(--border-default)] bg-[var(--bg-surface-alt)] px-3 py-2 text-[0.75rem] text-[var(--text-muted)]">
-                Stage 7 uploads are auto-tagged with the current billing period (`YYYY-MM`).
-              </div>
-              {(stage7Readiness.pendingVariationCount > 0 || stage7BlockingPeriods.length > 0) && (
-                <div className="mb-4 rounded border border-[var(--status-review)] bg-[var(--accent-sand)] px-3 py-2 text-[0.75rem] text-[var(--status-review)]">
-                  {stage7BlockingPeriods.length > 0 && (
-                    <span>{stage7BlockingPeriods.length} billing period(s) are blocked for approval checks. </span>
-                  )}
-                  {stage7Readiness.pendingVariationCount > 0 && (
-                    <span>{stage7Readiness.pendingVariationCount} variation order(s) pending approval.</span>
-                  )}
-                </div>
-              )}
-              {activitiesMissingImages.length > 0 && (
-                <div className="mb-4 rounded border border-[var(--status-danger)] bg-[var(--bg-surface-alt)] px-3 py-2 text-[0.75rem] text-[var(--status-danger)]">
-                  {activitiesMissingImages.length} completed activit{activitiesMissingImages.length === 1 ? 'y is' : 'ies are'} below minimum image evidence.
-                </div>
-              )}
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-[0.78rem]">
-                  <thead>
-                    <tr className="bg-[var(--accent-sand)]">
-                      <th className="text-left px-3 py-2">Period</th>
-                      <th className="text-left px-3 py-2">Progress</th>
-                      <th className="text-left px-3 py-2">Safety</th>
-                      <th className="text-left px-3 py-2">Cash Flow</th>
-                      <th className="text-left px-3 py-2">Images</th>
-                      <th className="text-left px-3 py-2">Certificates</th>
-                      <th className="text-left px-3 py-2">Readiness</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stage7Readiness.periods.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-3 py-3 text-[var(--text-muted)]">
-                          No Stage 7 billing periods captured yet.
-                        </td>
-                      </tr>
-                    )}
-                    {stage7Readiness.periods.map((row) => (
-                      <tr key={row.period} className="border-t border-[var(--border-default)]">
-                        <td className="px-3 py-2">{row.period}</td>
-                        <td className="px-3 py-2">{row.progressReportPresent ? 'Yes' : 'No'}</td>
-                        <td className="px-3 py-2">{row.safetyReportPresent ? 'Yes' : 'No'}</td>
-                        <td className="px-3 py-2">{row.cashFlowPresent ? 'Yes' : 'No'}</td>
-                        <td className="px-3 py-2">
-                          {row.evidenceImageCount}/{row.evidenceMinimum}
-                        </td>
-                        <td className="px-3 py-2">{row.paymentCertificateCount}</td>
-                        <td className="px-3 py-2">
-                          {row.reportingComplete && row.evidenceSufficient && row.paymentCertificateCount > 0
-                            ? 'Ready'
-                            : 'Blocked'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
@@ -1631,230 +1437,300 @@ export default function ProjectDetail() {
           )}
 
           {!isClientTemp && id && (
-            <ProjectPaymentHistory projectId={id} />
+            <ProjectPaymentHistory
+              projectId={id}
+              onPaymentRecorded={async () => {
+                const updatedProject = await projectsApi.getById(id);
+                setProject(updatedProject);
+              }}
+            />
           )}
-        </div>
-      )}
 
-      {/* ═══ Funding Sources Tab ═══ */}
-      {activeTab === 'Funding Sources' && (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
-          <h3 className="text-h3 mb-4">Funding Sources</h3>
-          <p className="text-body mb-6">
-            MIG, WSIG, provincial budget, and other funding allocations with disbursed and remaining amounts.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[0.85rem]">
-              <thead>
-                <tr className="bg-[var(--accent-sand)]">
-                  <th className="text-left px-4 py-3 text-[var(--text-primary)] font-medium">Source</th>
-                  <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Total</th>
-                  <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Disbursed</th>
-                  <th className="text-right px-4 py-3 text-[var(--text-primary)] font-medium">Remaining</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fundingSources.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-[var(--text-muted)] text-[0.85rem]">
-                      No funding sources available.
-                    </td>
-                  </tr>
-                )}
-                {fundingSources.map((row, i) => {
-                  const rowId = String(row.id ?? row._id ?? i);
-                  const rowName = String(row.sourceName || row.name || row.source || 'N/A');
-                  const rowTotal = Number(row.total || row.amount || 0);
-                  const rowDisbursed = Number(row.disbursed || 0);
-                  const rowRemaining = row.remaining != null ? Number(row.remaining) : rowTotal - rowDisbursed;
-                  return (
-                  <tr
-                    key={rowId}
-                    className={`border-t border-[var(--border-default)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{rowName}</td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {isClientTemp ? '—— Restricted' : formatRands(rowTotal)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {isClientTemp ? '—— Restricted' : formatRands(rowDisbursed)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-financial" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {isClientTemp ? '—— Restricted' : formatRands(rowRemaining)}
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'Variation Orders' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-              <p className="text-eyebrow mb-1">Original Contract Value</p>
-              <p className="text-currency">
-                {isClientTemp
-                  ? '—— Restricted'
-                  : formatRands(project?.contractValueOriginal || 0)}
-              </p>
-            </div>
-            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-              <p className="text-eyebrow mb-1">Total Variations</p>
-              <p className="text-currency">
-                {isClientTemp
-                  ? '—— Restricted'
-                  : formatRands(
-                      variations
-                        .filter((v) => v.status === 'approved')
-                        .reduce((sum, v) => sum + (v.approvedAmount ?? 0), 0),
-                    )}
-              </p>
-            </div>
-            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-              <p className="text-eyebrow mb-1">Adjusted Contract Value</p>
-              <p className="text-currency">
-                {isClientTemp
-                  ? '—— Restricted'
-                  : formatRands(project?.contractValueAdjusted || 0)}
-              </p>
-            </div>
-          </div>
-
-          <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-h3">Variation Orders</h3>
-              {canCreateVariation && (
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setSelectedVariation(null);
-                    setIsVariationDrawerOpen(true);
-                  }}
-                >
-                  New Variation Order
-                </Button>
-              )}
-            </div>
-            <div className="overflow-x-auto">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] p-6">
+            <h3 className="text-h3 mb-4">Funding Sources</h3>
+            <p className="text-body mb-6">
+              MIG, WSIG, provincial budget, and other funding allocations with disbursed and remaining amounts.
+            </p>
+            <div className={TABLE_SURFACE}>
               <table className="min-w-full text-[0.85rem]">
                 <thead>
-                  <tr className="border-b border-[var(--border-default)]">
-                    <th className="text-left py-2">VO Number</th>
-                    <th className="text-left py-2">Description</th>
-                    <th className="text-right py-2">Estimated</th>
-                    <th className="text-right py-2">Approved</th>
-                    <th className="text-left py-2">Status</th>
+                  <tr className={TABLE_HEAD_ROW}>
+                    <th className={`${TABLE_HEAD_CELL} font-medium`}>Source</th>
+                    <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Total</th>
+                    <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Disbursed</th>
+                    <th className={`${TABLE_HEAD_CELL} text-right font-medium`}>Remaining</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {variations.map((vo) => (
-                    <tr
-                      key={entityId(vo as VariationOrder & { _id?: string })}
-                      className="border-b border-[var(--border-default)] hover:bg-[var(--bg-surface-alt)] cursor-pointer"
-                      onClick={() => {
-                        setSelectedVariation(vo);
-                        setIsVariationDrawerOpen(true);
-                      }}
-                    >
-                      <td className="py-2">{vo.variationNumber}</td>
-                      <td className="py-2 max-w-[280px] truncate">{vo.description}</td>
-                      <td className="py-2 text-right">
-                        {isClientTemp ? '—— Restricted' : formatRands(vo.estimatedAmount)}
-                      </td>
-                      <td className="py-2 text-right">
-                        {isClientTemp
-                          ? '—— Restricted'
-                          : vo.approvedAmount != null
-                            ? formatRands(vo.approvedAmount)
-                            : '—'}
-                      </td>
-                      <td className="py-2">
-                        <span className="text-xs text-[var(--text-secondary)]">{vo.status.replace(/_/g, ' ')}</span>
+                  {fundingSources.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-6 text-center text-[var(--text-muted)] text-[0.85rem]">
+                        No funding sources available.
                       </td>
                     </tr>
-                  ))}
+                  )}
+                  {fundingSources.map((row, i) => {
+                    const rowId = String(row.id ?? row._id ?? i);
+                    const rowName = String(row.sourceName || row.name || row.source || 'N/A');
+                    const rowTotal = Number(row.total || row.amount || 0);
+                    const rowDisbursed = Number(row.disbursed || 0);
+                    const rowRemaining = row.remaining != null ? Number(row.remaining) : rowTotal - rowDisbursed;
+                    return (
+                    <tr
+                      key={rowId}
+                      className={`${TABLE_ROW_BASE} ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-surface-alt)]'}`}
+                    >
+                      <td className={`${TABLE_CELL} font-medium text-[var(--text-primary)]`}>{rowName}</td>
+                      <td className={`${TABLE_CELL} text-right text-financial`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {isClientTemp ? '—— Restricted' : formatRands(rowTotal)}
+                      </td>
+                      <td className={`${TABLE_CELL} text-right text-financial`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {isClientTemp ? '—— Restricted' : formatRands(rowDisbursed)}
+                      </td>
+                      <td className={`${TABLE_CELL} text-right text-financial`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {isClientTemp ? '—— Restricted' : formatRands(rowRemaining)}
+                      </td>
+                    </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
-          <VariationOrderDrawer
-            isOpen={isVariationDrawerOpen}
-            onClose={() => setIsVariationDrawerOpen(false)}
-            selected={selectedVariation}
-            canCreate={canCreateVariation}
-            canApprove={canApproveDocuments}
-            onCreate={async (payload) => {
-              if (!id) return;
-              await variationsApi.create(id, payload);
-              setIsVariationDrawerOpen(false);
-              setVariations(await variationsApi.list(id));
-            }}
-            onSubmit={async (voId) => {
-              if (!id) return;
-              await variationsApi.submit(id, voId);
-              setVariations(await variationsApi.list(id));
-            }}
-            onApprove={async (voId) => {
-              if (!id) return;
-              await variationsApi.approve(id, voId);
-              setVariations(await variationsApi.list(id));
-              const updatedProject = await projectsApi.getById(id);
-              setProject(updatedProject);
-            }}
-            onReject={async (voId, reason) => {
-              if (!id) return;
-              await variationsApi.reject(id, voId, reason);
-              setVariations(await variationsApi.list(id));
-            }}
-          />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+                <p className="text-eyebrow mb-1">Original Contract Value</p>
+                <p className="text-currency">
+                  {isClientTemp
+                    ? '—— Restricted'
+                    : formatRands(centsToRands(project?.contractValueOriginal || 0))}
+                </p>
+              </div>
+              <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+                <p className="text-eyebrow mb-1">Total Variations</p>
+                <p className="text-currency">
+                  {isClientTemp
+                    ? '—— Restricted'
+                    : formatRands(
+                        variations
+                          .filter((v) => v.status === 'approved')
+                          .reduce((sum, v) => sum + (v.approvedAmount ?? 0), 0),
+                      )}
+                </p>
+              </div>
+              <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+                <p className="text-eyebrow mb-1">Adjusted Contract Value</p>
+                <p className="text-currency">
+                  {isClientTemp
+                    ? '—— Restricted'
+                    : formatRands(centsToRands(project?.contractValueAdjusted || 0))}
+                </p>
+              </div>
+            </div>
+
+            <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-h3">Variation Orders</h3>
+                {canCreateVariation && (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setSelectedVariation(null);
+                      setIsVariationDrawerOpen(true);
+                    }}
+                  >
+                    New Variation Order
+                  </Button>
+                )}
+              </div>
+              <div className={TABLE_SURFACE}>
+                <table className="min-w-full text-[0.85rem]">
+                  <thead>
+                    <tr className={TABLE_HEAD_ROW}>
+                      <th className={TABLE_HEAD_CELL}>VO Number</th>
+                      <th className={TABLE_HEAD_CELL}>Description</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right`}>Estimated</th>
+                      <th className={`${TABLE_HEAD_CELL} text-right`}>Approved</th>
+                      <th className={TABLE_HEAD_CELL}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variations.map((vo) => (
+                      <tr
+                        key={entityId(vo as VariationOrder & { _id?: string })}
+                        className={`${TABLE_ROW_BASE} hover:bg-[var(--bg-surface-alt)] cursor-pointer`}
+                        onClick={() => {
+                          setSelectedVariation(vo);
+                          setIsVariationDrawerOpen(true);
+                        }}
+                      >
+                        <td className={TABLE_CELL}>{vo.variationNumber}</td>
+                        <td className={`${TABLE_CELL} max-w-[280px] truncate`}>{vo.description}</td>
+                        <td className={`${TABLE_CELL} text-right`}>
+                          {isClientTemp ? '—— Restricted' : formatRands(vo.estimatedAmount)}
+                        </td>
+                        <td className={`${TABLE_CELL} text-right`}>
+                          {isClientTemp
+                            ? '—— Restricted'
+                            : vo.approvedAmount != null
+                              ? formatRands(vo.approvedAmount)
+                              : '—'}
+                        </td>
+                        <td className={TABLE_CELL}>
+                          <span className="text-xs text-[var(--text-secondary)]">{vo.status.replace(/_/g, ' ')}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <VariationOrderDrawer
+              isOpen={isVariationDrawerOpen}
+              onClose={() => setIsVariationDrawerOpen(false)}
+              selected={selectedVariation}
+              canCreate={canCreateVariation}
+              canApprove={canApproveDocuments}
+              onCreate={async (payload) => {
+                if (!id) return;
+                await variationsApi.create(id, payload);
+                setIsVariationDrawerOpen(false);
+                setVariations(await variationsApi.list(id));
+              }}
+              onSubmit={async (voId) => {
+                if (!id) return;
+                await variationsApi.submit(id, voId);
+                setVariations(await variationsApi.list(id));
+              }}
+              onApprove={async (voId) => {
+                if (!id) return;
+                await variationsApi.approve(id, voId);
+                setVariations(await variationsApi.list(id));
+                const updatedProject = await projectsApi.getById(id);
+                setProject(updatedProject);
+              }}
+              onReject={async (voId, reason) => {
+                if (!id) return;
+                await variationsApi.reject(id, voId, reason);
+                setVariations(await variationsApi.list(id));
+              }}
+            />
+          </div>
         </div>
       )}
 
-      {activeTab === 'Media' && (
-        <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-          <h3 className="text-h3 mb-3">Site Media</h3>
-          {isMediaLoading ? (
-            <p className="text-sm text-[var(--text-muted)]">Loading media...</p>
-          ) : (
-            <MediaGallery
-              media={mediaItems}
-              canUpload={!isClientTemp && canUploadMedia}
-              canDelete={!isClientTemp && canUploadMedia}
-              onUpload={async (file, mediaType, captureDate, description) => {
-                if (!id) return;
-                const upload = await mediaApi.getUploadUrl(id, file.name);
-                await fetch(upload.url, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
-                  body: file,
-                });
-                await mediaApi.register(id, {
-                  originalName: file.name,
-                  storagePath: upload.key,
-                  mimeType: file.type || 'application/octet-stream',
-                  sizeBytes: file.size,
-                  mediaType,
-                  stage: currentStage,
-                  billingPeriod: currentStage === 7 ? currentBillingPeriod() : undefined,
-                  captureDate,
-                  description,
-                });
-                const refreshed = await mediaApi.list(id, { page: 1, limit: 200 });
-                setMediaItems(refreshed.media);
-              }}
-              onDelete={async (mediaId) => {
-                if (!id) return;
-                await mediaApi.delete(id, mediaId);
-                setMediaItems((prev) =>
-                  prev.filter((item) => entityId(item as ProjectFile & { _id?: string }) !== mediaId),
+      {activeTab === 'Audit Trail' && (
+        <div className="border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-h3">Audit Trail</h3>
+            <a
+              className="text-[0.72rem] underline text-[var(--text-muted)]"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.open(
+                  `${window.location.origin}/api/v1/${encodeURIComponent(tenantSlug || '')}/projects/${id}/audit/export?format=csv`,
+                  '_blank'
                 );
               }}
+            >
+              Export
+            </a>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {AUDIT_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={[
+                    'px-2 py-1 border text-[0.68rem] transition-colors',
+                    auditActionFilter === preset.action
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
+                      : 'border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+                  ].join(' ')}
+                  onClick={() => {
+                    setAuditActionFilter(preset.action);
+                    setAuditOverrideOnly(Boolean(preset.overrideOnly));
+                    setAuditPage(1);
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <input
+              value={auditActionFilter}
+              onChange={(e) => {
+                setAuditActionFilter(e.target.value);
+                setAuditOverrideOnly(false);
+                setAuditPage(1);
+              }}
+              className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.8rem] w-full md:w-[220px]"
+              placeholder="Action (exact)"
             />
+            <input
+              type="date"
+              value={auditDateFrom}
+              onChange={(e) => {
+                setAuditDateFrom(e.target.value);
+                setAuditPage(1);
+              }}
+              className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.8rem]"
+            />
+            <input
+              type="date"
+              value={auditDateTo}
+              onChange={(e) => {
+                setAuditDateTo(e.target.value);
+                setAuditPage(1);
+              }}
+              className="bg-transparent border border-[var(--border-default)] px-3 py-2 text-[0.8rem]"
+            />
+          </div>
+          {auditQuery.isLoading ? (
+            <p className="text-[0.8rem] text-[var(--text-muted)]">Loading audit events...</p>
+          ) : auditEntries.length === 0 ? (
+            <p className="text-[0.8rem] text-[var(--text-muted)]">No audit events found.</p>
+          ) : (
+            <div className="space-y-2">
+              {auditEntries.map((entry) => (
+                <div key={entry._id} className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-3">
+                  <p className="text-[0.78rem] text-[var(--text-primary)]">{entry.action}</p>
+                  <p className="text-[0.68rem] text-[var(--text-muted)]">
+                    {new Date(entry.timestamp).toLocaleString()} · {entry.entityType} · {entry.actorRole || 'system'}
+                  </p>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-[0.72rem] text-[var(--text-muted)]">
+                  Page {auditQuery.data?.page || auditPage} · Total {auditQuery.data?.total || auditEntries.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="!py-1 !px-2 text-[0.72rem]"
+                    onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                    disabled={auditPage <= 1}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="!py-1 !px-2 text-[0.72rem]"
+                    onClick={() => setAuditPage((p) => p + 1)}
+                    disabled={(auditQuery.data?.entries?.length || 0) < 15}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}

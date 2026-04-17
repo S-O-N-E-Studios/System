@@ -144,6 +144,7 @@ export interface Department {
 // Project
 export type ProjectStatus = 'active' | 'on-hold' | 'complete' | 'cancelled';
 export type ContractType = 'professional' | 'geotechnical' | 'construction';
+export type ProjectDurationType = 'one_year' | 'multi_year';
 export type ProjectTab =
   | 'overview'
   | 'professional'
@@ -207,6 +208,8 @@ export interface Project {
   name: string;
   refCode: string;
   status: ProjectStatus;
+  stageTopLevel?: 1 | 2 | 3 | 4 | 5;
+  stageCheckpoint?: string;
   currentStage?: ProjectStage;
   serviceCategory?: ServiceCategory;
   localMunicipality?: string;
@@ -243,6 +246,7 @@ export interface Project {
   attachmentCount?: number;
   stageHistory?: StageHistoryEntry[];
   linkedMultiYearPlanId?: string;
+  projectDurationType?: ProjectDurationType;
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
@@ -668,6 +672,8 @@ export interface StageDocumentRequirement {
   fileName?: string;
   approvalStatus?: ApprovalStatus;
   rejectionReason?: string;
+  notificationSentAt?: string;
+  notificationSentCount?: number;
 }
 
 export interface StageGateStatus {
@@ -776,6 +782,7 @@ export interface StageApproval {
   reviewedAt?: string;
   rejectionReason?: string;
   notificationSentAt?: string;
+  notificationSentCount?: number;
   createdAt: string;
 }
 
@@ -849,6 +856,8 @@ export const projectSchema = z.object({
   deptId: z.string().optional(),
   appointmentDate: z.string().optional(),
   completionDate: z.string().optional(),
+  projectDurationType: z.enum(['one_year', 'multi_year']).default('one_year'),
+  linkedMultiYearPlanId: z.string().optional(),
 });
 
 export type ProjectFormData = z.infer<typeof projectSchema>;

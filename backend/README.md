@@ -9,7 +9,7 @@
 
 ```bash
 npm install
-cp .env.example .env        # USE_MEMORY_DB=true — no MongoDB needed
+cp .env.example .env
 npm run dev                  # http://localhost:5000
 ```
 
@@ -40,7 +40,7 @@ DATABASE_URL=mongodb://localhost:27017/project360
 | `NODE_ENV` | `development` | `development` / `production` / `test` |
 | `CLIENT_URL` | `http://localhost:3000` | Allowed CORS origin |
 | `DATABASE_URL` | `mongodb://localhost:27017/project360` | MongoDB connection string |
-| `USE_MEMORY_DB` | `true` | Use in-memory MongoDB for dev (no install required) |
+| `USE_MEMORY_DB` | `false` | When `true`, force in-memory MongoDB and bypass configured URIs |
 | `JWT_SECRET` | — | Fallback JWT signing secret |
 | `JWT_ACCESS_SECRET` | — | Access token signing secret |
 | `JWT_REFRESH_SECRET` | — | Refresh token signing secret |

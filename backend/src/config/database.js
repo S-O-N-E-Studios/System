@@ -35,11 +35,13 @@ const connect = async () => {
     memoryServer = await MongoMemoryServer.create();
     const mongoUri = memoryServer.getUri();
     // eslint-disable-next-line no-console
-    console.log(`[db] using in-memory mongodb: ${sanitizeMongoUri(mongoUri)}`);
+    console.log(
+      `[db] USE_MEMORY_DB=true, using in-memory mongodb: ${sanitizeMongoUri(mongoUri)}`
+    );
     return connectToUri(mongoUri, { label: "memory" });
   }
 
-  // Try configured URI first (Atlas or local).
+  // Try configured URI first (Atlas/local/etc).
   try {
     // eslint-disable-next-line no-console
     console.log(`[db] connecting: ${sanitizeMongoUri(configuredUri)}`);
@@ -62,7 +64,11 @@ const connect = async () => {
     console.error("[db] connect failed (local). Falling back to in-memory mongodb.");
   }
 
-  // Final dev fallback: in-memory mongo (so app can still run end-to-end).
+  // Final fallback: in-memory mongo (so app can still run end-to-end).
+  // In production, fail fast instead of silently using a temporary DB.
+  if (env.isProduction) {
+    throw new Error("[db] No MongoDB connection available in production.");
+  }
   const { MongoMemoryServer } = require("mongodb-memory-server");
   memoryServer = await MongoMemoryServer.create();
   const memoryUri = memoryServer.getUri();

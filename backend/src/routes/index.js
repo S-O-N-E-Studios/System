@@ -33,6 +33,8 @@ router.use('/:tenantSlug/calendar/events', ...tenantStack, require('../modules/c
 router.use('/:tenantSlug/client-access', ...tenantStack, require('../modules/client-access/clientAccess.routes'));
 router.use('/:tenantSlug/planning', ...tenantStack, require('../modules/planning/planning.routes'));
 router.use('/:tenantSlug/reports', ...tenantStack, require('../modules/reports/report.routes'));
+router.use('/:tenantSlug/audit', ...tenantStack, require('../modules/audit/auditTenant.routes'));
+router.use('/:tenantSlug/approvals', ...tenantStack, require('../modules/approvals/approvals.routes'));
 router.use('/:tenantSlug/idp', ...tenantStack, require('../modules/idp/idp.routes'));
 router.use('/:tenantSlug/services', ...tenantStack, require('../modules/services-view/servicesView.routes'));
 router.use('/:tenantSlug/organizations', ...tenantStack, require('../modules/organizations/organization.routes'));

@@ -9,15 +9,17 @@ const {
   getWorkflowProfileForTenant,
   getStageDocumentSpecsForTenant,
 } = require('../../constants/workflowProfiles');
+const workflowService = require('../workflow/workflow.service');
 
 const normalizeServiceCategory = (value) => {
   if (!value) return value;
   return SERVICE_CATEGORY_LABEL_TO_KEY[value] || value;
 };
 
-const buildStage0Missing = (project) => {
+const _buildStage0Missing = (project) => {
   const missing = [];
-  if (!project.linkedMultiYearPlanId) {
+  const requiresLinkedPlan = project.projectDurationType === 'multi_year';
+  if (requiresLinkedPlan && !project.linkedMultiYearPlanId) {
     missing.push({ documentName: 'Linked multi-year plan', category: 'stage0-multi-year-plan' });
   }
   if (!project.location?.address) {
@@ -117,6 +119,16 @@ const getProject = async (tenant, projectId, requestingUser) => {
 
 const createProject = async (tenant, data, createdBy) => {
   data.serviceCategory = normalizeServiceCategory(data.serviceCategory);
+  const projectDurationType = data.projectDurationType || 'one_year';
+  if (projectDurationType === 'one_year') {
+    data.linkedMultiYearPlanId = null;
+  }
+  if (projectDurationType === 'multi_year' && !data.linkedMultiYearPlanId) {
+    throw Object.assign(
+      new Error('A linked multi-year plan is required when duration type is multi-year'),
+      { status: 400 }
+    );
+  }
   if (
     tenant.orgType === 'provincial_gov' &&
     data.localMunicipality &&
@@ -131,6 +143,7 @@ const createProject = async (tenant, data, createdBy) => {
 
   const project = await projectRepo.create({
     ...data,
+    projectDurationType,
     tenantId: tenant._id,
     currentStage: 0,
     contractValueAdjusted: data.contractValueOriginal || 0,
@@ -149,6 +162,17 @@ const updateProject = async (tenant, projectId, updates, _requestingUser) => {
       new Error('Projects cannot be marked complete directly. Advance through the stage gate to complete a project.'),
       { status: 400 }
     );
+  }
+  if (updates.projectDurationType === 'one_year') {
+    updates.linkedMultiYearPlanId = null;
+  }
+  if (updates.projectDurationType === 'multi_year' && Object.prototype.hasOwnProperty.call(updates, 'linkedMultiYearPlanId')) {
+    if (!updates.linkedMultiYearPlanId) {
+      throw Object.assign(
+        new Error('A linked multi-year plan is required when duration type is multi-year'),
+        { status: 400 }
+      );
+    }
   }
 
   const project = await projectRepo.updateById(projectId, tenant._id, updates);
@@ -182,6 +206,8 @@ const getStageStatus = async (tenant, projectId) => {
   return {
     projectId,
     currentStage: project.currentStage,
+    stageTopLevel: project.stageTopLevel || null,
+    stageCheckpoint: project.stageCheckpoint || null,
     workflowProfile: getWorkflowProfileForTenant(tenant),
     stageRequirements,
     stage7Readiness,
@@ -190,92 +216,34 @@ const getStageStatus = async (tenant, projectId) => {
 };
 
 const advanceStage = async (tenant, projectId, advancedBy) => {
-  const project = await projectRepo.findByIdLean(projectId, tenant._id);
-  if (!project) throw Object.assign(new Error('Project not found'), { status: 404 });
-
-  if (project.status === 'complete' || project.status === 'cancelled') {
-    throw Object.assign(
-      new Error(`Cannot advance stage on a ${project.status} project`),
-      { status: 400 }
-    );
-  }
-
-  if (project.currentStage >= 10) {
-    throw Object.assign(new Error('Project is already complete'), { status: 400 });
-  }
-
-  // Stages 0 and 5 don't require approval gate
-  if (project.currentStage === 0) {
-    const stage0Missing = buildStage0Missing(project);
-    if (stage0Missing.length > 0) {
-      const err = Object.assign(
-        new Error('Stage 0 setup is incomplete'),
-        {
-          status: 422,
-          gateError: true,
-          stage: project.currentStage,
-          missing: stage0Missing,
-        }
-      );
-      throw err;
+  try {
+    const result = await workflowService.advanceWorkflow(tenant, projectId, advancedBy);
+    return {
+      advanced: result.advanced,
+      previousStage: result.previousLegacyStage,
+      newStage: result.newLegacyStage,
+      previousStageTopLevel: result.previousStageTopLevel,
+      newStageTopLevel: result.newStageTopLevel,
+      stageCheckpoint: result.stageCheckpoint,
+      completed: result.completed,
+    };
+  } catch (err) {
+    if (err.status === 422 && err.code === 'WORKFLOW_GATE_FAILED') {
+      const requirements = err.details?.requirements || [];
+      const mappedMissing = requirements.map((req) => ({
+        category: req.entityKey,
+        documentName: req.entityKey,
+        reason: req.code,
+      }));
+      throw Object.assign(new Error(err.message), {
+        status: 422,
+        gateError: true,
+        stage: null,
+        missing: mappedMissing,
+      });
     }
-  } else if (project.currentStage !== 5) {
-    const gateResult = await stageGateSvc.checkStageGateWithActivities(
-      tenant, projectId, project.currentStage
-    );
-
-    if (!gateResult.gatePassed) {
-      const err = Object.assign(
-        new Error('Stage gate validation failed'),
-        {
-          status: 422,
-          gateError: true,
-          stage: project.currentStage,
-          missing: gateResult.missing,
-          activitiesMissingImages: gateResult.activitiesMissingImages,
-        }
-      );
-      throw err;
-    }
+    throw err;
   }
-
-  const newStage = project.currentStage + 1;
-
-  const File = require('../files/file.model');
-  const stageFiles = await File.find({
-    tenantId: tenant._id,
-    projectId,
-    stage: project.currentStage,
-    deletedAt: null,
-  }).select('_id');
-
-  const updates = {
-    currentStage: newStage,
-    ...(project.currentStage === 0 ? { stage0CompletedAt: new Date() } : {}),
-    $push: {
-      stageHistory: {
-        stage: project.currentStage,
-        advancedAt: new Date(),
-        advancedBy,
-        documentsSnapshot: stageFiles.map((f) => f._id),
-      },
-    },
-  };
-
-  if (newStage === 10) {
-    updates.status = 'complete';
-    updates.completionDate = new Date();
-  }
-
-  await projectRepo.updateById(projectId, tenant._id, updates);
-  await CalendarEvent.createStageEvent(tenant._id, projectId, project.currentStage, advancedBy);
-
-  return {
-    advanced: true,
-    previousStage: project.currentStage,
-    newStage,
-    completed: newStage === 10,
-  };
 };
 
 const getClientAccessCheck = async (tenant, projectId, clientAccess) => {

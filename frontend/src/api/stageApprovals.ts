@@ -31,4 +31,8 @@ export const stageApprovalsApi = {
   reject: async (projectId: string, approvalId: string, reason: string): Promise<void> => {
     await apiClient.post(`/${slug()}/projects/${projectId}/approvals/${approvalId}/reject`, { reason });
   },
+
+  notifyClient: async (projectId: string, approvalId: string): Promise<void> => {
+    await apiClient.post(`/${slug()}/projects/${projectId}/approvals/${approvalId}/notify-client`);
+  },
 };
