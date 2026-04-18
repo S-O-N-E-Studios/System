@@ -9,6 +9,7 @@ import { useUiStore } from '@/store/uiStore';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { generateSlug } from '@/utils/formatters';
+import { NKANGALA_LOCAL_MUNICIPALITIES } from '@/constants/municipalities';
 import { ArrowLeft, ArrowRight, Check, Building2, UserPlus, ClipboardCheck } from 'lucide-react';
 
 type Step = 1 | 2 | 3;
@@ -41,6 +42,7 @@ export default function Register() {
     defaultValues: {
       orgName: '',
       slug: '',
+      orgType: undefined,
       industryType: '',
       primaryContactName: '',
       primaryContactEmail: '',
@@ -50,11 +52,14 @@ export default function Register() {
       adminPassword: '',
       adminPasswordConfirm: '',
       agreeToTerms: false,
+      localMunicipalityIds: [],
     },
   });
 
   const orgName = watch('orgName');
   const slug = watch('slug');
+  const orgType = watch('orgType');
+  const localMunicipalityIds = watch('localMunicipalityIds');
   const adminPassword = watch('adminPassword');
 
   // Auto-generate slug from org name
@@ -64,6 +69,12 @@ export default function Register() {
       setValue('slug', generated);
     }
   }, [orgName, step, setValue]);
+
+  useEffect(() => {
+    if (orgType !== 'provincial_gov') {
+      setValue('localMunicipalityIds', []);
+    }
+  }, [orgType, setValue]);
 
   // Check slug availability (debounced)
   useEffect(() => {
@@ -87,12 +98,23 @@ export default function Register() {
     return () => clearTimeout(timer);
   }, [slug]);
 
-  const step1Fields = ['orgName', 'slug', 'industryType', 'primaryContactName', 'primaryContactEmail'] as const;
+  const step1Fields =
+    orgType === 'provincial_gov'
+      ? ([
+          'orgName',
+          'slug',
+          'orgType',
+          'industryType',
+          'primaryContactName',
+          'primaryContactEmail',
+          'localMunicipalityIds',
+        ] as const)
+      : (['orgName', 'slug', 'orgType', 'industryType', 'primaryContactName', 'primaryContactEmail'] as const);
   const step2Fields = ['adminFirstName', 'adminLastName', 'adminEmail', 'adminPassword', 'adminPasswordConfirm'] as const;
 
   const goNext = async () => {
     const fieldsToValidate = step === 1 ? step1Fields : step2Fields;
-    const valid = await trigger(fieldsToValidate as unknown as (keyof RegisterOrgFormData)[]);
+    const valid = await trigger([...fieldsToValidate] as unknown as (keyof RegisterOrgFormData)[]);
     if (valid) setStep((s) => Math.min(s + 1, 3) as Step);
   };
 
@@ -101,9 +123,17 @@ export default function Register() {
   const onSubmit = async (data: RegisterOrgFormData) => {
     setIsSubmitting(true);
     try {
+      const selectedMunicipalityNames =
+        data.orgType === 'provincial_gov'
+          ? (data.localMunicipalityIds ?? [])
+              .map((mid) => NKANGALA_LOCAL_MUNICIPALITIES.find((m) => m.id === mid)?.name)
+              .filter((name): name is string => Boolean(name))
+          : undefined;
+
       const result = await authApi.registerOrg({
         orgName: data.orgName,
         slug: data.slug,
+        orgType: data.orgType,
         industryType: data.industryType,
         primaryContactName: data.primaryContactName,
         primaryContactEmail: data.primaryContactEmail,
@@ -111,6 +141,7 @@ export default function Register() {
         adminLastName: data.adminLastName,
         adminEmail: data.adminEmail,
         adminPassword: data.adminPassword,
+        localMunicipalities: selectedMunicipalityNames,
       });
       login(result.user, result.tokens);
       addToast({ type: 'success', message: 'Organisation created successfully!' });
@@ -160,8 +191,8 @@ export default function Register() {
         {/* Header */}
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
-            <h1 className="font-display text-xl font-light tracking-[4px] text-[var(--text-primary)] uppercase">
-              S · O · N · E Studios
+            <h1 className="text-h2 tracking-[2px] uppercase">
+              EVIDENTIARY
             </h1>
           </Link>
           <h2 className="text-h2 mb-2">Register Your Organisation</h2>
@@ -215,7 +246,7 @@ export default function Register() {
               <div className="flex flex-col gap-5">
                 <FormInput
                   label="Organisation Name"
-                  placeholder="e.g. Limpopo Civil Engineering"
+                  placeholder="e.g. Onboard Consulting Engineers"
                   error={errors.orgName?.message}
                   {...register('orgName')}
                 />
@@ -229,7 +260,7 @@ export default function Register() {
                   />
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-[0.65rem] text-[var(--text-muted)]">
-                      app.sone.engineering/
+                      app.evidentiary.com/
                     </span>
                     <span className="text-[0.65rem] font-mono text-[var(--accent)]">
                       {slug || '...'}
@@ -247,24 +278,46 @@ export default function Register() {
                 </div>
 
                 <div className="flex flex-col gap-1">
+                  <label className="text-eyebrow text-[var(--text-muted)]">Organisation Type</label>
+                  <select
+                    className={[
+                      'w-full bg-transparent border-0 border-b border-[var(--border-default)]',
+                      'py-2 text-[0.82rem] text-[var(--text-primary)]',
+                      'focus:border-[var(--accent-sand)] focus:outline-none',
+                      'transition-[border-color] duration-200',
+                    ].join(' ')}
+                    {...register('orgType')}
+                  >
+                    <option value="" className="bg-[var(--bg-surface)]">Select type…</option>
+                    <option value="provincial_gov" className="bg-[var(--bg-surface)]">Provincial Government</option>
+                    <option value="private_firm" className="bg-[var(--bg-surface)]">Private Engineering Firm</option>
+                  </select>
+                  {errors.orgType && (
+                    <p className="text-[0.62rem] text-[var(--status-danger)] mt-0.5">
+                      {errors.orgType.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1">
                   <label className="text-eyebrow text-[var(--text-muted)]">Industry Type</label>
                   <select
                     className={[
-                      'w-full bg-transparent border-0 border-b border-[var(--border)]',
-                      'py-2 font-body text-[0.82rem] font-light text-[var(--text-primary)]',
-                      'focus:border-[var(--accent)] focus:outline-none',
+                      'w-full bg-transparent border-0 border-b border-[var(--border-default)]',
+                      'py-2 text-[0.82rem] text-[var(--text-primary)]',
+                      'focus:border-[var(--accent-sand)] focus:outline-none',
                       'transition-[border-color] duration-200',
                     ].join(' ')}
                     {...register('industryType')}
                   >
-                    <option value="" className="bg-[var(--bg-card)]">Select industry…</option>
-                    <option value="civil" className="bg-[var(--bg-card)]">Civil Engineering</option>
-                    <option value="structural" className="bg-[var(--bg-card)]">Structural Engineering</option>
-                    <option value="electrical" className="bg-[var(--bg-card)]">Electrical Engineering</option>
-                    <option value="mechanical" className="bg-[var(--bg-card)]">Mechanical Engineering</option>
-                    <option value="environmental" className="bg-[var(--bg-card)]">Environmental Engineering</option>
-                    <option value="consulting" className="bg-[var(--bg-card)]">Engineering Consulting</option>
-                    <option value="other" className="bg-[var(--bg-card)]">Other</option>
+                    <option value="" className="bg-[var(--bg-surface)]">Select industry…</option>
+                    <option value="civil" className="bg-[var(--bg-surface)]">Civil Engineering</option>
+                    <option value="structural" className="bg-[var(--bg-surface)]">Structural Engineering</option>
+                    <option value="electrical" className="bg-[var(--bg-surface)]">Electrical Engineering</option>
+                    <option value="mechanical" className="bg-[var(--bg-surface)]">Mechanical Engineering</option>
+                    <option value="environmental" className="bg-[var(--bg-surface)]">Environmental Engineering</option>
+                    <option value="consulting" className="bg-[var(--bg-surface)]">Engineering Consulting</option>
+                    <option value="other" className="bg-[var(--bg-surface)]">Other</option>
                   </select>
                   {errors.industryType && (
                     <p className="text-[0.62rem] text-[var(--status-danger)] mt-0.5">
@@ -287,6 +340,43 @@ export default function Register() {
                   error={errors.primaryContactEmail?.message}
                   {...register('primaryContactEmail')}
                 />
+
+                {orgType === 'provincial_gov' && (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-eyebrow text-[var(--text-muted)]">Local municipalities</span>
+                    <p className="text-[0.65rem] text-[var(--text-muted)]">
+                      Nkangala municipal scope for this workflow profile.
+                    </p>
+                    <div className="max-h-44 overflow-y-auto border border-[var(--border-default)] p-3 space-y-2 bg-[var(--bg-primary)]">
+                      {NKANGALA_LOCAL_MUNICIPALITIES.map((m) => {
+                        const ids = localMunicipalityIds ?? [];
+                        const checked = ids.includes(m.id);
+                        return (
+                          <label
+                            key={m.id}
+                            className="flex items-start gap-2 text-[0.8rem] text-[var(--text-primary)] cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={checked}
+                              onChange={() => {
+                                const next = checked ? ids.filter((x) => x !== m.id) : [...ids, m.id];
+                                setValue('localMunicipalityIds', next, { shouldValidate: true });
+                              }}
+                            />
+                            <span>{m.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {errors.localMunicipalityIds && (
+                      <p className="text-[0.62rem] text-[var(--status-danger)]">
+                        {errors.localMunicipalityIds.message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -359,7 +449,7 @@ export default function Register() {
               <h3 className="text-h3 mb-6">Review & Confirm</h3>
 
               {Object.keys(errors).length > 0 && (
-                <div className="mb-6 p-4 border border-[var(--status-review)] bg-[rgba(201,169,97,0.08)] text-[var(--text-primary)] text-[0.82rem]">
+                <div className="mb-6 p-4 border border-[var(--status-review)] bg-[var(--accent-sand-glow)] text-[var(--text-primary)] text-[0.82rem]">
                   Please fix the errors below. You must agree to the terms to continue.
                 </div>
               )}
@@ -370,7 +460,30 @@ export default function Register() {
                   <div className="flex flex-col gap-2">
                     <ReviewRow label="Name" value={values.orgName} />
                     <ReviewRow label="Slug" value={values.slug} mono />
+                    <ReviewRow
+                      label="Organisation type"
+                      value={
+                        values.orgType === 'provincial_gov'
+                          ? 'Provincial Government'
+                          : values.orgType === 'private_firm'
+                            ? 'Private Engineering Firm'
+                            : ''
+                      }
+                    />
                     <ReviewRow label="Industry" value={values.industryType} />
+                    {values.orgType === 'provincial_gov' && (
+                      <ReviewRow
+                        label="Local municipalities"
+                        value={
+                          (values.localMunicipalityIds ?? [])
+                            .map(
+                              (mid) =>
+                                NKANGALA_LOCAL_MUNICIPALITIES.find((m) => m.id === mid)?.name ?? mid,
+                            )
+                            .join(', ') || '—'
+                        }
+                      />
+                    )}
                     <ReviewRow label="Contact" value={values.primaryContactName} />
                     <ReviewRow label="Contact Email" value={values.primaryContactEmail} />
                   </div>
@@ -411,7 +524,7 @@ export default function Register() {
               </Button>
             ) : (
               <Link
-                to="/"
+                to="/login"
                 className="text-button text-[0.65rem] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
               >
                 ← Back to Sign In
@@ -442,7 +555,7 @@ function ReviewRow({ label, value, mono }: { label: string; value: string; mono?
       <span
         className={`text-[0.82rem] text-[var(--text-primary)] ${mono ? 'font-mono text-[var(--accent)]' : 'font-body'}`}
       >
-        {value || '—'}
+        {value || 'N/A'}
       </span>
     </div>
   );

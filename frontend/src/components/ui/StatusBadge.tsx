@@ -9,33 +9,33 @@ interface StatusBadgeProps {
 
 const statusConfig: Record<BadgeStatus, { bg: string; border: string; text: string }> = {
   active: {
-    bg: 'rgba(74,222,128,0.05)',
-    border: 'rgba(74,222,128,0.3)',
-    text: 'var(--status-active)',
+    bg: 'var(--badge-active-bg)',
+    border: 'var(--badge-active-border)',
+    text: 'var(--status-success)',
   },
   review: {
-    bg: 'rgba(250,204,21,0.05)',
-    border: 'rgba(250,204,21,0.3)',
-    text: 'var(--status-review)',
+    bg: 'var(--badge-review-bg)',
+    border: 'var(--badge-review-border)',
+    text: 'var(--status-warning)',
   },
   planning: {
-    bg: 'rgba(96,165,250,0.05)',
-    border: 'rgba(96,165,250,0.3)',
-    text: 'var(--status-planning)',
+    bg: 'var(--badge-planning-bg)',
+    border: 'var(--badge-planning-border)',
+    text: 'var(--accent-periwinkle)',
   },
   done: {
-    bg: 'rgba(167,139,250,0.05)',
-    border: 'rgba(167,139,250,0.3)',
-    text: 'var(--status-done)',
+    bg: 'var(--badge-done-bg)',
+    border: 'var(--badge-done-border)',
+    text: 'var(--accent-lavender)',
   },
   danger: {
-    bg: 'rgba(248,113,113,0.05)',
-    border: 'rgba(248,113,113,0.3)',
+    bg: 'var(--badge-danger-bg)',
+    border: 'var(--badge-danger-border)',
     text: 'var(--status-danger)',
   },
   accent: {
-    bg: 'rgba(201,169,97,0.05)',
-    border: 'rgba(201,169,97,0.3)',
+    bg: 'var(--badge-accent-bg)',
+    border: 'var(--badge-accent-border)',
     text: 'var(--accent)',
   },
 };

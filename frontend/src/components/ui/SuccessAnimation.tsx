@@ -10,7 +10,7 @@ export default function SuccessAnimation({ className, ariaLabel }: SuccessAnimat
   const sizeClass = className ?? 'w-24 h-24';
 
   return (
-    <div className="inline-flex items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--bg-card)]/95 shadow-[0_0_40px_rgba(201,169,97,0.35)] p-4">
+    <div className="inline-flex items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--bg-card)]/95 shadow-[0_0_40px_var(--accent-sand-glow)] p-4">
       <LottieAnimation
         animationData={successAnimation}
         loop={false}

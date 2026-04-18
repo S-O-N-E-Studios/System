@@ -1,56 +1,230 @@
-import { useState, useMemo } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useProjectStore } from '@/store/projectStore';
+import { useQuery } from '@tanstack/react-query';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
-import type { ProjectTab } from '@/types';
-import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
-import { formatRands } from '@/utils/formatters';
+import { SERVICE_CATEGORY_LABELS, type ServiceCategory } from '@/types';
+import { projectsApi } from '@/api/projects';
+import { Plus, Search, Filter, Download, ChevronDown, ChevronUp, Paperclip, Star } from 'lucide-react';
+import { formatDate, formatRands } from '@/utils/formatters';
+import { progressFromLifecycleStage } from '@/utils/lifecycleProgress';
+import { exportPdf, exportXlsx } from '@/utils/clientExports';
+import ExportDialog, { type ExportFormat } from '@/components/ui/ExportDialog';
+import {
+  TABLE_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  TABLE_ROW_BASE,
+  TABLE_ROW_INTERACTIVE,
+  TABLE_SURFACE,
+} from '@/utils/tableStyles';
+import { useAuthStore } from '@/store/authStore';
+import { useClientAccessStore } from '@/store/clientAccessStore';
+import { fetchClientTempScope } from '@/api/clientAccess';
+import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
 
-const tabs: { key: ProjectTab; label: string }[] = [
+type ContractTab = 'ps' | 'geo' | 'cm';
+
+const tabs: { key: ContractTab; label: string }[] = [
   { key: 'ps', label: 'Professional Services' },
   { key: 'geo', label: 'Geo-Technical' },
   { key: 'cm', label: 'Construction Management' },
 ];
 
-// Placeholder data
-const mockProjects = [
-  {
-    id: '1', name: 'Polokwane Water Treatment Upgrade', ref: 'PRJ-2026-001',
-    gps: '-23.9045, 29.4688', contractValue: 45000000, expenditure: 18200000,
-    balance: 26800000, status: 'active' as const, attachments: 12,
-    geoTecEngineer: 'Geoscience Ltd', geoTecReport: 'submitted', ddrStatus: 'complete',
-    challenges: 'Groundwater contamination at borehole BH-3', recommendation: 'Re-route foundation to avoid contaminated zone',
-    contractor: 'BuildCorp SA', startDate: '15 Jan 2026', completionDate: '30 Nov 2026',
-    percentComplete: 42, constructionStatus: 'on_track',
-  },
-  {
-    id: '2', name: 'Mokopane Road Rehabilitation', ref: 'PRJ-2026-002',
-    gps: '-24.1868, 29.0148', contractValue: 32000000, expenditure: 14500000,
-    balance: 17500000, status: 'review' as const, attachments: 8,
-    geoTecEngineer: 'Terra Investigations', geoTecReport: 'in_review', ddrStatus: 'in_review',
-    challenges: 'Expansive clay subsoils along section km 4-7', recommendation: 'Lime stabilisation required',
-    contractor: 'RoadWorks Inc', startDate: '01 Mar 2026', completionDate: '28 Feb 2027',
-    percentComplete: 28, constructionStatus: 'at_risk',
-  },
-  {
-    id: '3', name: 'Tzaneen Bridge Construction', ref: 'PRJ-2026-003',
-    gps: '-23.8318, 30.1636', contractValue: 78000000, expenditure: 5200000,
-    balance: 72800000, status: 'planning' as const, attachments: 3,
-    geoTecEngineer: '', geoTecReport: 'not_started', ddrStatus: 'pending',
-    challenges: '', recommendation: '',
-    contractor: '', startDate: '01 Jun 2026', completionDate: '31 Dec 2027',
-    percentComplete: 5, constructionStatus: 'delayed',
-  },
-];
+type PortfolioTableProject = {
+  id: string;
+  name: string;
+  ref: string;
+  serviceCategory: ServiceCategory | '';
+  localMunicipality: string;
+  contractValue: number;
+  expenditure: number;
+  balance: number;
+  status: 'active' | 'review' | 'planning' | 'done' | 'danger';
+  address: string;
+  attachments: number;
+  geoTecEngineer: string;
+  geoTecReport: string;
+  challenges: string;
+  recommendation: string;
+  ddrStatus: string;
+  contractor: string;
+  startDate: string;
+  completionDate: string;
+  percentComplete: number;
+  constructionStatus: 'on_track' | 'at_risk' | 'delayed' | 'complete';
+};
+
+function normalizeProjectsListResponse(raw: unknown): Record<string, unknown>[] {
+  if (Array.isArray(raw)) return raw as Record<string, unknown>[];
+  if (raw && typeof raw === 'object' && 'projects' in raw) {
+    const projects = (raw as { projects: unknown }).projects;
+    if (Array.isArray(projects)) return projects as Record<string, unknown>[];
+  }
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return normalizeProjectsListResponse((raw as { data: unknown }).data);
+  }
+  return [];
+}
+
+function centsToRands(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n / 100 : 0;
+}
+
+function formatPortfolioDate(value: unknown): string {
+  if (value == null || value === '') return '';
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return formatDate(s);
+  return s;
+}
+
+function addressFromRaw(raw: Record<string, unknown>): string {
+  const loc = raw.location as { address?: unknown } | undefined;
+  if (loc && typeof loc.address === 'string' && loc.address.trim()) return loc.address.trim();
+  if (typeof raw.localMunicipality === 'string' && raw.localMunicipality.trim()) {
+    return raw.localMunicipality.trim();
+  }
+  return '';
+}
+
+function mapGeoTecReportStatus(raw: unknown): string {
+  const s = String(raw ?? 'pending');
+  if (s === 'submitted' || s === 'in_review' || s === 'pending') return s;
+  return 'pending';
+}
+
+function mapProfessionalStatusBadge(
+  status: unknown,
+  currentStage: unknown,
+): 'active' | 'review' | 'planning' | 'done' | 'danger' {
+  const st = String(status ?? 'active');
+  if (st === 'complete') return 'done';
+  if (st === 'cancelled') return 'danger';
+  if (st === 'on-hold') return 'review';
+  const stage = Number(currentStage);
+  const s = Number.isFinite(stage) ? stage : 1;
+  if (s <= 2) return 'planning';
+  if (s >= 9) return 'review';
+  return 'active';
+}
+
+function mapConstructionStatus(raw: unknown): 'on_track' | 'at_risk' | 'delayed' | 'complete' {
+  const s = String(raw ?? 'on_track');
+  if (s === 'on_track' || s === 'at_risk' || s === 'delayed' || s === 'complete') return s;
+  return 'on_track';
+}
+
+function mapApiProjectToPortfolioRow(raw: Record<string, unknown>): PortfolioTableProject {
+  const contractValue = centsToRands(raw.contractValueAdjusted ?? raw.contractValue);
+  const expenditure = centsToRands(
+    (raw as { totalExpenditure?: unknown }).totalExpenditure ?? raw.expenditureToDate,
+  );
+  const sc = raw.serviceCategory;
+  const serviceCategory: ServiceCategory | '' =
+    typeof sc === 'string' && sc in SERVICE_CATEGORY_LABELS ? (sc as ServiceCategory) : '';
+
+  return {
+    id: String(raw._id ?? raw.id ?? ''),
+    name: String(raw.name ?? ''),
+    ref: String(raw.projectCode ?? raw.refCode ?? raw.ref ?? ''),
+    serviceCategory,
+    localMunicipality: String(raw.localMunicipality ?? ''),
+    contractValue,
+    expenditure,
+    balance: contractValue - expenditure,
+    status: mapProfessionalStatusBadge(raw.status, raw.currentStage),
+    address: addressFromRaw(raw),
+    attachments: Number((raw as { attachmentCount?: unknown }).attachmentCount ?? 0) || 0,
+    geoTecEngineer: String(raw.geoTecEngineer ?? ''),
+    geoTecReport: mapGeoTecReportStatus(raw.geoTecReportStatus ?? raw.geoTecReport),
+    challenges: String(raw.challenges ?? ''),
+    recommendation: String(raw.recommendation ?? ''),
+    ddrStatus: String(raw.ddrStatus ?? 'pending'),
+    contractor: String(raw.contractor ?? ''),
+    startDate: formatPortfolioDate(raw.startDate ?? raw.appointmentDate),
+    completionDate: formatPortfolioDate(raw.completionDate),
+    percentComplete:
+      typeof raw.percentComplete === 'number'
+        ? Math.min(100, Math.max(0, Number(raw.percentComplete) || 0))
+        : progressFromLifecycleStage(raw.currentStage),
+    constructionStatus: mapConstructionStatus(raw.constructionStatus),
+  };
+}
 
 export default function Projects() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
-  const { activeTab, setActiveTab } = useProjectStore();
+  const [activeTab, setActiveTab] = useState<ContractTab>('ps');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | ''>('');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'needs_action' | 'active' | 'planning' | 'done'>('all');
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const { user } = useAuthStore();
+  const tenantRole = user && tenantSlug ? user.tenants.find((t) => t.slug === tenantSlug)?.role : undefined;
+  const isClientTemp = tenantRole === 'CLIENT_TEMP';
+
+  const { expiresAt, allowedProjectIds, setAllowedProjectIds, setExpiresAt, clearClientTempScope } =
+    useClientAccessStore();
+
+  const togglePinnedProject = useProjectStore((s) => s.togglePinnedProject);
+  const pinnedForTenant = useProjectStore((s) =>
+    tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,
+  );
+  const setFilters = useProjectStore((s) => s.setFilters);
+  const searchQuery = useProjectStore((s) => s.tableFilters.search ?? '');
+  const isPinned = (projectId: string) => pinnedForTenant.some((p) => p.id === projectId);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateClientTempScope() {
+      if (!tenantSlug || !isClientTemp) return;
+      if (expiresAt && allowedProjectIds.length > 0) return;
+
+      clearClientTempScope();
+
+      try {
+        const res = await fetchClientTempScope({ tenantSlug });
+        if (cancelled) return;
+        setAllowedProjectIds(res.allowedProjectIds);
+        setExpiresAt(res.expiresAt);
+      } catch {
+        if (cancelled) return;
+        // If backend blocks the request, keep banner scoped off.
+      }
+    }
+
+    void hydrateClientTempScope();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    tenantSlug,
+    isClientTemp,
+    expiresAt,
+    allowedProjectIds.length,
+    setAllowedProjectIds,
+    setExpiresAt,
+    clearClientTempScope,
+  ]);
+
+  const { data: apiProjects = [] } = useQuery({
+    queryKey: ['projects', tenantSlug],
+    queryFn: async () => {
+      const res = await projectsApi.list({ tenantSlug: tenantSlug || '' } as never);
+      return normalizeProjectsListResponse(res);
+    },
+    enabled: Boolean(tenantSlug),
+  });
+
+  const portfolioProjects = useMemo(
+    () => apiProjects.map((p) => mapApiProjectToPortfolioRow(p)),
+    [apiProjects],
+  );
 
   const toggleDrillDown = (id: string) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -58,28 +232,119 @@ export default function Projects() {
 
   const filteredProjects = useMemo(
     () =>
-      mockProjects.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      ),
-    [searchQuery]
+      portfolioProjects.filter((p) => {
+        const matchesSearch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        const matchesService = !serviceCategoryFilter || p.serviceCategory === serviceCategoryFilter;
+        const matchesClientScope = !isClientTemp || allowedProjectIds.includes(p.id);
+        const matchesQuickFilter =
+          quickFilter === 'all'
+            ? true
+            : quickFilter === 'needs_action'
+              ? p.status === 'review' || p.constructionStatus === 'at_risk' || p.constructionStatus === 'delayed'
+              : quickFilter === 'active'
+                ? p.status === 'active'
+                : quickFilter === 'planning'
+                  ? p.status === 'planning'
+                  : p.status === 'done' || p.constructionStatus === 'complete';
+        return matchesSearch && matchesService && matchesClientScope && matchesQuickFilter;
+      }),
+    [portfolioProjects, searchQuery, serviceCategoryFilter, isClientTemp, allowedProjectIds, quickFilter],
   );
 
   const showEmpty = filteredProjects.length === 0;
+  const summary = useMemo(() => {
+    const inScope = portfolioProjects.filter((p) => !isClientTemp || allowedProjectIds.includes(p.id));
+    return {
+      total: inScope.length,
+      active: inScope.filter((p) => p.status === 'active').length,
+      needsAction: inScope.filter(
+        (p) => p.status === 'review' || p.constructionStatus === 'at_risk' || p.constructionStatus === 'delayed',
+      ).length,
+      completed: inScope.filter((p) => p.status === 'done' || p.constructionStatus === 'complete').length,
+    };
+  }, [portfolioProjects, isClientTemp, allowedProjectIds]);
+
+  type ProjectExportRow = {
+    projectName: string;
+    ref: string;
+    serviceCategory: string;
+    localMunicipality: string;
+    address: string;
+    contractValue: string;
+    expenditure: string;
+    balance: string;
+    status: string;
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'both') {
+      await handleExport('pdf');
+      await handleExport('xlsx');
+      return;
+    }
+    const rows: ProjectExportRow[] = filteredProjects.map((p) => ({
+      projectName: p.name,
+      ref: p.ref,
+      serviceCategory: p.serviceCategory ? SERVICE_CATEGORY_LABELS[p.serviceCategory] : 'N/A',
+      localMunicipality: p.localMunicipality || 'N/A',
+      address: p.address || 'N/A',
+      contractValue: isClientTemp ? '—— Restricted' : formatRands(p.contractValue),
+      expenditure: isClientTemp ? '—— Restricted' : formatRands(p.expenditure),
+      balance: isClientTemp ? '—— Restricted' : formatRands(p.balance),
+      status: p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : p.status === 'planning' ? 'Not Started' : 'Complete',
+    }));
+
+    const columns: { key: keyof ProjectExportRow; header: string }[] = [
+      { key: 'projectName', header: 'Project Name' },
+      { key: 'ref', header: 'Ref' },
+      { key: 'serviceCategory', header: 'Service Category' },
+      { key: 'localMunicipality', header: 'Local Municipality' },
+      { key: 'address', header: 'Address' },
+      { key: 'contractValue', header: 'Contract Value' },
+      { key: 'expenditure', header: 'Expenditure' },
+      { key: 'balance', header: 'Balance' },
+      { key: 'status', header: 'Status' },
+    ];
+
+    const tabLabel = tabs.find((t) => t.key === activeTab)?.label ?? '';
+    const subtitleParts = [
+      `${filteredProjects.length} project${filteredProjects.length === 1 ? '' : 's'}`,
+      tabLabel,
+      serviceCategoryFilter ? `Category: ${SERVICE_CATEGORY_LABELS[serviceCategoryFilter]}` : null,
+      searchQuery.trim() ? `Search: "${searchQuery.trim()}"` : null,
+    ].filter(Boolean);
+    const subtitle = subtitleParts.join(' · ');
+
+    const filename = `Projects.${format === 'xlsx' ? 'xlsx' : 'pdf'}`;
+    if (format === 'xlsx') {
+      await exportXlsx<ProjectExportRow>({ filename, sheetName: 'Projects', columns, rows });
+    } else {
+      exportPdf<ProjectExportRow>({
+        filename,
+        title: 'Projects',
+        subtitle,
+        columns,
+        rows,
+      });
+    }
+  };
 
   return (
     <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <h1 className="text-h1">Projects</h1>
-        <Link to={`/${tenantSlug}/projects/new`}>
-          <Button variant="primary">
-            <Plus className="h-3.5 w-3.5" />
-            New Project
-          </Button>
-        </Link>
+        {!isClientTemp && (
+          <Link to={`/${tenantSlug}/projects/new`}>
+            <Button variant="primary">
+              <Plus className="h-3.5 w-3.5" />
+              New Project
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Tab row */}
-      <div className="flex items-center gap-0 border-b border-[var(--border)] mb-6">
+      <div className="flex items-center gap-0 border-b border-[var(--border)] mb-6 overflow-x-auto scrollbar-hidden">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -97,91 +362,197 @@ export default function Projects() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-4 mb-6 sticky top-16 z-10 bg-[var(--bg-primary)] py-2">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-4 mb-6 sticky top-16 z-10 bg-[var(--bg-primary)] py-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="text"
             placeholder="Search projects..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const next = raw.trim() ? raw : undefined;
+              setFilters({ search: next });
+            }}
             className="w-full bg-transparent border-0 border-b border-[var(--border)] pl-6 pr-4 py-1.5 font-body text-[0.82rem] font-light text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none transition-[border-color] duration-200"
           />
         </div>
-        <Button variant="secondary" className="!min-w-0 !px-4">
-          <Filter className="h-3.5 w-3.5" />
-          Filter
-        </Button>
-        <Button variant="secondary" className="!min-w-0 !px-4">
+        <select
+          value={serviceCategoryFilter}
+          onChange={(e) => setServiceCategoryFilter(e.target.value as ServiceCategory | '')}
+          className="bg-transparent border border-[var(--border)] px-3 py-1.5 text-[0.82rem] text-[var(--text-primary)] min-w-[180px]"
+        >
+          <option value="">All service categories</option>
+          {(Object.keys(SERVICE_CATEGORY_LABELS) as ServiceCategory[]).map((k) => (
+            <option key={k} value={k}>{SERVICE_CATEGORY_LABELS[k]}</option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2">
+          <Filter className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'needs_action', label: 'Needs Action' },
+            { key: 'active', label: 'Active' },
+            { key: 'planning', label: 'Planning' },
+            { key: 'done', label: 'Complete' },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() =>
+                setQuickFilter(item.key as 'all' | 'needs_action' | 'active' | 'planning' | 'done')
+              }
+              className={[
+                'px-2.5 py-1.5 text-[0.72rem] border',
+                quickFilter === item.key
+                  ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-glow)]'
+                  : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <Button
+          variant="secondary"
+          className="!min-w-0 !px-4"
+          onClick={() => setExportOpen(true)}
+        >
           <Download className="h-3.5 w-3.5" />
           Export
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Total Projects</p>
+          <p className="text-[1rem] text-[var(--text-primary)]">{summary.total}</p>
+        </div>
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Active</p>
+          <p className="text-[1rem] text-[var(--status-active)]">{summary.active}</p>
+        </div>
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Needs Action</p>
+          <p className="text-[1rem] text-[var(--status-review)]">{summary.needsAction}</p>
+        </div>
+        <div className="border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <p className="text-[0.68rem] text-[var(--text-muted)] uppercase tracking-wide">Completed</p>
+          <p className="text-[1rem] text-[var(--status-success)]">{summary.completed}</p>
+        </div>
+      </div>
+
       {/* Professional Services Table */}
       {activeTab === 'ps' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto min-w-full">
+        <div className={TABLE_SURFACE}>
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[900px] table-fixed">
+            <colgroup>
+              <col className="w-[23%]" />
+              <col className="w-[10%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[2%]" />
+            </colgroup>
             <thead>
-              <tr style={{ background: 'var(--table-header-bg)' }}>
-                {['Project Name', 'Ref', 'GPS', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
+              <tr className={TABLE_HEAD_ROW}>
+                {['Project Name', 'Ref', 'Service Category', 'Local Municipality', 'Contract Value', 'Expenditure', 'Balance', 'Status', ''].map((h) => (
+                  <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filteredProjects.map((p, i) => (
-                <>
+                <Fragment key={p.id}>
                   <tr
-                    key={p.id}
                     className={[
                       'group border-b border-[var(--border)] cursor-pointer transition-all duration-300',
-                      'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
+                      TABLE_ROW_INTERACTIVE,
+                      TABLE_ROW_BASE,
                       i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                     ].join(' ')}
                   >
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/${tenantSlug}/projects/${p.id}`}
-                        className="text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
-                      >
-                        {p.name}
-                      </Link>
+                    <td className="px-3 py-3 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {!isClientTemp && (
+                          <button
+                            type="button"
+                            aria-label={isPinned(p.id) ? 'Unpin project' : 'Pin project'}
+                            aria-pressed={isPinned(p.id)}
+                            className={[
+                              'shrink-0 p-1 rounded-sm transition-colors',
+                              isPinned(p.id)
+                                ? 'text-[var(--accent-sand)] hover:text-[var(--accent)]'
+                                : 'text-[var(--text-muted)] hover:text-[var(--accent-sand)]',
+                              'hover:bg-[var(--accent-sand-glow)]',
+                            ].join(' ')}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (!tenantSlug) return;
+                              togglePinnedProject(tenantSlug, { id: p.id, name: p.name, ref: p.ref });
+                            }}
+                          >
+                            <Star
+                              className="h-3.5 w-3.5"
+                              fill={isPinned(p.id) ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                        )}
+                        <Link
+                          to={`/${tenantSlug}/projects/${p.id}`}
+                          className="block truncate text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
+                        >
+                          {p.name}
+                        </Link>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-mono">{p.ref}</td>
-                    <td className="px-4 py-3">
-                      <button className="text-mono !text-[var(--status-planning)] cursor-pointer hover:underline">
-                        {p.gps}
-                      </button>
+                    <td className="px-3 py-3 text-mono min-w-0 truncate">{p.ref}</td>
+                    <td className="px-3 py-3 text-[0.78rem] text-[var(--text-muted)] min-w-0 truncate">
+                      {p.serviceCategory ? SERVICE_CATEGORY_LABELS[p.serviceCategory] : 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 text-[0.78rem] text-[var(--text-muted)] min-w-0 truncate">
+                      {p.localMunicipality || 'N/A'}
+                    </td>
+                    <td className="px-3 py-3 text-currency">
+                      {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
+                    </td>
+                    <td className="px-3 py-3">
                       <button
                         onClick={() => toggleDrillDown(p.id)}
                         className="flex items-center gap-1 text-currency cursor-pointer"
                       >
-                        {formatRands(p.expenditure)}
+                        {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
                         {expandedRow === p.id
                           ? <ChevronUp className="h-3 w-3 text-[var(--accent)]" />
                           : <ChevronDown className="h-3 w-3 text-[var(--accent)]" />
                         }
                       </button>
                     </td>
-                    <td className={`px-4 py-3 text-currency ${p.balance >= 0 ? '!text-[var(--status-active)]' : '!text-[var(--status-danger)]'}`}>
-                      {formatRands(p.balance)}
+                    <td
+                      className={`px-3 py-3 text-currency ${
+                        !isClientTemp && p.balance >= 0 ? '!text-[var(--status-active)]' : ''
+                      } ${
+                        !isClientTemp && p.balance < 0 ? '!text-[var(--status-danger)]' : ''
+                      }`}
+                    >
+                      {isClientTemp ? '—— Restricted' : formatRands(p.balance)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <StatusBadge status={p.status}>
                         {p.status === 'active' ? 'Active' : p.status === 'review' ? 'In Review' : p.status === 'planning' ? 'Not Started' : 'Complete'}
                       </StatusBadge>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button className="text-[var(--text-muted)] hover:text-[var(--accent)]" aria-label="Attachments">
                           <Paperclip className="h-3.5 w-3.5" />
@@ -193,8 +564,12 @@ export default function Projects() {
                   {/* Drill-down panel */}
                   {expandedRow === p.id && (
                     <tr key={`${p.id}-drill`}>
-                      <td colSpan={8} className="px-4 py-4 bg-[rgba(201,169,97,0.04)] border-t border-[var(--accent)]">
+                      <td colSpan={9} className="px-4 py-4 bg-[var(--accent-sand-glow)] border-t border-[var(--accent)]">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
+                            <p className="text-[0.7rem] font-body font-medium text-[var(--text-primary)] mb-2">Address</p>
+                            <p className="text-[0.72rem] text-[var(--text-muted)] truncate">{p.address || 'N/A'}</p>
+                          </div>
                           {['Monthly Progress Report', 'Tender Document', 'Drawings', 'PDR'].map((doc) => (
                             <div key={doc} className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
                               <p className="text-[0.7rem] font-body font-medium text-[var(--text-primary)] mb-2">{doc}</p>
@@ -205,7 +580,7 @@ export default function Projects() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -215,18 +590,18 @@ export default function Projects() {
 
       {/* Geo-Technical Table */}
       {activeTab === 'geo' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className={TABLE_SURFACE}>
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[800px] table-fixed">
             <thead>
-              <tr style={{ background: 'var(--table-header-bg)' }}>
+              <tr className={TABLE_HEAD_ROW}>
                 {['Project Name', 'Geo-Tec Engineer', 'Project Value', 'Geo-Tec Report', 'Expenditure', 'Challenges', 'Recommendation', 'DDR Status'].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
+                  <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -235,25 +610,60 @@ export default function Projects() {
                 <tr
                   key={p.id}
                   className={[
-                    'border-b border-[var(--border)] cursor-pointer transition-all duration-300',
-                    'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
+                    TABLE_ROW_BASE,
+                    TABLE_ROW_INTERACTIVE,
                     i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                   ].join(' ')}
                 >
-                  <td className="px-4 py-3 text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{p.name}</td>
-                  <td className="px-4 py-3 text-table-cell">
+                  <td className={`${TABLE_CELL} min-w-0`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {!isClientTemp && (
+                        <button
+                          type="button"
+                          aria-label={isPinned(p.id) ? 'Unpin project' : 'Pin project'}
+                          aria-pressed={isPinned(p.id)}
+                          className={[
+                            'shrink-0 p-1 rounded-sm transition-colors',
+                            isPinned(p.id)
+                              ? 'text-[var(--accent-sand)] hover:text-[var(--accent)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--accent-sand)]',
+                            'hover:bg-[var(--accent-sand-glow)]',
+                          ].join(' ')}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!tenantSlug) return;
+                            togglePinnedProject(tenantSlug, { id: p.id, name: p.name, ref: p.ref });
+                          }}
+                        >
+                          <Star className="h-3.5 w-3.5" fill={isPinned(p.id) ? 'currentColor' : 'none'} />
+                        </button>
+                      )}
+                      <Link
+                        to={`/${tenantSlug}/projects/${p.id}`}
+                        className="block truncate text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
+                      >
+                        {p.name}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className={`${TABLE_CELL} min-w-0 truncate`}>
                     {p.geoTecEngineer || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
-                  <td className="px-4 py-3">
+                    <td className={`${TABLE_CELL} text-currency`}>
+                      {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
+                    </td>
+                  <td className={TABLE_CELL}>
                     <StatusBadge status={p.geoTecReport === 'submitted' ? 'active' : p.geoTecReport === 'in_review' ? 'review' : 'planning'}>
                       {p.geoTecReport === 'submitted' ? 'Submitted' : p.geoTecReport === 'in_review' ? 'In Review' : 'Pending'}
                     </StatusBadge>
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
-                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.challenges || '—'}</td>
-                  <td className="px-4 py-3 text-table-cell max-w-[200px] truncate">{p.recommendation || '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className={`${TABLE_CELL} text-currency`}>
+                    {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
+                  </td>
+                  <td className={`${TABLE_CELL} max-w-[200px] truncate`}>{p.challenges || 'N/A'}</td>
+                  <td className={`${TABLE_CELL} max-w-[200px] truncate`}>{p.recommendation || 'N/A'}</td>
+                  <td className={TABLE_CELL}>
                     <StatusBadge status={p.ddrStatus === 'complete' ? 'done' : p.ddrStatus === 'in_review' ? 'review' : 'planning'}>
                       {p.ddrStatus === 'complete' ? 'Complete' : p.ddrStatus === 'in_review' ? 'In Review' : 'Pending'}
                     </StatusBadge>
@@ -268,18 +678,18 @@ export default function Projects() {
 
       {/* Construction Management Table */}
       {activeTab === 'cm' && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
+        <div className={TABLE_SURFACE}>
           {showEmpty ? (
             <EmptyState
               title={searchQuery.trim() ? 'No projects match your search.' : 'No projects yet.'}
               description={searchQuery.trim() ? 'Try a different search term.' : 'Create your first project to get started.'}
             />
           ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[800px] table-fixed">
             <thead>
-              <tr style={{ background: 'var(--table-header-bg)' }}>
+              <tr className={TABLE_HEAD_ROW}>
                 {['Project Name', 'Contractor', 'Contract Value', 'Start Date', 'Completion Date', 'Expenditure', '% Complete', 'Status'].map((h) => (
-                  <th key={h} className="text-table-header text-left px-4 py-3 whitespace-nowrap">{h}</th>
+                  <th key={h} className={TABLE_HEAD_CELL}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -288,23 +698,58 @@ export default function Projects() {
                 <tr
                   key={p.id}
                   className={[
-                    'border-b border-[var(--border)] cursor-pointer transition-all duration-300',
-                    'hover:bg-[var(--accent-glow)] hover:border-l-2 hover:border-l-[var(--accent)]',
+                    TABLE_ROW_BASE,
+                    TABLE_ROW_INTERACTIVE,
                     i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]',
                   ].join(' ')}
                 >
-                  <td className="px-4 py-3 text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{p.name}</td>
-                  <td className="px-4 py-3 text-table-cell">
+                  <td className={`${TABLE_CELL} min-w-0`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {!isClientTemp && (
+                        <button
+                          type="button"
+                          aria-label={isPinned(p.id) ? 'Unpin project' : 'Pin project'}
+                          aria-pressed={isPinned(p.id)}
+                          className={[
+                            'shrink-0 p-1 rounded-sm transition-colors',
+                            isPinned(p.id)
+                              ? 'text-[var(--accent-sand)] hover:text-[var(--accent)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--accent-sand)]',
+                            'hover:bg-[var(--accent-sand-glow)]',
+                          ].join(' ')}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!tenantSlug) return;
+                            togglePinnedProject(tenantSlug, { id: p.id, name: p.name, ref: p.ref });
+                          }}
+                        >
+                          <Star className="h-3.5 w-3.5" fill={isPinned(p.id) ? 'currentColor' : 'none'} />
+                        </button>
+                      )}
+                      <Link
+                        to={`/${tenantSlug}/projects/${p.id}`}
+                        className="block truncate text-[0.82rem] font-body font-medium text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
+                      >
+                        {p.name}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className={`${TABLE_CELL} min-w-0 truncate`}>
                     {p.contractor || <span className="italic text-[var(--text-muted)]">Not Appointed</span>}
                   </td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.contractValue)}</td>
-                  <td className="px-4 py-3 text-table-cell text-[var(--text-muted)]">{p.startDate}</td>
-                  <td className="px-4 py-3 text-table-cell">{p.completionDate}</td>
-                  <td className="px-4 py-3 text-currency">{formatRands(p.expenditure)}</td>
-                  <td className="px-4 py-3 w-[160px]">
+                  <td className={`${TABLE_CELL} text-currency`}>
+                    {isClientTemp ? '—— Restricted' : formatRands(p.contractValue)}
+                  </td>
+                  <td className={`${TABLE_CELL} text-[var(--text-muted)]`}>{p.startDate}</td>
+                  <td className={TABLE_CELL}>{p.completionDate}</td>
+                  <td className={`${TABLE_CELL} text-currency`}>
+                    {isClientTemp ? '—— Restricted' : formatRands(p.expenditure)}
+                  </td>
+                  <td className={`${TABLE_CELL} w-[160px]`}>
                     <ProgressBar value={p.percentComplete} height={4} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={TABLE_CELL}>
                     <StatusBadge status={
                       p.constructionStatus === 'on_track' ? 'active' :
                       p.constructionStatus === 'at_risk' ? 'review' :
@@ -322,6 +767,13 @@ export default function Projects() {
           )}
         </div>
       )}
+
+      <ExportDialog
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        context="Projects"
+        onExport={handleExport}
+      />
     </div>
   );
 }

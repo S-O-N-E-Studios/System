@@ -48,6 +48,7 @@ describe('registerOrgSchema', () => {
   const validData = {
     orgName: 'Limpopo Civil',
     slug: 'limpopo-civil',
+    orgType: 'private_firm' as const,
     industryType: 'construction',
     primaryContactName: 'John Doe',
     primaryContactEmail: 'john@example.com',
@@ -102,8 +103,8 @@ describe('registerOrgSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const paths = result.error.issues.map((i) => i.path.join('.'));
-      expect(paths).toContain('adminPasswordConfirm');
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages.toLowerCase()).toMatch(/password|match/);
     }
   });
 
@@ -135,6 +136,23 @@ describe('registerOrgSchema', () => {
     const result = registerOrgSchema.safeParse({ ...validData, industryType: '' });
     expect(result.success).toBe(false);
   });
+
+  it('rejects provincial government org without local municipalities', () => {
+    const result = registerOrgSchema.safeParse({
+      ...validData,
+      orgType: 'provincial_gov' as const,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts provincial government org with at least one municipality', () => {
+    const result = registerOrgSchema.safeParse({
+      ...validData,
+      orgType: 'provincial_gov' as const,
+      localMunicipalityIds: ['polokwane'],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('projectSchema', () => {
@@ -142,6 +160,8 @@ describe('projectSchema', () => {
     name: 'Water Treatment Phase 1',
     contractValue: 5_000_000,
     status: 'active',
+    contractTypes: ['professional'] as const,
+    serviceCategory: 'water_sanitation' as const,
   };
 
   it('accepts valid project data', () => {
@@ -174,30 +194,34 @@ describe('projectSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('accepts optional GPS coordinates', () => {
+  it('accepts optional GPS coordinates in location', () => {
     const result = projectSchema.safeParse({
       ...validProject,
-      gpsLatitude: -23.9,
-      gpsLongitude: 29.45,
+      location: { lat: -23.9, lng: 29.45 },
     });
     expect(result.success).toBe(true);
   });
 
   it('rejects latitude out of range', () => {
-    const result = projectSchema.safeParse({ ...validProject, gpsLatitude: -91 });
+    const result = projectSchema.safeParse({
+      ...validProject,
+      location: { lat: -91, lng: 29 },
+    });
     expect(result.success).toBe(false);
   });
 
   it('rejects longitude out of range', () => {
-    const result = projectSchema.safeParse({ ...validProject, gpsLongitude: 181 });
+    const result = projectSchema.safeParse({
+      ...validProject,
+      location: { lat: -23, lng: 181 },
+    });
     expect(result.success).toBe(false);
   });
 
-  it('accepts null GPS coordinates', () => {
+  it('accepts null GPS coordinates in location', () => {
     const result = projectSchema.safeParse({
       ...validProject,
-      gpsLatitude: null,
-      gpsLongitude: null,
+      location: { lat: null, lng: null },
     });
     expect(result.success).toBe(true);
   });

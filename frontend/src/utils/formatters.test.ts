@@ -9,7 +9,14 @@ import {
   truncate,
   formatPercent,
   getGreeting,
+  EMPTY_PLACEHOLDER,
 } from './formatters';
+
+describe('EMPTY_PLACEHOLDER', () => {
+  it('is N/A for empty values in UI', () => {
+    expect(EMPTY_PLACEHOLDER).toBe('N/A');
+  });
+});
 
 describe('formatCurrency', () => {
   it('formats cents as ZAR without decimals', () => {

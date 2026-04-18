@@ -5,20 +5,21 @@ describe('projectStore', () => {
   beforeEach(() => {
     useProjectStore.setState({
       activeProjectId: null,
-      activeTab: 'ps',
+      activeTab: 'overview',
       tableFilters: {
         status: undefined,
         search: undefined,
         dateFrom: undefined,
         dateTo: undefined,
       },
+      pinnedProjectsByTenant: {},
     });
   });
 
   it('has correct initial state', () => {
     const state = useProjectStore.getState();
     expect(state.activeProjectId).toBeNull();
-    expect(state.activeTab).toBe('ps');
+    expect(state.activeTab).toBe('overview');
     expect(state.tableFilters.status).toBeUndefined();
     expect(state.tableFilters.search).toBeUndefined();
   });
@@ -35,11 +36,11 @@ describe('projectStore', () => {
   });
 
   it('setActiveTab changes tab', () => {
-    useProjectStore.getState().setActiveTab('geo');
-    expect(useProjectStore.getState().activeTab).toBe('geo');
+    useProjectStore.getState().setActiveTab('professional');
+    expect(useProjectStore.getState().activeTab).toBe('professional');
 
-    useProjectStore.getState().setActiveTab('cm');
-    expect(useProjectStore.getState().activeTab).toBe('cm');
+    useProjectStore.getState().setActiveTab('construction');
+    expect(useProjectStore.getState().activeTab).toBe('construction');
   });
 
   it('setFilters merges partial filters', () => {
@@ -76,5 +77,20 @@ describe('projectStore', () => {
     expect(filters.search).toBeUndefined();
     expect(filters.dateFrom).toBeUndefined();
     expect(filters.dateTo).toBeUndefined();
+  });
+
+  it('togglePinnedProject pins and unpins', () => {
+    const tenantSlug = 'test-org';
+    const project = { id: 'p1', name: 'Project 1', ref: 'PRJ-1' };
+
+    expect(useProjectStore.getState().isProjectPinned(tenantSlug, project.id)).toBe(false);
+
+    useProjectStore.getState().togglePinnedProject(tenantSlug, project);
+    expect(useProjectStore.getState().isProjectPinned(tenantSlug, project.id)).toBe(true);
+    expect(useProjectStore.getState().getPinnedProjects(tenantSlug)).toEqual([project]);
+
+    useProjectStore.getState().togglePinnedProject(tenantSlug, project);
+    expect(useProjectStore.getState().isProjectPinned(tenantSlug, project.id)).toBe(false);
+    expect(useProjectStore.getState().getPinnedProjects(tenantSlug)).toEqual([]);
   });
 });

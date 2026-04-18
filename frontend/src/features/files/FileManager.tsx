@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
 import { Upload, FileText, FileSpreadsheet, Image, File } from 'lucide-react';
-import type { DocumentType } from '@/types';
+import type { DocumentType, FileCategory, ProjectFile } from '@/types';
 import { formatFileSize } from '@/utils/formatters';
 import EmptyState from '@/components/ui/EmptyState';
 import SuccessAnimation from '@/components/ui/SuccessAnimation';
+import { filesApi } from '@/api/files';
+import { projectsApi } from '@/api/projects';
 
 const FILE_UPLOAD_MODAL_ID = 'file-upload';
 
@@ -44,22 +48,68 @@ interface FileCard {
   date: string;
   project: string;
   mimeType: string;
+  downloadUrl?: string;
 }
 
-const mockFiles: FileCard[] = [
-  { id: '1', name: 'Payment Certificate - Feb 2026.pdf', documentType: 'payment_certificate', size: 2_450_000, date: '28 Feb 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-  { id: '2', name: 'PC-001 Polokwane Phase 1.pdf', documentType: 'payment_certificate', size: 1_100_000, date: '15 Jan 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-  { id: '3', name: 'Tender Document - Tzaneen Bridge.docx', documentType: 'tender_document', size: 3_800_000, date: '10 Feb 2026', project: 'Tzaneen Bridge', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-  { id: '4', name: 'Tender SBD Forms - Mokopane.xlsx', documentType: 'tender_document', size: 890_000, date: '05 Feb 2026', project: 'Mokopane Road', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-  { id: '5', name: 'Road Layout Section A-A.pdf', documentType: 'drawings', size: 4_200_000, date: '20 Jan 2026', project: 'Mokopane Road', mimeType: 'application/pdf' },
-  { id: '6', name: 'Structural Details Rev 2.dwg', documentType: 'drawings', size: 8_700_000, date: '12 Feb 2026', project: 'Tzaneen Bridge', mimeType: 'application/acad' },
-  { id: '7', name: 'Survey Points Export.csv', documentType: 'digital_survey', size: 520_000, date: '01 Mar 2026', project: 'Polokwane Water Treatment', mimeType: 'text/csv' },
-  { id: '8', name: 'GPS Control Network.xlsx', documentType: 'digital_survey', size: 340_000, date: '18 Feb 2026', project: 'Mokopane Road', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-  { id: '9', name: 'Geo-Tech Report BH-1 to BH-5.pdf', documentType: 'geo_technical_report', size: 8_700_000, date: '05 Feb 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-  { id: '10', name: 'Borehole Log Summary.pdf', documentType: 'geo_technical_report', size: 2_100_000, date: '22 Jan 2026', project: 'Tzaneen Bridge', mimeType: 'application/pdf' },
-  { id: '11', name: 'Environmental Impact Assessment.pdf', documentType: 'environmental_report', size: 12_400_000, date: '14 Feb 2026', project: 'Tzaneen Bridge', mimeType: 'application/pdf' },
-  { id: '12', name: 'EIA Addendum - Water Quality.pdf', documentType: 'environmental_report', size: 1_800_000, date: '28 Feb 2026', project: 'Polokwane Water Treatment', mimeType: 'application/pdf' },
-];
+function entityId<T extends { id?: string; _id?: string }>(item: T): string {
+  return item.id || item._id || '';
+}
+
+function fileCategoryToDocumentType(category: FileCategory): DocumentType {
+  if (category === 'payment-certificate') return 'payment_certificate';
+  if (category === 'tender-document' || category === 'tender-evaluation') return 'tender_document';
+  if (
+    category === 'tender-drawing' ||
+    category === 'as-built-drawing' ||
+    category === 'preliminary-design' ||
+    category === 'detailed-design'
+  ) {
+    return 'drawings';
+  }
+  if (category === 'digital-survey') return 'digital_survey';
+  if (category === 'geotechnical') return 'geo_technical_report';
+  if (category === 'environmental') return 'environmental_report';
+  return 'tender_document';
+}
+
+function mapProjectFileToFileCard(pf: ProjectFile): FileCard {
+  const uploaded = new Date(pf.createdAt);
+  const dateStr = uploaded.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const size = pf.sizeBytes ?? pf.size;
+  return {
+    id: entityId(pf as ProjectFile & { _id?: string }),
+    name: pf.originalName,
+    documentType: fileCategoryToDocumentType(pf.category),
+    size,
+    date: dateStr,
+    project: pf.projectId ? `Project ${pf.projectId}` : 'Tenant',
+    mimeType: pf.mimeType,
+    downloadUrl: pf.url,
+  };
+}
+
+function documentTypeToCategory(documentType: DocumentType): FileCategory {
+  switch (documentType) {
+    case 'payment_certificate':
+      return 'payment-certificate';
+    case 'tender_document':
+      return 'tender-document';
+    case 'drawings':
+      return 'tender-drawing';
+    case 'digital_survey':
+      return 'digital-survey';
+    case 'geo_technical_report':
+      return 'geotechnical';
+    case 'environmental_report':
+      return 'environmental';
+    default:
+      return 'other';
+  }
+}
 
 function getIconForDocType(documentType: DocumentType): typeof FileText {
   switch (documentType) {
@@ -83,13 +133,42 @@ function getFileExtension(name: string): string {
 }
 
 export default function FileManager() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { openModal, closeModal } = useUiStore();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'all' | DocumentType>('all');
   const [extensionFilter, setExtensionFilter] = useState('');
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('payment_certificate');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fetchedFiles, setFetchedFiles] = useState<FileCard[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: filesPage } = useQuery({
+    queryKey: ['files', 'list', tenantSlug],
+    queryFn: () =>
+      filesApi.list({
+        tenantSlug: tenantSlug!,
+        page: 1,
+        pageSize: 100,
+      }),
+    enabled: Boolean(tenantSlug),
+  });
+  const { data: projectsPage } = useQuery({
+    queryKey: ['projects', 'for-file-manager', tenantSlug],
+    queryFn: () => projectsApi.list({ limit: 100 }),
+    enabled: Boolean(tenantSlug),
+  });
+
+  useEffect(() => {
+    if (!filesPage?.data) {
+      setFetchedFiles([]);
+      return;
+    }
+    setFetchedFiles(filesPage.data.map(mapProjectFileToFileCard));
+  }, [filesPage]);
 
   useEffect(() => {
     if (!uploadSuccess) return;
@@ -100,10 +179,21 @@ export default function FileManager() {
     return () => clearTimeout(t);
   }, [uploadSuccess, closeModal]);
 
+  useEffect(() => {
+    if (!selectedProjectId && projectsPage?.projects?.length) {
+      const firstProjectId = entityId(projectsPage.projects[0] as { id?: string; _id?: string });
+      if (firstProjectId) setSelectedProjectId(firstProjectId);
+    }
+  }, [projectsPage, selectedProjectId]);
+
+  const projectNameById = new Map((projectsPage?.projects || []).map((project) => [entityId(project as { id?: string; _id?: string }), project.name]));
+  const allFiles = fetchedFiles.map((file) => ({
+    ...file,
+    project: projectNameById.get(file.project.replace('Project ', '')) || file.project,
+  }));
+
   const byTab =
-    activeTab === 'all'
-      ? mockFiles
-      : mockFiles.filter((f) => f.documentType === activeTab);
+    activeTab === 'all' ? allFiles : allFiles.filter((f) => f.documentType === activeTab);
 
   const displayedFiles =
     !extensionFilter
@@ -117,10 +207,38 @@ export default function FileManager() {
     setSelectedFiles(files);
   };
 
-  const handleUploadSubmit = () => {
-    // Mock: in real app would POST files + selectedDocumentType
-    setSelectedFiles([]);
-    setUploadSuccess(true);
+  const handleUploadSubmit = async () => {
+    if (selectedFiles.length === 0 || !tenantSlug || !selectedProjectId) return;
+    setIsUploading(true);
+    try {
+      await Promise.all(
+        selectedFiles.map((file) =>
+          filesApi.uploadStageDocument({
+            tenantSlug,
+            projectId: selectedProjectId,
+            stage: 1,
+            category: documentTypeToCategory(selectedDocumentType),
+            file,
+          })
+        )
+      );
+      await queryClient.invalidateQueries({ queryKey: ['files', 'list', tenantSlug] });
+      setSelectedFiles([]);
+      setUploadSuccess(true);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownload = async (file: FileCard) => {
+    const downloadUrl =
+      file.downloadUrl ||
+      (tenantSlug ? await filesApi.getDownloadUrl({ tenantSlug, id: file.id }) : null);
+    if (!downloadUrl) return;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = file.name;
+    a.click();
   };
 
   return (
@@ -129,7 +247,7 @@ export default function FileManager() {
         <h1 className="text-h1">Files</h1>
       </div>
 
-      {/* Upload zone — opens modal */}
+      {/* Upload zone: opens modal */}
       <button
         type="button"
         onClick={handleUploadZoneClick}
@@ -138,20 +256,20 @@ export default function FileManager() {
         <Upload className="h-8 w-8 text-[var(--accent-dim)]" />
         <p className="text-body">Drop files here or click to upload</p>
         <p className="text-[0.65rem] text-[var(--text-muted)]">
-          PDF, XLSX, DOCX, PNG, JPG — Max 50MB. Assign a document type in the upload dialog.
+          PDF, XLSX, DOCX, PNG, JPG; Max 50MB. Assign a document type in the upload dialog.
         </p>
       </button>
 
       {/* Document-type tabs + secondary extension filter */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="flex items-center gap-0 border-b border-[var(--border)] overflow-x-auto flex-1">
+        <div className="flex flex-wrap items-center gap-0 border-b border-[var(--border)] flex-1">
           {DOCUMENT_TYPE_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
               className={[
-                'text-button px-4 py-3 whitespace-nowrap transition-all duration-300',
+                'text-button px-4 py-3 transition-all duration-300',
                 activeTab === tab.key
                   ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
@@ -214,7 +332,13 @@ export default function FileManager() {
                   </div>
                 </div>
                 <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" className="!text-[0.55rem]">Download</Button>
+                  <Button
+                    variant="ghost"
+                    className="!text-[0.55rem]"
+                    onClick={() => handleDownload(file)}
+                  >
+                    Download
+                  </Button>
                 </div>
               </div>
             );
@@ -252,6 +376,23 @@ export default function FileManager() {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-eyebrow text-[var(--text-muted)] mb-2">
+              Project (required)
+            </label>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="w-full bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-primary)] text-[0.9rem] px-4 py-3"
+            >
+              <option value="">Select project</option>
+              {(projectsPage?.projects || []).map((project) => (
+                <option key={entityId(project as { id?: string; _id?: string })} value={entityId(project as { id?: string; _id?: string })}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <input
@@ -285,9 +426,9 @@ export default function FileManager() {
               type="button"
               variant="primary"
               onClick={handleUploadSubmit}
-              disabled={selectedFiles.length === 0}
+              disabled={selectedFiles.length === 0 || !selectedProjectId || isUploading}
             >
-              Upload
+              {isUploading ? 'Uploading…' : 'Upload'}
             </Button>
           </div>
         </div>

@@ -1,15 +1,50 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
+import apiClient from '@/api/client';
 
-const mockTenants = [
-  { id: '1', name: 'Limpopo Civil Engineering', slug: 'limpopo-civil', plan: 'Starter', users: 4, isActive: true },
-  { id: '2', name: 'Gauteng Structures Corp', slug: 'gauteng-structures', plan: 'Professional', users: 12, isActive: true },
-  { id: '3', name: 'Cape Town Roads Dept', slug: 'ct-roads', plan: 'Starter', users: 2, isActive: false },
-];
+type TenantRow = {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  users: number;
+  isActive: boolean;
+};
+
+function mapTenantListItem(raw: Record<string, unknown>): TenantRow {
+  const id = String(raw._id ?? raw.id ?? '');
+  const status = String(raw.status ?? 'trial');
+  return {
+    id,
+    name: String(raw.name ?? ''),
+    slug: String(raw.slug ?? ''),
+    plan: String(raw.plan ?? '—'),
+    users: typeof raw.userCount === 'number' ? raw.userCount : 0,
+    isActive: status !== 'suspended',
+  };
+}
+
+async function fetchSuperAdminTenants(): Promise<TenantRow[]> {
+  try {
+    const res = await apiClient.get('/super-admin/tenants');
+    const body = res.data?.data ?? res.data;
+    const rawList = body?.tenants;
+    if (!Array.isArray(rawList)) return [];
+    return rawList.map((item: Record<string, unknown>) => mapTenantListItem(item));
+  } catch {
+    return [];
+  }
+}
 
 export default function Tenants() {
+  const { data: tenants = [] } = useQuery({
+    queryKey: ['super-admin', 'tenants'],
+    queryFn: fetchSuperAdminTenants,
+  });
+
   return (
     <div className="animate-fade-in max-w-5xl mx-auto px-6 py-20">
       <div className="flex items-center justify-between mb-8">
@@ -20,7 +55,7 @@ export default function Tenants() {
       </div>
 
       <div className="bg-[var(--bg-card)] border border-[var(--border)]">
-        {mockTenants.length === 0 ? (
+        {tenants.length === 0 ? (
           <EmptyState
             title="No tenants yet."
             description="Organisations will appear here once created."
@@ -35,7 +70,7 @@ export default function Tenants() {
             </tr>
           </thead>
           <tbody>
-            {mockTenants.map((t, i) => (
+            {tenants.map((t, i) => (
               <tr key={t.id} className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--bg-primary)]' : 'bg-[var(--bg-card)]'}`}>
                 <td className="px-4 py-3 text-[0.82rem] font-body font-medium text-[var(--text-primary)]">{t.name}</td>
                 <td className="px-4 py-3 text-mono">{t.slug}</td>

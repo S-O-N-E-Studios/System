@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { paymentsApi, mockPaymentHistory } from '@/api/payments';
+import { paymentsApi } from '@/api/payments';
+import { projectsApi } from '@/api/projects';
 import type { PaymentHistoryEntry, PaymentStatus } from '@/types';
 import PaymentHistoryTable from '@/components/ui/PaymentHistoryTable';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { formatCurrency } from '@/utils/formatters';
 import { Search, Filter, RefreshCw } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import { useUiStore } from '@/store/uiStore';
 
 interface ProjectPaymentHistoryProps {
   projectId: string;
+  onPaymentRecorded?: () => Promise<void> | void;
 }
 
 const STATUS_OPTIONS: { value: '' | PaymentStatus; label: string }[] = [
@@ -19,9 +23,16 @@ const STATUS_OPTIONS: { value: '' | PaymentStatus; label: string }[] = [
   { value: 'failed', label: 'Failed' },
 ];
 
-export default function ProjectPaymentHistory({ projectId }: ProjectPaymentHistoryProps) {
+export default function ProjectPaymentHistory({ projectId, onPaymentRecorded }: ProjectPaymentHistoryProps) {
+  const { addToast } = useUiStore();
   const [entries, setEntries] = useState<PaymentHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [amountRands, setAmountRands] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [contractType, setContractType] = useState<'professional' | 'geotechnical' | 'construction'>('construction');
+  const [description, setDescription] = useState('');
+  const [certificateNo, setCertificateNo] = useState('');
 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -39,9 +50,7 @@ export default function ProjectPaymentHistory({ projectId }: ProjectPaymentHisto
       });
       setEntries(res.data);
     } catch {
-      const allMock = mockPaymentHistory();
-      const projectMock = allMock.filter((e) => e.projectId === projectId);
-      setEntries(projectMock);
+      setEntries([]);
     } finally {
       setLoading(false);
     }
@@ -91,8 +100,85 @@ export default function ProjectPaymentHistory({ projectId }: ProjectPaymentHisto
 
   const hasFilters = dateFrom || dateTo || statusFilter;
 
+  const recordExpenditure = async () => {
+    const parsed = Number(amountRands);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      addToast({ type: 'error', message: 'Enter a valid expenditure amount.' });
+      return;
+    }
+    if (!paymentDate) {
+      addToast({ type: 'error', message: 'Payment date is required.' });
+      return;
+    }
+    setIsRecording(true);
+    try {
+      await projectsApi.addPayment(projectId, {
+        amount: Math.round(parsed * 100),
+        paymentDate: new Date(paymentDate).toISOString(),
+        description: description || undefined,
+        certificateNo: certificateNo || undefined,
+        contractType,
+      });
+      addToast({ type: 'success', message: 'Expenditure recorded.' });
+      setAmountRands('');
+      setDescription('');
+      setCertificateNo('');
+      await fetchPayments();
+      await onPaymentRecorded?.();
+    } catch {
+      addToast({ type: 'error', message: 'Could not record expenditure.' });
+    } finally {
+      setIsRecording(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4">
+        <h4 className="text-h3 text-[0.95rem] mb-3">Record Expenditure</h4>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={amountRands}
+            onChange={(e) => setAmountRands(e.target.value)}
+            placeholder="Amount (ZAR)"
+            className="h-9 px-3 text-[0.82rem] bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+          />
+          <input
+            type="date"
+            value={paymentDate}
+            onChange={(e) => setPaymentDate(e.target.value)}
+            className="h-9 px-3 text-[0.82rem] bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+          />
+          <select
+            value={contractType}
+            onChange={(e) => setContractType(e.target.value as 'professional' | 'geotechnical' | 'construction')}
+            className="h-9 px-3 text-[0.82rem] bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+          >
+            <option value="professional">Professional</option>
+            <option value="geotechnical">Geotechnical</option>
+            <option value="construction">Construction</option>
+          </select>
+          <input
+            value={certificateNo}
+            onChange={(e) => setCertificateNo(e.target.value)}
+            placeholder="Certificate / Invoice No"
+            className="h-9 px-3 text-[0.82rem] bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+          />
+          <Button variant="primary" onClick={() => void recordExpenditure()} isLoading={isRecording}>
+            Save
+          </Button>
+        </div>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Description (optional)"
+          className="mt-3 w-full min-h-[70px] px-3 py-2 text-[0.82rem] bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+        />
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-0">
         <div className="p-5 border border-[var(--border)] bg-[var(--bg-card)]">

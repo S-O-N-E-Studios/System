@@ -31,7 +31,7 @@ describe('StatusBadge', () => {
   it('active variant uses green color', () => {
     render(<StatusBadge status="active">On Track</StatusBadge>);
     const badge = screen.getByText('On Track');
-    expect(badge.style.color).toBe('var(--status-active)');
+    expect(badge.style.color).toBe('var(--status-success)');
   });
 
   it('danger variant uses red color', () => {

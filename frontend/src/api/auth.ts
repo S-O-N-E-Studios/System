@@ -1,9 +1,5 @@
 import apiClient from './client';
-import { authMock } from './authMock';
 import type { User, AuthTokens, ApiResponse } from '@/types';
-
-/** Use mock auth when backend/DB is not set up. Set VITE_USE_MOCK_AUTH=false to use real API. */
-const useMockAuth = import.meta.env.VITE_USE_MOCK_AUTH !== 'false';
 
 interface LoginRequest {
   email: string;
@@ -18,6 +14,7 @@ interface LoginResponse {
 interface RegisterOrgRequest {
   orgName: string;
   slug: string;
+  orgType: 'provincial_gov' | 'private_firm';
   industryType: string;
   primaryContactName: string;
   primaryContactEmail: string;
@@ -25,6 +22,7 @@ interface RegisterOrgRequest {
   adminLastName: string;
   adminEmail: string;
   adminPassword: string;
+  localMunicipalities?: string[];
 }
 
 interface CheckSlugResponse {
@@ -32,51 +30,104 @@ interface CheckSlugResponse {
   suggestion?: string;
 }
 
+function mapBackendUser(raw: Record<string, unknown>): User {
+  return {
+    id: (raw._id || raw.id || '') as string,
+    email: (raw.email || '') as string,
+    firstName: ((raw.fullName as string) || '').split(' ')[0] || '',
+    lastName: ((raw.fullName as string) || '').split(' ').slice(1).join(' ') || '',
+    fullName: (raw.fullName || '') as string,
+    role: (raw.role || 'MEMBER') as User['role'],
+    avatarUrl: (raw.avatarUrl || undefined) as string | undefined,
+    isActive: raw.isActive === false ? false : true,
+    tenants: Array.isArray(raw.tenants)
+      ? raw.tenants.map((t: Record<string, unknown>) => ({
+          id: (t.tenantId || t.id || '') as string,
+          slug: (t.tenantSlug || t.slug || '') as string,
+          name: (t.name || t.tenantSlug || '') as string,
+          role: (t.role || 'MEMBER') as User['role'],
+          deptId: (t.deptId || undefined) as string | undefined,
+        }))
+      : [],
+    temporaryAccessId: (raw.temporaryAccessId || undefined) as string | undefined,
+    lastLoginAt: (raw.lastLoginAt || undefined) as string | undefined,
+  };
+}
+
 export const authApi = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.login(data);
-    const res = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', data);
-    return res.data.data;
+    const res = await apiClient.post('/auth/login', data);
+    const body = res.data?.data || res.data;
+    const user = mapBackendUser(body.user || body);
+    return {
+      user,
+      tokens: { accessToken: body.accessToken, refreshToken: body.refreshToken },
+    };
   },
 
   registerOrg: async (data: RegisterOrgRequest): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.registerOrg(data);
-    const res = await apiClient.post<ApiResponse<LoginResponse>>('/auth/register-org', data);
-    return res.data.data;
+    const payload = {
+      fullName: `${data.adminFirstName} ${data.adminLastName}`,
+      email: data.adminEmail,
+      password: data.adminPassword,
+      orgName: data.orgName,
+      orgType: data.orgType,
+      orgSlug: data.slug,
+      localMunicipalities: data.localMunicipalities,
+    };
+    const res = await apiClient.post('/auth/register-org', payload);
+    const body = res.data?.data || res.data;
+    const user = mapBackendUser(body.user || body);
+    return {
+      user,
+      tokens: { accessToken: body.accessToken, refreshToken: body.refreshToken },
+    };
   },
 
-  checkSlug: async (slug: string): Promise<CheckSlugResponse> => {
-    if (useMockAuth) return authMock.checkSlug(slug);
-    const res = await apiClient.get<ApiResponse<CheckSlugResponse>>(`/auth/check-slug/${slug}`);
+  checkSlug: async (slugVal: string): Promise<CheckSlugResponse> => {
+    const res = await apiClient.get<ApiResponse<CheckSlugResponse>>(`/auth/check-slug/${slugVal}`);
     return res.data.data;
   },
 
   acceptInvite: async (token: string, password: string): Promise<LoginResponse> => {
-    if (useMockAuth) return authMock.acceptInvite(token, password);
-    const res = await apiClient.post<ApiResponse<LoginResponse>>('/auth/accept-invite', {
-      token,
-      password,
-    });
-    return res.data.data;
+    const res = await apiClient.post(`/auth/accept-invite/${token}`, { fullName: 'Invited User', password });
+    const body = res.data?.data || res.data;
+    const user = mapBackendUser(body.user || body);
+    return {
+      user,
+      tokens: { accessToken: body.accessToken, refreshToken: body.refreshToken },
+    };
   },
 
-  changePassword: async (data: {
-    currentPassword: string;
-    newPassword: string;
-  }): Promise<void> => {
-    if (useMockAuth) return authMock.changePassword();
+  clientActivate: async (token: string, data: { password: string }): Promise<LoginResponse> => {
+    const res = await apiClient.post(`/auth/client-activate/${token}`, { password: data.password });
+    const body = res.data?.data || res.data;
+    const user = mapBackendUser(body.user || body);
+    return {
+      user,
+      tokens: { accessToken: body.accessToken, refreshToken: body.refreshToken },
+    };
+  },
+
+  changePassword: async (data: { currentPassword: string; newPassword: string }): Promise<void> => {
     await apiClient.post('/auth/change-password', data);
   },
 
-  refreshToken: async (refreshToken: string): Promise<AuthTokens> => {
-    if (useMockAuth) return authMock.refreshToken();
-    const res = await apiClient.post<ApiResponse<AuthTokens>>('/auth/refresh', { refreshToken });
-    return res.data.data;
+  refreshToken: async (refreshToken?: string): Promise<AuthTokens> => {
+    const res = refreshToken
+      ? await apiClient.post('/auth/refresh', { refreshToken })
+      : await apiClient.post('/auth/refresh');
+    const body = res.data?.data || res.data;
+    return { accessToken: body.accessToken, refreshToken: body.refreshToken };
   },
 
   getMe: async (): Promise<User> => {
-    if (useMockAuth) return authMock.getMe();
-    const res = await apiClient.get<ApiResponse<User>>('/auth/me');
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<{ user: Record<string, unknown> }>>('/auth/me');
+    const body = res.data?.data ?? res.data;
+    const raw =
+      body && typeof body === 'object' && 'user' in body
+        ? (body as { user: Record<string, unknown> }).user
+        : (body as Record<string, unknown>);
+    return mapBackendUser(raw);
   },
 };

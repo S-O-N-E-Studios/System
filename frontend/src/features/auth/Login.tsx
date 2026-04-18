@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,10 +11,12 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Avatar from '@/components/ui/Avatar';
 
+const FORGOT_PASSWORD_MODAL_ID = 'forgot-password';
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  const { openModal, addToast } = useUiStore();
+  const { openModal, addToast, closeModal } = useUiStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [tenantChoices, setTenantChoices] = useState<TenantSummary[]>([]);
@@ -26,6 +28,13 @@ export default function Login() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  // `activeModal` survives route changes; without tenant choices this is a stale shell (e.g. Sign in from landing).
+  useEffect(() => {
+    if (useUiStore.getState().activeModal !== 'tenant-selector') return;
+    if (tenantChoices.length > 0) return;
+    closeModal();
+  }, [closeModal, tenantChoices.length]);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
@@ -67,22 +76,20 @@ export default function Login() {
   return (
     <div className="min-h-screen flex bg-[var(--bg-primary)]">
       {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg-secondary)] relative overflow-hidden items-center justify-center">
-        {/* Diagonal gold stripe */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg-surface-alt)] relative overflow-hidden items-center justify-center">
         <div
           className="absolute inset-0 opacity-10"
           style={{
             background:
-              'linear-gradient(135deg, transparent 30%, var(--accent) 30%, var(--accent) 32%, transparent 32%)',
+              'linear-gradient(135deg, transparent 30%, var(--accent-sand) 30%, var(--accent-sand) 32%, transparent 32%)',
           }}
         />
-        {/* Crosshatch texture */}
         <div
           className="absolute inset-0 opacity-5"
           style={{
             backgroundImage: [
-              'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(201,169,97,0.1) 10px, rgba(201,169,97,0.1) 11px)',
-              'repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(201,169,97,0.1) 10px, rgba(201,169,97,0.1) 11px)',
+              'repeating-linear-gradient(45deg, transparent, transparent 10px, var(--crosshatch-color) 10px, var(--crosshatch-color) 11px)',
+              'repeating-linear-gradient(-45deg, transparent, transparent 10px, var(--crosshatch-color) 10px, var(--crosshatch-color) 11px)',
             ].join(', '),
           }}
         />
@@ -90,16 +97,13 @@ export default function Login() {
         <div className="relative z-10 text-center px-12">
           <div className="flex items-center justify-center gap-4 mb-8">
             <div className="h-16 w-16 border-2 border-[var(--accent)] flex items-center justify-center">
-              <span className="font-display text-2xl font-semibold text-[var(--accent)]">S</span>
+              <span className="text-h2 text-[var(--accent)] leading-none" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>IQ</span>
             </div>
           </div>
-          <h1 className="font-display text-4xl font-light tracking-[4px] text-[var(--text-primary)] uppercase mb-3">
-            S · O · N · E
+          <h1 className="text-h1 tracking-[3px] uppercase mb-3">
+            EVIDENTIARY
           </h1>
-          <p className="font-display text-lg font-light tracking-[6px] text-[var(--accent-dim)] uppercase mb-8">
-            Studios
-          </p>
-          <p className="font-body text-sm font-light text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
+          <p className="text-body max-w-sm mx-auto leading-relaxed">
             Engineering Project Management Platform.
             <br />
             Precision. Authority. Confidence.
@@ -110,14 +114,10 @@ export default function Login() {
       {/* Right auth form */}
       <div className="flex-1 flex items-center justify-center px-6 lg:px-16">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
           <div className="lg:hidden text-center mb-12">
-            <h1 className="font-display text-2xl font-light tracking-[4px] text-[var(--text-primary)] uppercase">
-              S · O · N · E
+            <h1 className="text-h2 tracking-[2px] uppercase">
+              EVIDENTIARY
             </h1>
-            <p className="text-[0.6rem] tracking-[4px] text-[var(--accent-dim)] uppercase mt-1">
-              Studios
-            </p>
           </div>
 
           <div className="mb-10">
@@ -152,7 +152,12 @@ export default function Login() {
               </Button>
 
               <div className="flex items-center justify-between">
-                <Button type="button" variant="ghost" className="!text-[0.6rem]">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="!text-[0.6rem]"
+                  onClick={() => openModal(FORGOT_PASSWORD_MODAL_ID)}
+                >
                   Forgot password?
                 </Button>
                 <Link
@@ -166,6 +171,21 @@ export default function Login() {
           </form>
         </div>
       </div>
+
+      <Modal modalId={FORGOT_PASSWORD_MODAL_ID} title="Reset password" size="sm">
+        <div className="space-y-4 text-[0.82rem] text-[var(--text-secondary)] leading-relaxed">
+          <p>
+            Password reset sends a secure link to your email when outbound mail is configured for your account or
+            organisation.
+          </p>
+          <p className="text-[0.72rem] text-[var(--text-muted)]">
+            If you do not receive an email, contact your organisation administrator.
+          </p>
+          <Button type="button" variant="primary" className="w-full" onClick={() => closeModal()}>
+            Close
+          </Button>
+        </div>
+      </Modal>
 
       {/* Tenant selector modal */}
       <Modal modalId="tenant-selector" title="Select Organisation" size="sm">

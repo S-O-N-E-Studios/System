@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Theme, Toast } from '@/types';
+import { syncAppFavicon } from '@/utils/syncAppFavicon';
 
 interface UiState {
   sidebarCollapsed: boolean;
@@ -21,7 +22,7 @@ interface UiState {
 
 const getInitialTheme = (): Theme => {
   if (typeof window === 'undefined') return 'dark';
-  return (localStorage.getItem('sone-theme') as Theme) ?? 'dark';
+  return (localStorage.getItem('p360-theme') as Theme) ?? 'dark';
 };
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -37,8 +38,13 @@ export const useUiStore = create<UiState>((set, get) => ({
   setSidebarMobileOpen: (open) => set({ sidebarMobileOpen: open }),
 
   setTheme: (theme) => {
-    localStorage.setItem('sone-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('p360-theme', theme);
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+
+      document.title = 'EVIDENTIARY';
+      syncAppFavicon();
+    }
     set({ theme });
   },
 

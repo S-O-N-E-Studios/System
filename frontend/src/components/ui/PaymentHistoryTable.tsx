@@ -54,31 +54,31 @@ export default function PaymentHistoryTable({
   });
 
   return (
-    <div className="bg-[var(--bg-card)] border border-[var(--border)] overflow-x-auto">
-      <table className="w-full min-w-[900px]">
+    <div className="bg-[var(--bg-card)] border border-[var(--border)]">
+      <table className="w-full table-fixed">
         <thead>
           <tr style={{ background: 'var(--table-header-bg)' }}>
-            <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+            <th className="text-table-header text-left px-4 py-3 truncate">
               Payment Date
             </th>
-            <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+            <th className="text-table-header text-left px-4 py-3 truncate">
               Invoice Number
             </th>
-            <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+            <th className="text-table-header text-left px-4 py-3 truncate">
               Consultant Name
             </th>
-            <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+            <th className="text-table-header text-left px-4 py-3 truncate">
               Payment Amount
             </th>
-            <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+            <th className="text-table-header text-left px-4 py-3 truncate">
               Payment Status
             </th>
             {showProjectColumn && (
-              <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+              <th className="text-table-header text-left px-4 py-3 truncate">
                 Project
               </th>
             )}
-            <th className="text-table-header text-left px-4 py-3 whitespace-nowrap">
+            <th className="text-table-header text-left px-4 py-3 truncate">
               Actions
             </th>
           </tr>
@@ -139,7 +139,7 @@ export default function PaymentHistoryTable({
                   </td>
                   {showProjectColumn && (
                     <td className="px-4 py-3 text-table-cell">
-                      {row.projectName ?? '—'}
+                      {row.projectName ?? 'N/A'}
                     </td>
                   )}
                   <td className="px-4 py-3">
