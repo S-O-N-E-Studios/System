@@ -4,9 +4,11 @@ const { logEvent } = require('../audit/audit.service');
 
 const list = async (req, res) => {
   const snapshots = await service.list(req.tenant._id, req.params.id);
+  const derived = await service.deriveLiveMetrics(req.tenant._id, req.params.id, snapshots[0] || null);
   return sendSuccess(res, {
     latest: snapshots[0] || null,
     snapshots,
+    derived,
   });
 };
 

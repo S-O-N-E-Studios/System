@@ -3,8 +3,7 @@ const router = express.Router({ mergeParams: true });
 const ctrl = require('./variationOrder.controller');
 const asyncHandler = require('../../utils/asyncHandler');
 const validate = require('../../middleware/validation.middleware');
-const { requirePM, requireRole } = require('../../middleware/rbac.middleware');
-const { APPROVER_ROLES } = require('../../constants/roles');
+const { requireConsultantOperator, requireClientApprover } = require('../../middleware/rbac.middleware');
 const Joi = require('joi');
 
 const objectId = Joi.string().hex().length(24);
@@ -35,7 +34,7 @@ router.get('/', asyncHandler(ctrl.list));
 
 router.post(
   '/',
-  requirePM,
+  requireConsultantOperator,
   validate(createVOSchema),
   asyncHandler(ctrl.create),
 );
@@ -44,16 +43,16 @@ router.get('/:voId', asyncHandler(ctrl.getOne));
 
 router.patch(
   '/:voId',
-  requirePM,
+  requireConsultantOperator,
   validate(updateVOSchema),
   asyncHandler(ctrl.update),
 );
 
-router.post('/:voId/submit', requirePM, asyncHandler(ctrl.submit));
+router.post('/:voId/submit', requireConsultantOperator, asyncHandler(ctrl.submit));
 
 router.post(
   '/:voId/approve',
-  requireRole(APPROVER_ROLES),
+  requireClientApprover,
   (req, _res, next) => {
     if (req.body == null || typeof req.body !== 'object') req.body = {};
     next();
@@ -64,11 +63,11 @@ router.post(
 
 router.post(
   '/:voId/reject',
-  requireRole(APPROVER_ROLES),
+  requireClientApprover,
   validate(rejectVOSchema),
   asyncHandler(ctrl.reject),
 );
 
-router.post('/:voId/withdraw', requirePM, asyncHandler(ctrl.withdraw));
+router.post('/:voId/withdraw', requireConsultantOperator, asyncHandler(ctrl.withdraw));
 
 module.exports = router;

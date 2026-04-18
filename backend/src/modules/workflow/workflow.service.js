@@ -4,6 +4,7 @@ const { ProcurementTrail, APPOINTMENT_TYPES, STEP_KEYS } = require('../procureme
 const stageGateService = require('../stage-gate/stageGate.service');
 const File = require('../files/file.model');
 const Penalty = require('../penalties/penalty.model');
+const StageApproval = require('../stage-gate/stageApproval.model');
 
 const TOP_LEVEL_STAGES = [
   { id: 1, key: 'initiation', label: 'Initiation' },
@@ -36,6 +37,17 @@ const mapLegacyStage = (currentStage) => {
   if (currentStage <= 6) return 3;
   if (currentStage === 7) return 4;
   return 5;
+};
+
+const throwWorkflowGateFailed = (requirements) => {
+  throw Object.assign(new Error('Workflow checkpoint requirements not met'), {
+    status: 422,
+    code: 'WORKFLOW_GATE_FAILED',
+    requirements,
+    details: {
+      requirements,
+    },
+  });
 };
 
 const collectStage1GateRequirements = async (tenantId, projectId) => {
@@ -169,6 +181,29 @@ const collectStage5GateRequirements = async (tenant, projectId) => {
   const stage8 = await collectRequirementsForLegacyStage(tenant, projectId, 8, 'stage5.closure_gate');
   const stage9 = await collectRequirementsForLegacyStage(tenant, projectId, 9, 'stage5.closure_gate');
   const requirements = [...stage8, ...stage9];
+  const closeOutRequiredCategories = [
+    'closeout-report-principal',
+    'closeout-report-safety',
+    'closeout-report-eia',
+  ];
+  for (const category of closeOutRequiredCategories) {
+    const approval = await StageApproval.findOne({
+      tenantId: tenant._id,
+      projectId,
+      stage: 9,
+      documentCategory: category,
+      approvalStatus: 'approved',
+    }).lean();
+    if (!approval) {
+      requirements.push({
+        code: 'CLOSEOUT_REPORT_NOT_APPROVED',
+        checkpoint: 'stage5.closure_gate',
+        entityType: 'closeout_report',
+        entityKey: category,
+        detail: `Close-out report (${category}) must be uploaded and approved before closure.`,
+      });
+    }
+  }
 
   // Penalties are conditional in v9: if present, they must be approved with supporting evidence.
   const penalties = await Penalty.find({
@@ -238,55 +273,31 @@ const advanceWorkflow = async (tenant, projectId, userId) => {
   if (current === 1) {
     const requirements = await collectStage1GateRequirements(tenant._id, projectId);
     if (requirements.length > 0) {
-      throw Object.assign(new Error('Workflow checkpoint requirements not met'), {
-        status: 422,
-        code: 'WORKFLOW_GATE_FAILED',
-        details: {
-          requirements,
-        },
-      });
+      throwWorkflowGateFailed(requirements);
     }
   }
   if (current === 2) {
     const requirements = await collectStage2GateRequirements(tenant, projectId);
     if (requirements.length > 0) {
-      throw Object.assign(new Error('Workflow checkpoint requirements not met'), {
-        status: 422,
-        code: 'WORKFLOW_GATE_FAILED',
-        details: {
-          requirements,
-        },
-      });
+      throwWorkflowGateFailed(requirements);
     }
   }
   if (current === 3) {
     const requirements = await collectStage3GateRequirements(tenant, projectId);
     if (requirements.length > 0) {
-      throw Object.assign(new Error('Workflow checkpoint requirements not met'), {
-        status: 422,
-        code: 'WORKFLOW_GATE_FAILED',
-        details: { requirements },
-      });
+      throwWorkflowGateFailed(requirements);
     }
   }
   if (current === 4) {
     const requirements = await collectStage4GateRequirements(tenant, projectId);
     if (requirements.length > 0) {
-      throw Object.assign(new Error('Workflow checkpoint requirements not met'), {
-        status: 422,
-        code: 'WORKFLOW_GATE_FAILED',
-        details: { requirements },
-      });
+      throwWorkflowGateFailed(requirements);
     }
   }
   if (current === 5) {
     const requirements = await collectStage5GateRequirements(tenant, projectId);
     if (requirements.length > 0) {
-      throw Object.assign(new Error('Workflow checkpoint requirements not met'), {
-        status: 422,
-        code: 'WORKFLOW_GATE_FAILED',
-        details: { requirements },
-      });
+      throwWorkflowGateFailed(requirements);
     }
   }
 

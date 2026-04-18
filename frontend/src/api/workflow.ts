@@ -5,6 +5,13 @@ function slug() {
   return useTenantStore.getState().getSlug() || '';
 }
 
+const isNotFound = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'response' in error &&
+  typeof (error as { response?: { status?: number } }).response?.status === 'number' &&
+  (error as { response?: { status?: number } }).response?.status === 404;
+
 export type TopLevelStage = {
   id: number;
   key: string;
@@ -69,6 +76,12 @@ export type PerformanceSnapshot = {
   };
 };
 
+export type DerivedPerformanceMetrics = {
+  period: string;
+  consultant: PerformanceSnapshot['consultant'];
+  construction: PerformanceSnapshot['construction'];
+};
+
 export type ExtensionOfTimeRequest = {
   _id: string;
   referenceNumber: string;
@@ -124,10 +137,18 @@ export const workflowApi = {
     return res.data?.data || res.data;
   },
 
-  listPerformance: async (projectId: string): Promise<{ latest: PerformanceSnapshot | null; snapshots: PerformanceSnapshot[] }> => {
+  listPerformance: async (projectId: string): Promise<{
+    latest: PerformanceSnapshot | null;
+    snapshots: PerformanceSnapshot[];
+    derived: DerivedPerformanceMetrics | null;
+  }> => {
     const res = await apiClient.get(`/${slug()}/projects/${projectId}/performance`);
     const body = res.data?.data || res.data;
-    return { latest: body?.latest || null, snapshots: body?.snapshots || [] };
+    return {
+      latest: body?.latest || null,
+      snapshots: body?.snapshots || [],
+      derived: body?.derived || null,
+    };
   },
 
   upsertPerformance: async (
@@ -181,9 +202,18 @@ export const workflowApi = {
   },
 
   listExtensionOfTime: async (projectId: string): Promise<ExtensionOfTimeRequest[]> => {
-    const res = await apiClient.get(`/${slug()}/projects/${projectId}/eot`);
-    const body = res.data?.data || res.data;
-    return body?.requests || [];
+    const canonicalPath = `/${slug()}/projects/${projectId}/eot`;
+    const legacyPath = `/${slug()}/projects/${projectId}/extension-of-time`;
+    try {
+      const res = await apiClient.get(canonicalPath);
+      const body = res.data?.data || res.data;
+      return body?.requests || [];
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const res = await apiClient.get(legacyPath);
+      const body = res.data?.data || res.data;
+      return body?.requests || [];
+    }
   },
 
   approveExtensionOfTime: async (
@@ -191,29 +221,55 @@ export const workflowApi = {
     eotId: string,
     payload?: { daysApproved?: number }
   ) => {
-    const res = await apiClient.post(
-      `/${slug()}/projects/${projectId}/eot/${eotId}/approve`,
-      payload ?? {}
-    );
-    return res.data?.data?.request || res.data?.request;
+    const canonicalPath = `/${slug()}/projects/${projectId}/eot/${eotId}/approve`;
+    const legacyPath = `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/approve`;
+    try {
+      const res = await apiClient.post(canonicalPath, payload ?? {});
+      return res.data?.data?.request || res.data?.request;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const res = await apiClient.post(legacyPath, payload ?? {});
+      return res.data?.data?.request || res.data?.request;
+    }
   },
 
   submitExtensionOfTime: async (projectId: string, eotId: string) => {
-    const res = await apiClient.post(`/${slug()}/projects/${projectId}/eot/${eotId}/submit`);
-    return res.data?.data?.request || res.data?.request;
+    const canonicalPath = `/${slug()}/projects/${projectId}/eot/${eotId}/submit`;
+    const legacyPath = `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/submit`;
+    try {
+      const res = await apiClient.post(canonicalPath);
+      return res.data?.data?.request || res.data?.request;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const res = await apiClient.post(legacyPath);
+      return res.data?.data?.request || res.data?.request;
+    }
   },
 
   rejectExtensionOfTime: async (projectId: string, eotId: string, payload: { reason: string }) => {
-    const res = await apiClient.post(
-      `/${slug()}/projects/${projectId}/eot/${eotId}/reject`,
-      payload
-    );
-    return res.data?.data?.request || res.data?.request;
+    const canonicalPath = `/${slug()}/projects/${projectId}/eot/${eotId}/reject`;
+    const legacyPath = `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/reject`;
+    try {
+      const res = await apiClient.post(canonicalPath, payload);
+      return res.data?.data?.request || res.data?.request;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const res = await apiClient.post(legacyPath, payload);
+      return res.data?.data?.request || res.data?.request;
+    }
   },
 
   withdrawExtensionOfTime: async (projectId: string, eotId: string) => {
-    const res = await apiClient.post(`/${slug()}/projects/${projectId}/eot/${eotId}/withdraw`);
-    return res.data?.data?.request || res.data?.request;
+    const canonicalPath = `/${slug()}/projects/${projectId}/eot/${eotId}/withdraw`;
+    const legacyPath = `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/withdraw`;
+    try {
+      const res = await apiClient.post(canonicalPath);
+      return res.data?.data?.request || res.data?.request;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const res = await apiClient.post(legacyPath);
+      return res.data?.data?.request || res.data?.request;
+    }
   },
 
   createExtensionOfTime: async (
@@ -231,8 +287,16 @@ export const workflowApi = {
       thresholdWarningNote?: string;
     }
   ) => {
-    const res = await apiClient.post(`/${slug()}/projects/${projectId}/eot`, payload);
-    return res.data?.data?.request || res.data?.request;
+    const canonicalPath = `/${slug()}/projects/${projectId}/eot`;
+    const legacyPath = `/${slug()}/projects/${projectId}/extension-of-time`;
+    try {
+      const res = await apiClient.post(canonicalPath, payload);
+      return res.data?.data?.request || res.data?.request;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const res = await apiClient.post(legacyPath, payload);
+      return res.data?.data?.request || res.data?.request;
+    }
   },
 
   listPenalties: async (projectId: string): Promise<PenaltyRecord[]> => {

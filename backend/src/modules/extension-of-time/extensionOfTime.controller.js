@@ -2,9 +2,20 @@ const service = require('./extensionOfTime.service');
 const { sendSuccess, sendCreated } = require('../../utils/apiResponse');
 const { logEvent } = require('../audit/audit.service');
 
+const serializeEot = (row) => {
+  if (!row) return row;
+  const payload = row.toObject ? row.toObject() : row;
+  return {
+    ...payload,
+    // Migration-safe aliases for v9 terminology.
+    eotNumber: payload.referenceNumber,
+    daysRequested: payload.requestedDays,
+  };
+};
+
 const list = async (req, res) => {
   const requests = await service.list(req.tenant._id, req.params.id);
-  return sendSuccess(res, { requests });
+  return sendSuccess(res, { requests: requests.map(serializeEot) });
 };
 
 const create = async (req, res) => {
@@ -23,19 +34,19 @@ const create = async (req, res) => {
     after: request.toObject ? request.toObject() : request,
     req,
   });
-  return sendCreated(res, { request });
+  return sendCreated(res, { request: serializeEot(request) });
 };
 
 const getOne = async (req, res) => {
   const request = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
   if (!request) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
-  return sendSuccess(res, { request });
+  return sendSuccess(res, { request: serializeEot(request) });
 };
 
 const update = async (req, res) => {
   const request = await service.update(req.tenant._id, req.params.id, req.params.eotId, req.body);
   if (!request) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
-  return sendSuccess(res, { request });
+  return sendSuccess(res, { request: serializeEot(request) });
 };
 
 const submit = async (req, res) => {
@@ -58,7 +69,7 @@ const submit = async (req, res) => {
     after: request.toObject ? request.toObject() : request,
     req,
   });
-  return sendSuccess(res, { request });
+  return sendSuccess(res, { request: serializeEot(request) });
 };
 
 const approve = async (req, res) => {
@@ -109,7 +120,7 @@ const approve = async (req, res) => {
     after: request.toObject ? request.toObject() : request,
     req,
   });
-  return sendSuccess(res, { request });
+  return sendSuccess(res, { request: serializeEot(request) });
 };
 
 const reject = async (req, res) => {
@@ -133,7 +144,7 @@ const reject = async (req, res) => {
     after: request.toObject ? request.toObject() : request,
     req,
   });
-  return sendSuccess(res, { request });
+  return sendSuccess(res, { request: serializeEot(request) });
 };
 
 const withdraw = async (req, res) => {

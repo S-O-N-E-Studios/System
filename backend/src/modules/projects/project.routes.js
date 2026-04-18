@@ -3,7 +3,13 @@ const router = express.Router({ mergeParams: true });
 const ctrl = require('./project.controller');
 const asyncHandler = require('../../utils/asyncHandler');
 const validate = require('../../middleware/validation.middleware');
-const { requirePM, requireOrgAdmin, denyClientTemp } = require('../../middleware/rbac.middleware');
+const {
+  requirePM,
+  requireOrgAdmin,
+  requireConsultantOperator,
+  requireClientApprover,
+  denyClientTemp,
+} = require('../../middleware/rbac.middleware');
 const { requireProjectScope } = require('../../middleware/clientAccess.middleware');
 const {
   createProjectSchema,
@@ -12,6 +18,17 @@ const {
   updatePaymentSchema,
   forecastEntrySchema,
   projectListQuerySchema,
+  deliverablesListQuerySchema,
+  deliverableStageQuerySchema,
+  deliverableUploadSchema,
+  rejectDeliverableSchema,
+  appointmentSchema,
+  updateAppointmentSchema,
+  appointmentStepActionSchema,
+  interimCertificateCreateSchema,
+  interimCertificateReviewSchema,
+  closeOutReportSchema,
+  closeOutReportActionSchema,
 } = require('./project.validation');
 
 router.get('/',
@@ -61,7 +78,7 @@ router.get('/:id/stage-status',
 
 router.post('/:id/advance-stage',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   asyncHandler(ctrl.advanceStage)
 );
 
@@ -76,26 +93,58 @@ router.get('/:id/payment-certificates',
 
 router.post('/:id/payments',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   validate(createPaymentSchema),
   asyncHandler(ctrl.addPayment)
 );
 router.post('/:id/payment-certificates',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   validate(createPaymentSchema),
   asyncHandler(ctrl.addPayment)
 );
 
+router.get('/:id/interim-payment-certificates',
+  requireProjectScope,
+  asyncHandler(ctrl.listInterimPaymentCertificates)
+);
+
+router.get('/:id/interim-payment-certificates/:pcId',
+  requireProjectScope,
+  asyncHandler(ctrl.getInterimPaymentCertificate)
+);
+
+router.post('/:id/interim-payment-certificates',
+  requireProjectScope,
+  denyClientTemp,
+  requireConsultantOperator,
+  validate(interimCertificateCreateSchema),
+  asyncHandler(ctrl.createInterimPaymentCertificate)
+);
+
+router.post('/:id/interim-payment-certificates/:pcId/approve',
+  requireProjectScope,
+  requireClientApprover,
+  validate(interimCertificateReviewSchema),
+  asyncHandler(ctrl.approveInterimPaymentCertificate)
+);
+
+router.post('/:id/interim-payment-certificates/:pcId/reject',
+  requireProjectScope,
+  requireClientApprover,
+  validate(interimCertificateReviewSchema),
+  asyncHandler(ctrl.rejectInterimPaymentCertificate)
+);
+
 router.patch('/:id/payments/:payId',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   validate(updatePaymentSchema),
   asyncHandler(ctrl.updatePayment)
 );
 router.patch('/:id/payment-certificates/:payId',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   validate(updatePaymentSchema),
   asyncHandler(ctrl.updatePayment)
 );
@@ -106,18 +155,127 @@ router.get('/:id/payment-forecast',
 );
 router.get('/:id/billing-periods',
   requireProjectScope,
-  asyncHandler(ctrl.getPaymentForecast)
+  asyncHandler(ctrl.listBillingPeriods)
+);
+router.get('/:id/billing-periods/:period',
+  requireProjectScope,
+  asyncHandler(ctrl.getBillingPeriodDetail)
 );
 
 router.post('/:id/payment-forecast',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   validate(forecastEntrySchema),
   asyncHandler(ctrl.upsertForecast)
 );
+
+router.get('/:id/deliverables',
+  requireProjectScope,
+  validate(deliverablesListQuerySchema, 'query'),
+  asyncHandler(ctrl.listDeliverables)
+);
+
+router.get('/:id/deliverables/:key',
+  requireProjectScope,
+  validate(deliverableStageQuerySchema, 'query'),
+  asyncHandler(ctrl.getDeliverable)
+);
+
+router.post('/:id/deliverables/:key/upload',
+  requireProjectScope,
+  denyClientTemp,
+  requireConsultantOperator,
+  validate(deliverableStageQuerySchema, 'query'),
+  validate(deliverableUploadSchema),
+  asyncHandler(ctrl.uploadDeliverable)
+);
+
+router.post('/:id/deliverables/:key/approve',
+  requireProjectScope,
+  requireClientApprover,
+  validate(deliverableStageQuerySchema, 'query'),
+  asyncHandler(ctrl.approveDeliverable)
+);
+
+router.post('/:id/deliverables/:key/reject',
+  requireProjectScope,
+  requireClientApprover,
+  validate(deliverableStageQuerySchema, 'query'),
+  validate(rejectDeliverableSchema),
+  asyncHandler(ctrl.rejectDeliverable)
+);
+
+router.get('/:id/appointments',
+  requireProjectScope,
+  asyncHandler(ctrl.listAppointments)
+);
+
+router.post('/:id/appointments',
+  requireProjectScope,
+  denyClientTemp,
+  requireConsultantOperator,
+  validate(appointmentSchema),
+  asyncHandler(ctrl.createAppointment)
+);
+
+router.patch('/:id/appointments/:appId',
+  requireProjectScope,
+  denyClientTemp,
+  requireConsultantOperator,
+  validate(updateAppointmentSchema),
+  asyncHandler(ctrl.updateAppointment)
+);
+
+router.post('/:id/appointments/:appId/steps/:step/approve',
+  requireProjectScope,
+  denyClientTemp,
+  requireClientApprover,
+  validate(appointmentStepActionSchema),
+  asyncHandler(ctrl.approveAppointmentStep)
+);
+
+router.post('/:id/appointments/:appId/steps/:step/reject',
+  requireProjectScope,
+  denyClientTemp,
+  requireClientApprover,
+  validate(appointmentStepActionSchema),
+  asyncHandler(ctrl.rejectAppointmentStep)
+);
+
+router.get('/:id/appointments/stage-status',
+  requireProjectScope,
+  asyncHandler(ctrl.getAppointmentStageStatus)
+);
+
+router.get('/:id/close-out-reports',
+  requireProjectScope,
+  asyncHandler(ctrl.listCloseOutReports)
+);
+
+router.post('/:id/close-out-reports',
+  requireProjectScope,
+  denyClientTemp,
+  requireConsultantOperator,
+  validate(closeOutReportSchema),
+  asyncHandler(ctrl.createCloseOutReport)
+);
+
+router.post('/:id/close-out-reports/:reportType/approve',
+  requireProjectScope,
+  requireClientApprover,
+  validate(closeOutReportActionSchema),
+  asyncHandler(ctrl.approveCloseOutReport)
+);
+
+router.post('/:id/close-out-reports/:reportType/reject',
+  requireProjectScope,
+  requireClientApprover,
+  validate(closeOutReportActionSchema),
+  asyncHandler(ctrl.rejectCloseOutReport)
+);
 router.post('/:id/billing-periods',
   denyClientTemp,
-  requirePM,
+  requireConsultantOperator,
   validate(forecastEntrySchema),
   asyncHandler(ctrl.upsertForecast)
 );

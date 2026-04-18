@@ -75,8 +75,8 @@ const TOP_LEVEL_STAGES = [
 
 const AUDIT_PRESETS = [
   { id: 'all', label: 'All', action: '', overrideOnly: false },
-  { id: 'approvals', label: 'Approvals', action: 'document.approved', overrideOnly: false },
-  { id: 'workflow', label: 'Workflow Gates', action: 'workflow.advanced', overrideOnly: false },
+  { id: 'approvals', label: 'Approvals', action: 'deliverable.approved', overrideOnly: false },
+  { id: 'workflow', label: 'Workflow Gates', action: 'stage.advanced', overrideOnly: false },
   { id: 'overrides', label: 'Overrides', action: '', overrideOnly: true },
 ] as const;
 
@@ -291,6 +291,12 @@ export default function ProjectDetail() {
     void loadProject();
     return () => { cancelled = true; };
   }, [tenantSlug, id]);
+
+  useEffect(() => {
+    if (!showLegacyWorkspace && activeTab !== 'Workflow') {
+      setActiveTab('Workflow');
+    }
+  }, [showLegacyWorkspace, activeTab]);
 
   useEffect(() => {
     if (!tenantSlug || !id) return;

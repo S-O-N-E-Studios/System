@@ -36,6 +36,50 @@ const paymentSchema = new mongoose.Schema(
       enum: ['professional', 'geotechnical', 'construction'],
       required: true,
     },
+    billingPeriod: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    certificateFileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'File',
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: ['draft', 'submitted', 'approved', 'rejected'],
+      default: 'approved',
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    overrideFlag: {
+      type: Boolean,
+      default: false,
+    },
+    overrideReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    checksAtApproval: {
+      progressReportPresent: { type: Boolean, default: null },
+      evidenceCount: { type: Number, default: null },
+      evidenceMinimum: { type: Number, default: null },
+      withinBudget: { type: Boolean, default: null },
+    },
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

@@ -1,6 +1,7 @@
 const StageApproval = require('../stage-gate/stageApproval.model');
 const ExtensionOfTime = require('../extension-of-time/extensionOfTime.model');
 const Penalty = require('../penalties/penalty.model');
+const { Payment } = require('../payments/payment.model');
 const { sendSuccess } = require('../../utils/apiResponse');
 
 const getPendingSummary = async (req, res) => {
@@ -49,7 +50,38 @@ const getPendingSummary = async (req, res) => {
     },
   ]);
 
-  const [eotRows, penaltyRows] = await Promise.all([
+  const [stageApprovalItems, eotRows, penaltyRows, certificateRows] = await Promise.all([
+    StageApproval.aggregate([
+      {
+        $match: {
+          tenantId: req.tenant._id,
+          approvalStatus: 'pending',
+        },
+      },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: 'projectId',
+          foreignField: '_id',
+          as: 'project',
+        },
+      },
+      { $unwind: '$project' },
+      {
+        $project: {
+          _id: 0,
+          approvalId: '$_id',
+          projectId: '$projectId',
+          projectName: '$project.name',
+          projectRefCode: '$project.refCode',
+          stage: '$stage',
+          documentCategory: '$documentCategory',
+          fileId: '$fileId',
+          createdAt: '$createdAt',
+        },
+      },
+      { $sort: { createdAt: 1 } },
+    ]),
     ExtensionOfTime.aggregate([
       {
         $match: {
@@ -111,17 +143,52 @@ const getPendingSummary = async (req, res) => {
       },
       { $sort: { createdAt: 1 } },
     ]),
+    Payment.aggregate([
+      {
+        $match: {
+          tenantId: req.tenant._id,
+          status: 'submitted',
+        },
+      },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: 'projectId',
+          foreignField: '_id',
+          as: 'project',
+        },
+      },
+      { $unwind: '$project' },
+      {
+        $project: {
+          _id: 0,
+          certificateId: '$_id',
+          projectId: '$projectId',
+          projectName: '$project.name',
+          projectRefCode: '$project.refCode',
+          billingPeriod: '$billingPeriod',
+          amount: '$amount',
+          certificateNo: '$certificateNo',
+          createdAt: '$createdAt',
+        },
+      },
+      { $sort: { createdAt: 1 } },
+    ]),
   ]);
 
   return sendSuccess(res, {
     items: rows,
     stageApprovals: rows,
+    stageApprovalItems,
     extensionOfTime: eotRows,
     penalties: penaltyRows,
+    interimPaymentCertificates: certificateRows,
     totals: {
       stageApprovals: rows.reduce((sum, item) => sum + Number(item.pendingCount || 0), 0),
+      stageApprovalItems: stageApprovalItems.length,
       extensionOfTime: eotRows.length,
       penalties: penaltyRows.length,
+      interimPaymentCertificates: certificateRows.length,
     },
   });
 };

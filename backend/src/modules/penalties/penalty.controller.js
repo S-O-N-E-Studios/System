@@ -2,9 +2,28 @@ const service = require('./penalty.service');
 const { sendSuccess, sendCreated } = require('../../utils/apiResponse');
 const { logEvent } = require('../audit/audit.service');
 
+const LEGACY_PENALTY_TYPE_MAP = {
+  delay: 'late_completion',
+  quality: 'defective_work',
+  contractual: 'other',
+  other: 'other',
+};
+
+const serializePenalty = (row) => {
+  if (!row) return row;
+  const payload = row.toObject ? row.toObject() : row;
+  return {
+    ...payload,
+    // Migration-safe aliases for v9 schema consumers.
+    amountRecommended: payload.amountCents,
+    amountApproved: payload.status === 'approved' ? payload.amountCents : null,
+    penaltyTypeLegacy: LEGACY_PENALTY_TYPE_MAP[payload.penaltyType] || 'other',
+  };
+};
+
 const list = async (req, res) => {
   const penalties = await service.list(req.tenant._id, req.params.id);
-  return sendSuccess(res, { penalties });
+  return sendSuccess(res, { penalties: penalties.map(serializePenalty) });
 };
 
 const create = async (req, res) => {
@@ -23,7 +42,7 @@ const create = async (req, res) => {
     after: penalty.toObject ? penalty.toObject() : penalty,
     req,
   });
-  return sendCreated(res, { penalty });
+  return sendCreated(res, { penalty: serializePenalty(penalty) });
 };
 
 const update = async (req, res) => {
@@ -46,7 +65,7 @@ const update = async (req, res) => {
     after: penalty.toObject ? penalty.toObject() : penalty,
     req,
   });
-  return sendSuccess(res, { penalty });
+  return sendSuccess(res, { penalty: serializePenalty(penalty) });
 };
 
 const submit = async (req, res) => {
@@ -69,7 +88,7 @@ const submit = async (req, res) => {
     after: penalty.toObject ? penalty.toObject() : penalty,
     req,
   });
-  return sendSuccess(res, { penalty });
+  return sendSuccess(res, { penalty: serializePenalty(penalty) });
 };
 
 const approve = async (req, res) => {
@@ -92,7 +111,7 @@ const approve = async (req, res) => {
     after: penalty.toObject ? penalty.toObject() : penalty,
     req,
   });
-  return sendSuccess(res, { penalty });
+  return sendSuccess(res, { penalty: serializePenalty(penalty) });
 };
 
 const reject = async (req, res) => {
@@ -115,7 +134,7 @@ const reject = async (req, res) => {
     after: penalty.toObject ? penalty.toObject() : penalty,
     req,
   });
-  return sendSuccess(res, { penalty });
+  return sendSuccess(res, { penalty: serializePenalty(penalty) });
 };
 
 const waive = async (req, res) => {
@@ -138,7 +157,7 @@ const waive = async (req, res) => {
     after: penalty.toObject ? penalty.toObject() : penalty,
     req,
   });
-  return sendSuccess(res, { penalty });
+  return sendSuccess(res, { penalty: serializePenalty(penalty) });
 };
 
 module.exports = {

@@ -50,6 +50,12 @@ const requireDeptAdmin = requireRole([ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.
 //  PM, DEPT_ADMIN, ORG_ADMIN, SUPER_ADMIN 
 const requirePM = requireRole(WRITER_ROLES);
 const requireApprover = requireRole([ROLES.SUPER_ADMIN, ...APPROVER_ROLES]);
+const requireConsultantOperator = requireRole([
+  ROLES.SUPER_ADMIN,
+  ROLES.PM,
+  ROLES.MEMBER,
+]);
+const requireClientApprover = requireRole([ROLES.SUPER_ADMIN, ...APPROVER_ROLES]);
 
 /** Sub-consultant procurement step review/approval — client / org authority (not consultant PM). */
 const requireProcurementStepReviewer = requireRole(PROCUREMENT_STEP_REVIEW_ROLES);
@@ -62,10 +68,9 @@ const requireProcurementStepReviewOrMarkNa = (req, res, next) => {
   const status = req.body?.status;
   const role = getEffectiveRole(req);
   const consultantMarkNaRoles = [
-    ROLES.SUPER_ADMIN,
-    ROLES.ORG_ADMIN,
     ROLES.PM,
     ROLES.MEMBER,
+    ROLES.SUPER_ADMIN,
   ];
   if (status === 'not_applicable' && consultantMarkNaRoles.includes(role)) {
     return next();
@@ -121,6 +126,8 @@ module.exports = {
   requireDeptAdmin,
   requirePM,
   requireApprover,
+  requireConsultantOperator,
+  requireClientApprover,
   requireProcurementStepReviewer,
   requireProcurementStepReviewOrMarkNa,
   requirePermanentUser,

@@ -107,6 +107,68 @@ const projectListQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
 });
 
+const deliverablesListQuerySchema = Joi.object({
+  stage: Joi.number().integer().min(1).max(9),
+});
+
+const deliverableStageQuerySchema = Joi.object({
+  stage: Joi.number().integer().min(1).max(9),
+});
+
+const deliverableUploadSchema = Joi.object({
+  fileId: Joi.string().hex().length(24).required(),
+});
+
+const rejectDeliverableSchema = Joi.object({
+  reason: Joi.string().trim().min(1).max(4000).required(),
+});
+
+const appointmentSchema = Joi.object({
+  role: Joi.string().trim().required(),
+  appointmentType: Joi.string().trim(),
+  firmName: Joi.string().trim().allow(null, ''),
+  contactPerson: Joi.string().trim().allow(null, ''),
+  contactEmail: Joi.string().trim().email().allow(null, ''),
+  applicable: Joi.boolean().optional(),
+  notApplicableReason: Joi.string().trim().allow(null, ''),
+});
+
+const updateAppointmentSchema = Joi.object({
+  firmName: Joi.string().trim().allow(null, ''),
+  contactPerson: Joi.string().trim().allow(null, ''),
+  contactEmail: Joi.string().trim().email().allow(null, ''),
+  applicable: Joi.boolean().optional(),
+  notApplicableReason: Joi.string().trim().allow(null, ''),
+});
+
+const appointmentStepActionSchema = Joi.object({
+  reason: Joi.string().trim().max(4000).allow(null, ''),
+  fileIds: Joi.array().items(Joi.string().hex().length(24)).optional(),
+});
+
+const interimCertificateCreateSchema = Joi.object({
+  amount: Joi.number().integer().min(1).required(),
+  paymentDate: Joi.date().iso().required(),
+  billingPeriod: Joi.string().pattern(/^\d{4}-\d{2}$/).required(),
+  certificateNo: Joi.string().trim().allow(null, ''),
+  description: Joi.string().trim().allow(null, ''),
+  certificateFileId: Joi.string().hex().length(24).allow(null, ''),
+});
+
+const interimCertificateReviewSchema = Joi.object({
+  overrideReason: Joi.string().trim().min(3).max(4000).allow(null, ''),
+  reason: Joi.string().trim().min(3).max(4000).allow(null, ''),
+});
+
+const closeOutReportSchema = Joi.object({
+  reportType: Joi.string().valid('principal', 'safety', 'eia').required(),
+  fileId: Joi.string().hex().length(24).required(),
+});
+
+const closeOutReportActionSchema = Joi.object({
+  reason: Joi.string().trim().min(3).max(4000).allow(null, ''),
+});
+
 module.exports = {
   createProjectSchema,
   updateProjectSchema,
@@ -114,4 +176,15 @@ module.exports = {
   updatePaymentSchema,
   forecastEntrySchema,
   projectListQuerySchema,
+  deliverablesListQuerySchema,
+  deliverableStageQuerySchema,
+  deliverableUploadSchema,
+  rejectDeliverableSchema,
+  appointmentSchema,
+  updateAppointmentSchema,
+  appointmentStepActionSchema,
+  interimCertificateCreateSchema,
+  interimCertificateReviewSchema,
+  closeOutReportSchema,
+  closeOutReportActionSchema,
 };

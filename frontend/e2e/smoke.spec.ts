@@ -9,7 +9,7 @@ test.describe('public shell', () => {
   test('landing and login pages load', async ({ page }) => {
     await page.goto('/');
     await waitForBootstrap(page);
-    await expect(page.getByRole('heading', { level: 1, name: /project 360/i })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /evidentiary/i })).toBeVisible();
 
     await page.goto('/login');
     await waitForBootstrap(page);

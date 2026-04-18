@@ -89,7 +89,7 @@ describe('ProjectWorkflow', () => {
       canAdvance: true,
     });
     vi.mocked(workflowApi.listProcurementTrails).mockResolvedValue([]);
-    vi.mocked(workflowApi.listPerformance).mockResolvedValue({ latest: null, snapshots: [] });
+    vi.mocked(workflowApi.listPerformance).mockResolvedValue({ latest: null, snapshots: [], derived: null });
     vi.mocked(workflowApi.listExtensionOfTime).mockResolvedValue([]);
     vi.mocked(workflowApi.listPenalties).mockResolvedValue([]);
     vi.mocked(workflowApi.listAuditLog).mockResolvedValue({ entries: [], page: 1, limit: 6, total: 0 });
@@ -99,7 +99,21 @@ describe('ProjectWorkflow', () => {
     vi.mocked(stageApprovalsApi.reject).mockResolvedValue();
   });
 
-  it('shows New buttons for EOT and penalties even when lists are empty', async () => {
+  it('shows Stage 4 controls only when stageTopLevel is 4', async () => {
+    vi.mocked(workflowApi.getWorkflow).mockResolvedValue({
+      projectId: 'p1',
+      stageTopLevel: 4,
+      stageCheckpoint: 'stage4.monitoring_control',
+      topLevelStages: [
+        { id: 1, key: 'initiation', label: 'Initiation' },
+        { id: 2, key: 'project_planning', label: 'Project Planning' },
+        { id: 3, key: 'project_execution', label: 'Project Execution' },
+        { id: 4, key: 'monitoring_control', label: 'Monitoring and Control' },
+        { id: 5, key: 'closure', label: 'Closure' },
+      ],
+      gateRequirements: [],
+      canAdvance: true,
+    });
     renderWorkflow();
 
     const eotToggle = (await screen.findByText('Extension of Time')).closest('button');

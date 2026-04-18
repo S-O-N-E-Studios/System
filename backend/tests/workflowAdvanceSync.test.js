@@ -15,6 +15,10 @@ jest.mock('../src/modules/penalties/penalty.model', () => ({
   find: jest.fn(),
 }));
 
+jest.mock('../src/modules/stage-gate/stageApproval.model', () => ({
+  findOne: jest.fn(),
+}));
+
 jest.mock('../src/constants/workflowProfiles', () => ({
   getStageDocumentSpecsForTenant: jest.fn(() => ({})),
 }));
@@ -38,6 +42,7 @@ const Project = require('../src/modules/projects/project.model');
 const File = require('../src/modules/files/file.model');
 const stageGateService = require('../src/modules/stage-gate/stageGate.service');
 const Penalty = require('../src/modules/penalties/penalty.model');
+const StageApproval = require('../src/modules/stage-gate/stageApproval.model');
 const workflowService = require('../src/modules/workflow/workflow.service');
 
 describe('workflow service - legacy synchronization', () => {
@@ -51,6 +56,13 @@ describe('workflow service - legacy synchronization', () => {
     Penalty.find.mockReturnValue({
       lean: jest.fn().mockResolvedValue([]),
     });
+    StageApproval.findOne.mockImplementation((query) => ({
+      lean: jest.fn().mockResolvedValue(
+        query?.stage === 9 && String(query?.documentCategory || '').startsWith('closeout-report-')
+          ? { _id: '507f191e810c19729de861ff', approvalStatus: 'approved' }
+          : null
+      ),
+    }));
   });
 
   it('syncs currentStage when advancing from stageTopLevel 2 to 3', async () => {

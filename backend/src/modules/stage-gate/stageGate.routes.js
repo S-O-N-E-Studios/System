@@ -3,8 +3,7 @@ const router = express.Router({ mergeParams: true });
 const ctrl = require('./stageGate.controller');
 const asyncHandler = require('../../utils/asyncHandler');
 const validate = require('../../middleware/validation.middleware');
-const { requireRole } = require('../../middleware/rbac.middleware');
-const { APPROVER_ROLES } = require('../../constants/roles');
+const { requireClientApprover } = require('../../middleware/rbac.middleware');
 const Joi = require('joi');
 
 const rejectApprovalBodySchema = Joi.object({
@@ -19,20 +18,20 @@ router.get('/:approvalId', asyncHandler(ctrl.getApproval));
 
 router.post(
   '/:approvalId/approve',
-  requireRole(APPROVER_ROLES),
+  requireClientApprover,
   asyncHandler(ctrl.approveDocument),
 );
 
 router.post(
   '/:approvalId/reject',
-  requireRole(APPROVER_ROLES),
+  requireClientApprover,
   validate(rejectApprovalBodySchema),
   asyncHandler(ctrl.rejectDocument),
 );
 
 router.post(
   '/:approvalId/notify-client',
-  requireRole(APPROVER_ROLES),
+  requireClientApprover,
   asyncHandler(ctrl.resendClientApprovalNotification),
 );
 

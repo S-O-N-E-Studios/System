@@ -2,7 +2,20 @@ const AuditLog = require('./auditLog.model');
 const { sendSuccess } = require('../../utils/apiResponse');
 
 const toCsv = (rows) => {
-  const header = ['timestamp', 'action', 'entityType', 'entityId', 'actorRole', 'actorName', 'overrideFlag'];
+  const header = [
+    'timestamp',
+    'action',
+    'entityType',
+    'entityId',
+    'actorRole',
+    'actorName',
+    'overrideFlag',
+    'overrideReason',
+    'evidenceCountAtTime',
+    'checkResultsAtTime',
+    'before',
+    'after',
+  ];
   const lines = rows.map((row) =>
     [
       row.timestamp?.toISOString?.() || '',
@@ -12,6 +25,11 @@ const toCsv = (rows) => {
       row.actorRole || '',
       row.actorName || '',
       row.overrideFlag ? 'true' : 'false',
+      row.overrideReason || '',
+      row.evidenceCountAtTime != null ? String(row.evidenceCountAtTime) : '',
+      row.checkResultsAtTime ? JSON.stringify(row.checkResultsAtTime) : '',
+      row.before ? JSON.stringify(row.before) : '',
+      row.after ? JSON.stringify(row.after) : '',
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(',')
@@ -51,12 +69,15 @@ const exportProjectAudit = async (req, res) => {
   const rows = await AuditLog.find(filter).sort({ timestamp: -1 }).limit(5000).lean();
 
   if (format === 'pdf') {
-    // Placeholder export in plain text for now; keep endpoint contract stable.
+    // Placeholder export in plain text while retaining PDF endpoint contract.
     const body = rows
-      .map((row) => `${row.timestamp?.toISOString?.() || ''} ${row.action} ${row.entityType}`)
+      .map(
+        (row) =>
+          `${row.timestamp?.toISOString?.() || ''} | ${row.action} | ${row.entityType} | override=${row.overrideFlag ? 'yes' : 'no'} | ${row.overrideReason || ''}`
+      )
       .join('\n');
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="audit-${req.params.id}.txt"`);
+    res.setHeader('Content-Disposition', `attachment; filename="audit-${req.params.id}.pdf.txt"`);
     return res.status(200).send(body);
   }
 

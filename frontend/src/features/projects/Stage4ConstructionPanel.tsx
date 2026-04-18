@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import type { ExtensionOfTimeRequest, PenaltyRecord, PerformanceSnapshot } from '@/api/workflow';
+import type {
+  DerivedPerformanceMetrics,
+  ExtensionOfTimeRequest,
+  PenaltyRecord,
+  PerformanceSnapshot,
+} from '@/api/workflow';
 import Button from '@/components/ui/Button';
 
 type Props = {
@@ -10,6 +15,7 @@ type Props = {
   onToggleEot: () => void;
   onTogglePenalties: () => void;
   latestPerformance: PerformanceSnapshot | null;
+  derivedPerformance: DerivedPerformanceMetrics | null;
   onCapturePerformance: () => void;
   isCapturingPerformance: boolean;
   canEditWorkflow: boolean;
@@ -50,6 +56,7 @@ export default function Stage4ConstructionPanel({
   onToggleEot,
   onTogglePenalties,
   latestPerformance,
+  derivedPerformance,
   onCapturePerformance,
   isCapturingPerformance,
   canEditWorkflow,
@@ -78,7 +85,7 @@ export default function Stage4ConstructionPanel({
           <span className="text-[0.68rem] text-[var(--text-muted)]">{expandedPerformance ? 'Hide' : 'Show'}</span>
         </button>
         {expandedPerformance &&
-          (latestPerformance ? (
+          (latestPerformance || derivedPerformance ? (
             <div className="space-y-2">
               <Button
                 type="button"
@@ -90,12 +97,34 @@ export default function Stage4ConstructionPanel({
                 Capture
               </Button>
               <div className="space-y-1">
-                <p className="text-[0.74rem] text-[var(--text-primary)]">Period: {latestPerformance.period}</p>
-                <p className="text-[0.7rem] text-[var(--text-muted)]">
-                  Consultant RAG: {latestPerformance.consultant.rag}
+                <p className="text-[0.74rem] text-[var(--text-primary)]">
+                  Period: {latestPerformance?.period || derivedPerformance?.period}
                 </p>
                 <p className="text-[0.7rem] text-[var(--text-muted)]">
-                  Construction RAG: {latestPerformance.construction.rag}
+                  Consultant RAG: {latestPerformance?.consultant?.rag || derivedPerformance?.consultant?.rag}
+                </p>
+                <p className="text-[0.7rem] text-[var(--text-muted)]">
+                  Construction RAG: {latestPerformance?.construction?.rag || derivedPerformance?.construction?.rag}
+                </p>
+                <p className="text-[0.7rem] text-[var(--text-muted)]">
+                  Consultant Progress: {latestPerformance?.consultant?.progressActualPct ?? derivedPerformance?.consultant?.progressActualPct ?? 0}% actual /
+                  {' '}
+                  {latestPerformance?.consultant?.progressProjectedPct ?? derivedPerformance?.consultant?.progressProjectedPct ?? 0}% projected
+                </p>
+                <p className="text-[0.7rem] text-[var(--text-muted)]">
+                  Construction Progress: {latestPerformance?.construction?.progressActualPct ?? derivedPerformance?.construction?.progressActualPct ?? 0}% actual /
+                  {' '}
+                  {latestPerformance?.construction?.progressProjectedPct ?? derivedPerformance?.construction?.progressProjectedPct ?? 0}% projected
+                </p>
+                <p className="text-[0.7rem] text-[var(--text-muted)]">
+                  Construction Expenditure: {latestPerformance?.construction?.expenditureActualPct ?? derivedPerformance?.construction?.expenditureActualPct ?? 0}% actual /
+                  {' '}
+                  {latestPerformance?.construction?.expenditureProjectedPct ?? derivedPerformance?.construction?.expenditureProjectedPct ?? 0}% projected
+                </p>
+                <p className="text-[0.7rem] text-[var(--text-muted)]">
+                  Time Elapsed: {latestPerformance?.construction?.timeActualPct ?? derivedPerformance?.construction?.timeActualPct ?? 0}% actual /
+                  {' '}
+                  {latestPerformance?.construction?.timeProjectedPct ?? derivedPerformance?.construction?.timeProjectedPct ?? 0}% projected
                 </p>
               </div>
             </div>

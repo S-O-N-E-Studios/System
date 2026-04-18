@@ -117,6 +117,244 @@ const getBudgetSummary = async (req, res) => {
   return sendSuccess(res, { summary });
 };
 
+const listDeliverables = async (req, res) => {
+  const stage = req.query.stage ? Number(req.query.stage) : undefined;
+  const deliverables = await projectService.listDeliverables(req.tenant, req.params.id, stage);
+  return sendSuccess(res, { deliverables });
+};
+
+const getDeliverable = async (req, res) => {
+  const stage = req.query.stage ? Number(req.query.stage) : undefined;
+  const deliverable = await projectService.getDeliverable(req.tenant, req.params.id, req.params.key, stage);
+  return sendSuccess(res, { deliverable });
+};
+
+const uploadDeliverable = async (req, res) => {
+  const stage = req.query.stage ? Number(req.query.stage) : undefined;
+  const deliverable = await projectService.uploadDeliverable(
+    req.tenant,
+    req.params.id,
+    req.params.key,
+    req.body.fileId,
+    req.user.sub,
+    stage,
+  );
+  return sendSuccess(res, { deliverable });
+};
+
+const approveDeliverable = async (req, res) => {
+  const stage = req.query.stage ? Number(req.query.stage) : undefined;
+  const deliverable = await projectService.approveDeliverable(
+    req.tenant,
+    req.params.id,
+    req.params.key,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+    stage,
+  );
+  return sendSuccess(res, { deliverable });
+};
+
+const rejectDeliverable = async (req, res) => {
+  const stage = req.query.stage ? Number(req.query.stage) : undefined;
+  const deliverable = await projectService.rejectDeliverable(
+    req.tenant,
+    req.params.id,
+    req.params.key,
+    req.body.reason,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+    stage,
+  );
+  return sendSuccess(res, { deliverable });
+};
+
+const listAppointments = async (req, res) => {
+  const appointments = await projectService.listAppointments(req.tenant, req.params.id);
+  return sendSuccess(res, { appointments });
+};
+
+const createAppointment = async (req, res) => {
+  const appointment = await projectService.createAppointment(
+    req.tenant,
+    req.params.id,
+    req.body,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+  );
+  return sendCreated(res, { appointment });
+};
+
+const updateAppointment = async (req, res) => {
+  const appointment = await projectService.updateAppointment(
+    req.tenant,
+    req.params.id,
+    req.params.appId,
+    req.body,
+  );
+  return sendSuccess(res, { appointment });
+};
+
+const approveAppointmentStep = async (req, res) => {
+  const appointment = await projectService.reviewAppointmentStep(
+    req.tenant,
+    req.params.id,
+    req.params.appId,
+    req.params.step,
+    'approve',
+    req.body,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+  );
+  return sendSuccess(res, { appointment });
+};
+
+const rejectAppointmentStep = async (req, res) => {
+  const appointment = await projectService.reviewAppointmentStep(
+    req.tenant,
+    req.params.id,
+    req.params.appId,
+    req.params.step,
+    'reject',
+    req.body,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+  );
+  return sendSuccess(res, { appointment });
+};
+
+const getAppointmentStageStatus = async (req, res) => {
+  const status = await projectService.getAppointmentStageStatus(req.tenant, req.params.id);
+  return sendSuccess(res, status);
+};
+
+const listInterimPaymentCertificates = async (req, res) => {
+  const certificates = await projectService.listInterimPaymentCertificates(req.tenant, req.params.id);
+  return sendSuccess(res, { certificates });
+};
+
+const getInterimPaymentCertificate = async (req, res) => {
+  const certificate = await projectService.getInterimPaymentCertificate(
+    req.tenant,
+    req.params.id,
+    req.params.pcId,
+  );
+  return sendSuccess(res, { certificate });
+};
+
+const createInterimPaymentCertificate = async (req, res) => {
+  const certificate = await projectService.createInterimPaymentCertificate(
+    req.tenant,
+    req.params.id,
+    req.body,
+    req.user.sub,
+  );
+  return sendCreated(res, { certificate });
+};
+
+const approveInterimPaymentCertificate = async (req, res) => {
+  const certificate = await projectService.approveInterimPaymentCertificate(
+    req.tenant,
+    req.params.id,
+    req.params.pcId,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+    req.body.overrideReason,
+  );
+  return sendSuccess(res, { certificate });
+};
+
+const rejectInterimPaymentCertificate = async (req, res) => {
+  const certificate = await projectService.rejectInterimPaymentCertificate(
+    req.tenant,
+    req.params.id,
+    req.params.pcId,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+    req.body.reason,
+  );
+  return sendSuccess(res, { certificate });
+};
+
+const listBillingPeriods = async (req, res) => {
+  const billingPeriods = await projectService.listBillingPeriods(req.tenant, req.params.id);
+  return sendSuccess(res, { billingPeriods });
+};
+
+const getBillingPeriodDetail = async (req, res) => {
+  const billingPeriod = await projectService.getBillingPeriodDetail(
+    req.tenant,
+    req.params.id,
+    req.params.period,
+  );
+  return sendSuccess(res, { billingPeriod });
+};
+
+const listCloseOutReports = async (req, res) => {
+  const reports = await projectService.listCloseOutReports(req.tenant, req.params.id);
+  return sendSuccess(res, { reports });
+};
+
+const createCloseOutReport = async (req, res) => {
+  const report = await projectService.createCloseOutReport(
+    req.tenant,
+    req.params.id,
+    req.body,
+    req.user.sub,
+  );
+  return sendCreated(res, { report });
+};
+
+const approveCloseOutReport = async (req, res) => {
+  const report = await projectService.approveCloseOutReport(
+    req.tenant,
+    req.params.id,
+    req.params.reportType,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+  );
+  return sendSuccess(res, { report });
+};
+
+const rejectCloseOutReport = async (req, res) => {
+  const report = await projectService.rejectCloseOutReport(
+    req.tenant,
+    req.params.id,
+    req.params.reportType,
+    req.body.reason,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    },
+  );
+  return sendSuccess(res, { report });
+};
+
 module.exports = {
   list,
   getOne,
@@ -131,5 +369,27 @@ module.exports = {
   updatePayment,
   getPaymentForecast,
   upsertForecast,
+  listDeliverables,
+  getDeliverable,
+  uploadDeliverable,
+  approveDeliverable,
+  rejectDeliverable,
+  listAppointments,
+  createAppointment,
+  updateAppointment,
+  approveAppointmentStep,
+  rejectAppointmentStep,
+  getAppointmentStageStatus,
+  listInterimPaymentCertificates,
+  getInterimPaymentCertificate,
+  createInterimPaymentCertificate,
+  approveInterimPaymentCertificate,
+  rejectInterimPaymentCertificate,
+  listBillingPeriods,
+  getBillingPeriodDetail,
+  listCloseOutReports,
+  createCloseOutReport,
+  approveCloseOutReport,
+  rejectCloseOutReport,
   getBudgetSummary,
 };

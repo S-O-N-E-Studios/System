@@ -31,11 +31,23 @@ const sendValidationError = (res, message, details = null) =>
   sendError(res, "VALIDATION_ERROR", message, 422, details);
 
 const sendStageGateFailed = (res, stage, missing, activitiesMissingImages = undefined) => {
+  const requirements = Array.isArray(missing)
+    ? missing.map((item, idx) => ({
+        code: 'STAGE_GATE_BLOCKER',
+        checkpoint: `stage${stage}.legacy_gate`,
+        entityType: 'stage_document',
+        entityKey: `${item?.category || 'unknown'}-${idx}`,
+        detail: item?.documentName
+          ? `${item.documentName} is ${String(item.reason || 'missing').replace(/_/g, ' ')}`
+          : 'Stage gate requirement not met',
+      }))
+    : [];
   const payload = {
     success: false,
     error: "STAGE_GATE_FAILED",
     stage,
     missing,
+    requirements,
   };
   if (activitiesMissingImages !== undefined) {
     payload.activitiesMissingImages = activitiesMissingImages;

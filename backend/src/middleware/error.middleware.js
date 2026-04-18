@@ -59,6 +59,13 @@ const errorHandler = (err, req, res, next) => {
     error:   code,
     message,
   };
+  const requirements =
+    Array.isArray(err.requirements)
+      ? err.requirements
+      : (Array.isArray(err.details?.requirements) ? err.details.requirements : null);
+  if (requirements) {
+    body.requirements = requirements;
+  }
   if (err.details !== undefined) {
     body.details = err.details;
   }

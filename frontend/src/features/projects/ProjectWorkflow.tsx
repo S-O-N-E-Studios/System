@@ -202,7 +202,9 @@ export default function ProjectWorkflow({ projectId }: Props) {
     onError: (error: unknown) => {
       if (axios.isAxiosError(error) && error.response?.status === 422) {
         const reqs =
-          (error.response.data?.details?.requirements as WorkflowGateRequirement[] | undefined) || [];
+          (error.response.data?.requirements as WorkflowGateRequirement[] | undefined) ||
+          (error.response.data?.details?.requirements as WorkflowGateRequirement[] | undefined) ||
+          [];
         setBlockedRequirements(reqs);
         addToast({ type: 'warning', message: 'Workflow blocked. Review unmet requirements.' });
         return;
@@ -239,25 +241,26 @@ export default function ProjectWorkflow({ projectId }: Props) {
 
   const createPerformanceMutation = useMutation({
     mutationFn: () => {
-      const now = new Date();
-      const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const derived = performanceQuery.data?.derived;
+      const latest = performanceQuery.data?.latest;
+      const now = new Date().toISOString().slice(0, 7);
       return workflowApi.upsertPerformance(projectId, {
-        period,
+        period: derived?.period || now,
         consultant: {
-          rag: 'amber',
-          progressProjectedPct: 50,
-          progressActualPct: 45,
-          expenditureProjectedPct: 50,
-          expenditureActualPct: 41,
+          rag: derived?.consultant?.rag || latest?.consultant?.rag || 'amber',
+          progressProjectedPct: derived?.consultant?.progressProjectedPct ?? latest?.consultant?.progressProjectedPct ?? 0,
+          progressActualPct: derived?.consultant?.progressActualPct ?? latest?.consultant?.progressActualPct ?? 0,
+          expenditureProjectedPct: derived?.consultant?.expenditureProjectedPct ?? latest?.consultant?.expenditureProjectedPct ?? 0,
+          expenditureActualPct: derived?.consultant?.expenditureActualPct ?? latest?.consultant?.expenditureActualPct ?? 0,
         },
         construction: {
-          rag: 'amber',
-          progressProjectedPct: 48,
-          progressActualPct: 43,
-          expenditureProjectedPct: 52,
-          expenditureActualPct: 47,
-          timeProjectedPct: 50,
-          timeActualPct: 55,
+          rag: derived?.construction?.rag || latest?.construction?.rag || 'amber',
+          progressProjectedPct: derived?.construction?.progressProjectedPct ?? latest?.construction?.progressProjectedPct ?? 0,
+          progressActualPct: derived?.construction?.progressActualPct ?? latest?.construction?.progressActualPct ?? 0,
+          expenditureProjectedPct: derived?.construction?.expenditureProjectedPct ?? latest?.construction?.expenditureProjectedPct ?? 0,
+          expenditureActualPct: derived?.construction?.expenditureActualPct ?? latest?.construction?.expenditureActualPct ?? 0,
+          timeProjectedPct: derived?.construction?.timeProjectedPct ?? latest?.construction?.timeProjectedPct ?? 0,
+          timeActualPct: derived?.construction?.timeActualPct ?? latest?.construction?.timeActualPct ?? 0,
         },
       });
     },
@@ -495,6 +498,7 @@ export default function ProjectWorkflow({ projectId }: Props) {
   const effectiveBlockers = blockedRequirements.length > 0 ? blockedRequirements : gateRequirements;
   const trails = trailsQuery.data || [];
   const latestPerformance = performanceQuery.data?.latest || null;
+  const derivedPerformance = performanceQuery.data?.derived || null;
   const eotRequests = eotQuery.data || [];
   const penalties = penaltiesQuery.data || [];
   const auditEntries = auditQuery.data?.entries || [];
@@ -704,72 +708,77 @@ export default function ProjectWorkflow({ projectId }: Props) {
         blockers={effectiveBlockers}
       />
 
-      <Stage1ProcurementPanel
-        expanded={expandedSections.procurement}
-        onToggle={() => setExpandedSections((prev) => ({ ...prev, procurement: !prev.procurement }))}
-        missingAppointmentTypes={missingAppointmentTypes as unknown as string[]}
-        trails={trails}
-        isLoading={trailsQuery.isLoading}
-        canConsultantProcurement={canConsultantProcurement}
-        canReviewProcurement={canReviewProcurement}
-        onAddTrail={(appointmentType) => createTrailMutation.mutate(appointmentType)}
-        isAddingTrail={createTrailMutation.isPending}
-        onWarn={(message) => addToast({ type: 'warning', message })}
-        onSelectStepStatus={({ trailId, stepKey, status, reason }) => {
-          if (status === 'not_approved') {
-            setPendingStepReview({ trailId, stepKey, status });
-            setProcReason(reason || '');
-            openModal(PROC_REASON_MODAL_ID);
-            return;
-          }
-          reviewStepMutation.mutate({ trailId, stepKey, status });
-        }}
-      />
+      {stageTopLevel === 1 && (
+        <Stage1ProcurementPanel
+          expanded={expandedSections.procurement}
+          onToggle={() => setExpandedSections((prev) => ({ ...prev, procurement: !prev.procurement }))}
+          missingAppointmentTypes={missingAppointmentTypes as unknown as string[]}
+          trails={trails}
+          isLoading={trailsQuery.isLoading}
+          canConsultantProcurement={canConsultantProcurement}
+          canReviewProcurement={canReviewProcurement}
+          onAddTrail={(appointmentType) => createTrailMutation.mutate(appointmentType)}
+          isAddingTrail={createTrailMutation.isPending}
+          onWarn={(message) => addToast({ type: 'warning', message })}
+          onSelectStepStatus={({ trailId, stepKey, status, reason }) => {
+            if (status === 'not_approved') {
+              setPendingStepReview({ trailId, stepKey, status });
+              setProcReason(reason || '');
+              openModal(PROC_REASON_MODAL_ID);
+              return;
+            }
+            reviewStepMutation.mutate({ trailId, stepKey, status });
+          }}
+        />
+      )}
 
-      <Stage4ConstructionPanel
-        expandedPerformance={expandedSections.performance}
-        expandedEot={expandedSections.eot}
-        expandedPenalties={expandedSections.penalties}
-        onTogglePerformance={() => setExpandedSections((prev) => ({ ...prev, performance: !prev.performance }))}
-        onToggleEot={() => setExpandedSections((prev) => ({ ...prev, eot: !prev.eot }))}
-        onTogglePenalties={() => setExpandedSections((prev) => ({ ...prev, penalties: !prev.penalties }))}
-        latestPerformance={latestPerformance}
-        onCapturePerformance={() => createPerformanceMutation.mutate()}
-        isCapturingPerformance={createPerformanceMutation.isPending}
-        canEditWorkflow={canEditWorkflow}
-        canApproveWorkflow={canApproveWorkflow}
-        eotRequests={eotRequests}
-        penalties={penalties}
-        onOpenEotCreate={() => openModal(EOT_MODAL_ID)}
-        onSubmitEot={(eotId) => submitEotMutation.mutate(eotId)}
-        onApproveEot={(eotId, requestedDays) =>
-          approveEotMutation.mutate({
-            eotId,
-            daysApproved: requestedDays,
-          })
-        }
-        onRejectEot={handleRejectEot}
-        onWithdrawEot={(eotId) => withdrawEotMutation.mutate(eotId)}
-        onOpenPenaltyCreate={() => openModal(PENALTY_MODAL_ID)}
-        onSubmitPenalty={(penaltyId) => submitPenaltyMutation.mutate(penaltyId)}
-        onApprovePenalty={(penaltyId) => approvePenaltyMutation.mutate(penaltyId)}
-        onRejectPenalty={handleRejectPenalty}
-        onWaivePenalty={(penaltyId) => waivePenaltyMutation.mutate(penaltyId)}
-        isBusy={{
-          createEot: createEotMutation.isPending,
-          submitEot: submitEotMutation.isPending,
-          approveEot: approveEotMutation.isPending,
-          rejectEot: rejectEotMutation.isPending,
-          withdrawEot: withdrawEotMutation.isPending,
-          createPenalty: createPenaltyMutation.isPending,
-          submitPenalty: submitPenaltyMutation.isPending,
-          approvePenalty: approvePenaltyMutation.isPending,
-          rejectPenalty: rejectPenaltyMutation.isPending,
-          waivePenalty: waivePenaltyMutation.isPending,
-        }}
-        formatIdShort={formatIdShort}
-        renderFileChip={renderFileChip}
-      />
+      {stageTopLevel === 4 && (
+        <Stage4ConstructionPanel
+          expandedPerformance={expandedSections.performance}
+          expandedEot={expandedSections.eot}
+          expandedPenalties={expandedSections.penalties}
+          onTogglePerformance={() => setExpandedSections((prev) => ({ ...prev, performance: !prev.performance }))}
+          onToggleEot={() => setExpandedSections((prev) => ({ ...prev, eot: !prev.eot }))}
+          onTogglePenalties={() => setExpandedSections((prev) => ({ ...prev, penalties: !prev.penalties }))}
+          latestPerformance={latestPerformance}
+          derivedPerformance={derivedPerformance}
+          onCapturePerformance={() => createPerformanceMutation.mutate()}
+          isCapturingPerformance={createPerformanceMutation.isPending}
+          canEditWorkflow={canEditWorkflow}
+          canApproveWorkflow={canApproveWorkflow}
+          eotRequests={eotRequests}
+          penalties={penalties}
+          onOpenEotCreate={() => openModal(EOT_MODAL_ID)}
+          onSubmitEot={(eotId) => submitEotMutation.mutate(eotId)}
+          onApproveEot={(eotId, requestedDays) =>
+            approveEotMutation.mutate({
+              eotId,
+              daysApproved: requestedDays,
+            })
+          }
+          onRejectEot={handleRejectEot}
+          onWithdrawEot={(eotId) => withdrawEotMutation.mutate(eotId)}
+          onOpenPenaltyCreate={() => openModal(PENALTY_MODAL_ID)}
+          onSubmitPenalty={(penaltyId) => submitPenaltyMutation.mutate(penaltyId)}
+          onApprovePenalty={(penaltyId) => approvePenaltyMutation.mutate(penaltyId)}
+          onRejectPenalty={handleRejectPenalty}
+          onWaivePenalty={(penaltyId) => waivePenaltyMutation.mutate(penaltyId)}
+          isBusy={{
+            createEot: createEotMutation.isPending,
+            submitEot: submitEotMutation.isPending,
+            approveEot: approveEotMutation.isPending,
+            rejectEot: rejectEotMutation.isPending,
+            withdrawEot: withdrawEotMutation.isPending,
+            createPenalty: createPenaltyMutation.isPending,
+            submitPenalty: submitPenaltyMutation.isPending,
+            approvePenalty: approvePenaltyMutation.isPending,
+            rejectPenalty: rejectPenaltyMutation.isPending,
+            waivePenalty: waivePenaltyMutation.isPending,
+          }}
+          formatIdShort={formatIdShort}
+          renderFileChip={renderFileChip}
+        />
+      )}
 
       <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-4 space-y-3">
         <button
