@@ -21,7 +21,7 @@ export type Permission =
 
 const allPermanent: UserRole[] = ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'PM', 'MEMBER', 'VIEWER', 'SUPER_ADMIN'];
 const writers: UserRole[] = ['ORG_ADMIN', 'DEPT_ADMIN', 'PROJECT_MANAGER', 'PM', 'SUPER_ADMIN'];
-const approvers: UserRole[] = ['CLIENT_APPROVER', 'ORG_ADMIN', 'SUPER_ADMIN'];
+const approvers: UserRole[] = ['CLIENT_APPROVER', 'ORG_ADMIN', 'DEPT_ADMIN', 'SUPER_ADMIN'];
 
 const permissionAllowList: Record<Permission, UserRole[]> = {
   view_dashboard: allPermanent,

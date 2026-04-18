@@ -67,6 +67,11 @@ const tenantSchema = new mongoose.Schema(
       defaultMode: { type: String, enum: ['light', 'dark'], default: 'light' },
     },
 
+    evidenceConfig: {
+      minImagesPerBillingPeriod: { type: Number, default: 3, min: 0 },
+      minHandoverImages: { type: Number, default: null, min: 0 },
+    },
+
     /**
      * Organisation-owned SMTP (in-house relay). When enabled and configured,
      * transactional mail for that tenant (invites, client access, password reset

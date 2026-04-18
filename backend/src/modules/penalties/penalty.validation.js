@@ -17,7 +17,7 @@ const updatePenaltySchema = Joi.object({
   penaltyType: penaltyTypeSchema,
   amountCents: Joi.number().integer().min(0),
   reason: Joi.string().trim().min(3).max(4000),
-  status: Joi.string().valid('draft', 'approved', 'waived'),
+  status: Joi.string().valid('draft', 'pending_approval', 'approved', 'rejected', 'waived'),
   supportingFileIds: Joi.array().items(Joi.string().hex().length(24)).max(20),
   assignedApproverId: Joi.string().hex().length(24).allow(null, ''),
   thresholdAmountCents: Joi.number().integer().min(0).allow(null),
@@ -25,7 +25,12 @@ const updatePenaltySchema = Joi.object({
   thresholdWarningNote: Joi.string().trim().max(1000).allow(null, ''),
 }).min(1);
 
+const rejectPenaltySchema = Joi.object({
+  reason: Joi.string().trim().min(3).max(4000).required(),
+});
+
 module.exports = {
   createPenaltySchema,
   updatePenaltySchema,
+  rejectPenaltySchema,
 };

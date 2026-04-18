@@ -45,7 +45,14 @@ const getStage7Readiness = async (tenant, projectId) => {
     deletedAt: null,
     billingPeriod: { $ne: null },
     category: {
-      $in: ['progress-report', 'safety-report', 'monthly-cash-flow', 'payment-certificate', 'site-image'],
+      $in: [
+        'progress-report',
+        'safety-report',
+        'monthly-cash-flow',
+        'meeting-minutes',
+        'payment-certificate',
+        'site-image',
+      ],
     },
   })
     .select('category billingPeriod')
@@ -67,6 +74,7 @@ const getStage7Readiness = async (tenant, projectId) => {
         progressReportPresent: false,
         safetyReportPresent: false,
         cashFlowPresent: false,
+        meetingMinutesPresent: false,
         paymentCertificateCount: 0,
         evidenceImageCount: 0,
         reportingComplete: false,
@@ -78,10 +86,11 @@ const getStage7Readiness = async (tenant, projectId) => {
     if (f.category === 'progress-report') row.progressReportPresent = true;
     if (f.category === 'safety-report') row.safetyReportPresent = true;
     if (f.category === 'monthly-cash-flow') row.cashFlowPresent = true;
+    if (f.category === 'meeting-minutes') row.meetingMinutesPresent = true;
     if (f.category === 'payment-certificate') row.paymentCertificateCount += 1;
     if (f.category === 'site-image') row.evidenceImageCount += 1;
     row.reportingComplete =
-      row.progressReportPresent && row.safetyReportPresent && row.cashFlowPresent;
+      row.progressReportPresent && row.cashFlowPresent && row.meetingMinutesPresent;
     row.evidenceSufficient = row.evidenceImageCount >= row.evidenceMinimum;
   });
 

@@ -255,6 +255,12 @@ export default function ProjectDetail() {
     enabled: Boolean(id) && activeTab === 'Audit Trail',
   });
   const auditEntries = auditQuery.data?.entries || [];
+  const workflowSummaryQuery = useQuery({
+    queryKey: ['project-detail-workflow-summary', id],
+    queryFn: () => workflowApi.getWorkflow(id || ''),
+    enabled: Boolean(id),
+  });
+  const effectiveTopLevelStage = Number(workflowSummaryQuery.data?.stageTopLevel || topLevelStage);
 
   useEffect(() => {
     let cancelled = false;
@@ -583,8 +589,8 @@ export default function ProjectDetail() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {TOP_LEVEL_STAGES.map((stage) => {
-                const isActive = stage.id === topLevelStage;
-                const isDone = stage.id < topLevelStage;
+                const isActive = stage.id === effectiveTopLevelStage;
+                const isDone = stage.id < effectiveTopLevelStage;
                 return (
                   <div
                     key={stage.id}

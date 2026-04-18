@@ -157,6 +157,16 @@ const projectSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    /** Contract completion date before any approved EOT (baseline). */
+    completionDateOriginal: {
+      type: Date,
+      default: null,
+    },
+    /** Baseline plus sum of daysApproved on all approved EOTs; mirrors `completionDate` for API consumers. */
+    completionDateAdjusted: {
+      type: Date,
+      default: null,
+    },
     geoTecEngineer: {
       type: String,
       default: null,
@@ -236,10 +246,18 @@ projectSchema.pre('save', async function (next) {
     const year = new Date().getFullYear();
     const count = await this.constructor.countDocuments({ tenantId: this.tenantId });
     const sequence = String(count + 1).padStart(3, '0');
-    this.refCode = `PRJ-${year}-${sequence}`;
+    this.refCode = `EVD-${year}-${sequence}`;
   }
   if (this.isNew && this.contractValueOriginal > 0 && this.contractValueAdjusted === 0) {
     this.contractValueAdjusted = this.contractValueOriginal;
+  }
+  if (this.completionDate) {
+    if (!this.completionDateOriginal) {
+      this.completionDateOriginal = this.completionDate;
+    }
+    if (!this.completionDateAdjusted) {
+      this.completionDateAdjusted = this.completionDate;
+    }
   }
   next();
 });

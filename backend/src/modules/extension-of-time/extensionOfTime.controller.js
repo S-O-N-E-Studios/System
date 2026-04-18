@@ -63,12 +63,37 @@ const submit = async (req, res) => {
 
 const approve = async (req, res) => {
   const existing = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
+  }
+  if (existing.status !== 'pending_approval') {
+    return res.status(422).json({
+      success: false,
+      error: 'INVALID_STATE',
+      message: 'Only EOT requests pending approval can be approved.',
+    });
+  }
+  const requested = Number(existing.requestedDays);
+  let daysApproved = req.body?.daysApproved;
+  if (daysApproved === undefined || daysApproved === null) {
+    daysApproved = requested;
+  }
+  daysApproved = Number(daysApproved);
+  if (!Number.isFinite(daysApproved) || daysApproved < 0 || daysApproved > requested) {
+    return res.status(422).json({
+      success: false,
+      error: 'VALIDATION_ERROR',
+      message: `daysApproved must be between 0 and ${requested} (requested days).`,
+    });
+  }
   const request = await service.setStatus(req.tenant._id, req.params.id, req.params.eotId, {
     status: 'approved',
+    daysApproved,
     approvedBy: req.user.sub,
     approvedAt: new Date(),
     rejectionReason: null,
   });
+  await service.syncProjectCompletionFromApprovedEots(req.tenant._id, req.params.id);
   await logEvent({
     tenantId: req.tenant._id,
     projectId: req.params.id,

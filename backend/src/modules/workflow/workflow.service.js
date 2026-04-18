@@ -3,6 +3,7 @@ const { getStageDocumentSpecsForTenant } = require('../../constants/workflowProf
 const { ProcurementTrail, APPOINTMENT_TYPES, STEP_KEYS } = require('../procurement-trails/procurementTrail.model');
 const stageGateService = require('../stage-gate/stageGate.service');
 const File = require('../files/file.model');
+const Penalty = require('../penalties/penalty.model');
 
 const TOP_LEVEL_STAGES = [
   { id: 1, key: 'initiation', label: 'Initiation' },
@@ -20,17 +21,18 @@ const TOP_LEVEL_STAGE_CHECKPOINTS = {
   5: 'stage5.closure_gate',
 };
 
+/** Minimum legacy `currentStage` after advancing into each top-level stage (v9-aligned). */
 const TOP_LEVEL_TO_LEGACY_STAGE = {
   1: 1,
   2: 2,
-  3: 6,
+  3: 4,
   4: 7,
   5: 8,
 };
 
 const mapLegacyStage = (currentStage) => {
   if (currentStage <= 1) return 1;
-  if (currentStage <= 4) return 2;
+  if (currentStage <= 3) return 2;
   if (currentStage <= 6) return 3;
   if (currentStage === 7) return 4;
   return 5;
@@ -81,7 +83,7 @@ const collectStage1GateRequirements = async (tenantId, projectId) => {
 
 const collectStage2GateRequirements = async (tenant, projectId) => {
   const requirements = [];
-  const legacyPlanningStages = [2, 3, 4];
+  const legacyPlanningStages = [2, 3];
   for (const stage of legacyPlanningStages) {
     const gate = await stageGateService.checkStageGate(tenant, projectId, stage);
     if (!gate.gatePassed) {
@@ -125,8 +127,40 @@ const collectRequirementsForLegacyStage = async (tenant, projectId, legacyStage,
   return requirements;
 };
 
-const collectStage3GateRequirements = async (tenant, projectId) =>
-  collectRequirementsForLegacyStage(tenant, projectId, 6, 'stage3.project_execution_gate');
+const collectStage3GateRequirements = async (tenant, projectId) => {
+  const requirements = [];
+  for (const legacyStage of [4, 5, 6]) {
+    const part = await collectRequirementsForLegacyStage(
+      tenant,
+      projectId,
+      legacyStage,
+      'stage3.project_execution_gate',
+    );
+    requirements.push(...part);
+  }
+  const minHandover =
+    tenant?.evidenceConfig?.minHandoverImages ??
+    tenant?.evidenceConfig?.minImagesPerBillingPeriod ??
+    3;
+  const handoverImages = await File.countDocuments({
+    tenantId: tenant._id,
+    projectId,
+    stage: 6,
+    deletedAt: null,
+    category: 'site-image',
+  });
+  if (handoverImages < minHandover) {
+    requirements.push({
+      code: 'SITE_HANDOVER_IMAGE_MINIMUM_NOT_MET',
+      checkpoint: 'stage3.project_execution_gate',
+      entityType: 'site_handover_evidence',
+      entityKey: 'site-image',
+      detail:
+        `Site handover requires at least ${minHandover} site images (stage 6); found ${handoverImages}.`,
+    });
+  }
+  return requirements;
+};
 
 const collectStage4GateRequirements = async (tenant, projectId) =>
   collectRequirementsForLegacyStage(tenant, projectId, 7, 'stage4.monitoring_control_gate');
@@ -134,7 +168,37 @@ const collectStage4GateRequirements = async (tenant, projectId) =>
 const collectStage5GateRequirements = async (tenant, projectId) => {
   const stage8 = await collectRequirementsForLegacyStage(tenant, projectId, 8, 'stage5.closure_gate');
   const stage9 = await collectRequirementsForLegacyStage(tenant, projectId, 9, 'stage5.closure_gate');
-  return [...stage8, ...stage9];
+  const requirements = [...stage8, ...stage9];
+
+  // Penalties are conditional in v9: if present, they must be approved with supporting evidence.
+  const penalties = await Penalty.find({
+    tenantId: tenant._id,
+    projectId,
+  }).lean();
+  const applicablePenalties = penalties.filter((row) => row.status !== 'waived');
+  for (const penalty of applicablePenalties) {
+    if (penalty.status !== 'approved') {
+      requirements.push({
+        code: 'PENALTY_NOT_APPROVED',
+        checkpoint: 'stage5.closure_gate',
+        entityType: 'penalty',
+        entityKey: String(penalty._id),
+        detail: 'Penalty record exists but is not approved.',
+      });
+      continue;
+    }
+    if (!Array.isArray(penalty.supportingFileIds) || penalty.supportingFileIds.length === 0) {
+      requirements.push({
+        code: 'PENALTY_EVIDENCE_MISSING',
+        checkpoint: 'stage5.closure_gate',
+        entityType: 'penalty',
+        entityKey: String(penalty._id),
+        detail: 'Approved penalty requires at least one supporting evidence file.',
+      });
+    }
+  }
+
+  return requirements;
 };
 
 const getWorkflowSummary = async (tenant, projectId) => {

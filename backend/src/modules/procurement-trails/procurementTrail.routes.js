@@ -3,7 +3,7 @@ const router = express.Router({ mergeParams: true });
 const ctrl = require('./procurementTrail.controller');
 const asyncHandler = require('../../utils/asyncHandler');
 const validate = require('../../middleware/validation.middleware');
-const { denyClientTemp, requirePM } = require('../../middleware/rbac.middleware');
+const { denyClientTemp, requirePM, requireProcurementStepReviewOrMarkNa } = require('../../middleware/rbac.middleware');
 const {
   createTrailSchema,
   updateTrailSchema,
@@ -18,7 +18,7 @@ router.patch('/:trailId', denyClientTemp, requirePM, validate(updateTrailSchema)
 router.post(
   '/:trailId/steps/:stepKey/review',
   denyClientTemp,
-  requirePM,
+  requireProcurementStepReviewOrMarkNa,
   validate(reviewStepParamsSchema, 'params'),
   validate(reviewStepBodySchema),
   asyncHandler(ctrl.reviewStep)

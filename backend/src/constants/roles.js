@@ -36,10 +36,19 @@ const APPROVER_ROLES = [
   ROLES.ORG_ADMIN,
 ];
 
+/** Client-side approvers for procurement trail steps (v9 two-party model; PM must not self-approve). */
+const PROCUREMENT_STEP_REVIEW_ROLES = [
+  ROLES.SUPER_ADMIN,
+  ROLES.ORG_ADMIN,
+  ROLES.DEPT_ADMIN,
+  ROLES.CLIENT_APPROVER,
+];
+
 module.exports = {
   ROLES,
   PERMANENT_ROLES,
   WRITER_ROLES,
   ADMIN_ROLES,
   APPROVER_ROLES,
+  PROCUREMENT_STEP_REVIEW_ROLES,
 };

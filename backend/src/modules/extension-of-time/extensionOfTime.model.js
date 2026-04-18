@@ -7,6 +7,8 @@ const extensionOfTimeSchema = new mongoose.Schema(
     referenceNumber: { type: String, unique: true },
     reason: { type: String, required: true, trim: true },
     requestedDays: { type: Number, required: true, min: 1 },
+    /** Set when status becomes approved; summed with other approved EOTs to derive project completionDateAdjusted. */
+    daysApproved: { type: Number, min: 0, default: null },
     status: {
       type: String,
       enum: ['draft', 'pending_approval', 'approved', 'rejected', 'withdrawn'],

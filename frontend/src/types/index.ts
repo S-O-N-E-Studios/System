@@ -229,6 +229,8 @@ export interface Project {
   subConsultants?: SubConsultant[];
   appointmentDate?: string;
   completionDate?: string;
+  completionDateOriginal?: string;
+  completionDateAdjusted?: string;
   completionGate?: CompletionGate;
   geoTecEngineer?: string;
   geoTecReportStatus?: GeoTecReportStatus;
@@ -373,6 +375,9 @@ export type FileCategory =
   | 'proof-of-payment'
   | 'om-manual'
   | 'close-out-report'
+  | 'closeout-report-principal'
+  | 'closeout-report-safety'
+  | 'closeout-report-eia'
   | 'final-completion'
   | 'site-image'
   | 'drone-video'

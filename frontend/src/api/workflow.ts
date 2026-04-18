@@ -74,6 +74,8 @@ export type ExtensionOfTimeRequest = {
   referenceNumber: string;
   reason: string;
   requestedDays: number;
+  /** Present when approved; counted toward project completionDateAdjusted. */
+  daysApproved?: number | null;
   status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'withdrawn';
   rejectionReason?: string | null;
   assignedApproverId?: string | null;
@@ -91,7 +93,8 @@ export type PenaltyRecord = {
   penaltyType: 'delay' | 'quality' | 'contractual' | 'other';
   amountCents: number;
   reason: string;
-  status: 'draft' | 'approved' | 'waived';
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'waived';
+  rejectionReason?: string | null;
   assignedApproverId?: string | null;
   supportingFileIds?: string[];
   thresholdAmountCents?: number | null;
@@ -183,6 +186,36 @@ export const workflowApi = {
     return body?.requests || [];
   },
 
+  approveExtensionOfTime: async (
+    projectId: string,
+    eotId: string,
+    payload?: { daysApproved?: number }
+  ) => {
+    const res = await apiClient.post(
+      `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/approve`,
+      payload ?? {}
+    );
+    return res.data?.data?.request || res.data?.request;
+  },
+
+  submitExtensionOfTime: async (projectId: string, eotId: string) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/extension-of-time/${eotId}/submit`);
+    return res.data?.data?.request || res.data?.request;
+  },
+
+  rejectExtensionOfTime: async (projectId: string, eotId: string, payload: { reason: string }) => {
+    const res = await apiClient.post(
+      `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/reject`,
+      payload
+    );
+    return res.data?.data?.request || res.data?.request;
+  },
+
+  withdrawExtensionOfTime: async (projectId: string, eotId: string) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/extension-of-time/${eotId}/withdraw`);
+    return res.data?.data?.request || res.data?.request;
+  },
+
   createExtensionOfTime: async (
     projectId: string,
     payload: {
@@ -222,6 +255,29 @@ export const workflowApi = {
     }
   ) => {
     const res = await apiClient.post(`/${slug()}/projects/${projectId}/penalties`, payload);
+    return res.data?.data?.penalty || res.data?.penalty;
+  },
+
+  submitPenalty: async (projectId: string, penaltyId: string) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/penalties/${penaltyId}/submit`);
+    return res.data?.data?.penalty || res.data?.penalty;
+  },
+
+  approvePenalty: async (projectId: string, penaltyId: string) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/penalties/${penaltyId}/approve`);
+    return res.data?.data?.penalty || res.data?.penalty;
+  },
+
+  rejectPenalty: async (projectId: string, penaltyId: string, payload: { reason: string }) => {
+    const res = await apiClient.post(
+      `/${slug()}/projects/${projectId}/penalties/${penaltyId}/reject`,
+      payload
+    );
+    return res.data?.data?.penalty || res.data?.penalty;
+  },
+
+  waivePenalty: async (projectId: string, penaltyId: string) => {
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/penalties/${penaltyId}/waive`);
     return res.data?.data?.penalty || res.data?.penalty;
   },
 

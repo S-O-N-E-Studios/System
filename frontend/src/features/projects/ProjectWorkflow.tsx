@@ -86,6 +86,9 @@ export default function ProjectWorkflow({ projectId }: Props) {
   const tenantSlug = useTenantStore((state) => state.getSlug());
   const can = useCan();
   const canEditWorkflow = can('create_project');
+  const canConsultantProcurement = can('create_project') || can('edit_project');
+  const canReviewProcurement = can('approve_documents');
+  const canApproveWorkflow = can('approve_documents');
   const [blockedRequirements, setBlockedRequirements] = useState<WorkflowGateRequirement[]>([]);
   const [pendingStepReview, setPendingStepReview] = useState<{
     trailId: string;
@@ -322,6 +325,48 @@ export default function ProjectWorkflow({ projectId }: Props) {
     },
   });
 
+  const submitEotMutation = useMutation({
+    mutationFn: (eotId: string) => workflowApi.submitExtensionOfTime(projectId, eotId),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'EOT submitted for approval.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-eot', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not submit EOT request.' }),
+  });
+
+  const approveEotMutation = useMutation({
+    mutationFn: ({ eotId, daysApproved }: { eotId: string; daysApproved?: number }) =>
+      workflowApi.approveExtensionOfTime(projectId, eotId, daysApproved !== undefined ? { daysApproved } : undefined),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'EOT approved.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-eot', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['project-workflow', projectId] });
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Could not approve EOT request.';
+      addToast({ type: 'error', message });
+    },
+  });
+
+  const rejectEotMutation = useMutation({
+    mutationFn: ({ eotId, reason }: { eotId: string; reason: string }) =>
+      workflowApi.rejectExtensionOfTime(projectId, eotId, { reason }),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'EOT rejected.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-eot', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not reject EOT request.' }),
+  });
+
+  const withdrawEotMutation = useMutation({
+    mutationFn: (eotId: string) => workflowApi.withdrawExtensionOfTime(projectId, eotId),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'EOT withdrawn.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-eot', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not withdraw EOT request.' }),
+  });
+
   const createPenaltyMutation = useMutation({
     mutationFn: ({
       reason,
@@ -373,6 +418,45 @@ export default function ProjectWorkflow({ projectId }: Props) {
       const message = error instanceof Error ? error.message : 'Could not create penalty record.';
       addToast({ type: 'error', message });
     },
+  });
+
+  const submitPenaltyMutation = useMutation({
+    mutationFn: (penaltyId: string) => workflowApi.submitPenalty(projectId, penaltyId),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'Penalty submitted for approval.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-penalties', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not submit penalty.' }),
+  });
+
+  const approvePenaltyMutation = useMutation({
+    mutationFn: (penaltyId: string) => workflowApi.approvePenalty(projectId, penaltyId),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'Penalty approved.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-penalties', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['project-workflow', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not approve penalty.' }),
+  });
+
+  const rejectPenaltyMutation = useMutation({
+    mutationFn: ({ penaltyId, reason }: { penaltyId: string; reason: string }) =>
+      workflowApi.rejectPenalty(projectId, penaltyId, { reason }),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'Penalty rejected.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-penalties', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not reject penalty.' }),
+  });
+
+  const waivePenaltyMutation = useMutation({
+    mutationFn: (penaltyId: string) => workflowApi.waivePenalty(projectId, penaltyId),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'Penalty waived.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-penalties', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['project-workflow', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not waive penalty.' }),
   });
 
   const stages = useMemo(
@@ -527,7 +611,8 @@ export default function ProjectWorkflow({ projectId }: Props) {
           <div>
             <h4 className="text-h3 text-[0.95rem]">Sub-consultant procurement trails</h4>
             <p className="text-[0.72rem] text-[var(--text-muted)]">
-              Each appointment follows Advert, Recommendations, Approval, Appointment Letter, and SLA.
+              Each appointment follows Advert, Recommendations, Approval, Appointment Letter, and SLA. Consultants mark
+              steps Not applicable where a role is not required; client approvers record Approved or Not approved.
             </p>
           </div>
           <span className="text-[0.68rem] text-[var(--text-muted)]">
@@ -581,13 +666,28 @@ export default function ProjectWorkflow({ projectId }: Props) {
                     {STEP_KEYS.map((stepKey) => {
                       const step = trail.steps.find((s) => s.stepKey === stepKey);
                       const status = step?.status || 'not_applicable';
+                      const canUseStepControl = canReviewProcurement || canConsultantProcurement;
                       return (
                         <td key={`${trail._id}-${stepKey}`} className="py-2 pr-3">
                           <select
                             value={status}
                             onChange={(e) => {
-                              if (!canEditWorkflow) return;
+                              if (!canUseStepControl) return;
                               const nextStatus = e.target.value as ProcurementStepStatus;
+                              if (!canReviewProcurement && nextStatus !== 'not_applicable') {
+                                addToast({
+                                  type: 'warning',
+                                  message: 'Only client approvers can mark steps approved or not approved.',
+                                });
+                                return;
+                              }
+                              if (!canConsultantProcurement && nextStatus === 'not_applicable') {
+                                addToast({
+                                  type: 'warning',
+                                  message: 'Only the consulting team can mark a step as not applicable.',
+                                });
+                                return;
+                              }
                               if (nextStatus === 'not_approved') {
                                 setPendingStepReview({
                                   trailId: trail._id,
@@ -605,7 +705,7 @@ export default function ProjectWorkflow({ projectId }: Props) {
                               });
                             }}
                             className="bg-transparent border border-[var(--border-default)] px-2 py-1 text-[0.72rem]"
-                            disabled={!canEditWorkflow}
+                            disabled={!canUseStepControl}
                           >
                             <option value="approved">Approved</option>
                             <option value="not_approved">{procurementStepStatusLabel('not_approved')}</option>
@@ -726,6 +826,61 @@ export default function ProjectWorkflow({ projectId }: Props) {
                       />
                     ))}
                   </div>
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {row.status === 'draft' && canEditWorkflow && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!py-1 !px-2 !text-[0.64rem]"
+                        onClick={() => submitEotMutation.mutate(row._id)}
+                        isLoading={submitEotMutation.isPending}
+                      >
+                        Submit
+                      </Button>
+                    )}
+                    {row.status === 'pending_approval' && canApproveWorkflow && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="!py-1 !px-2 !text-[0.64rem]"
+                          onClick={() =>
+                            approveEotMutation.mutate({
+                              eotId: row._id,
+                              daysApproved: row.requestedDays,
+                            })
+                          }
+                          isLoading={approveEotMutation.isPending}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="!py-1 !px-2 !text-[0.64rem]"
+                          onClick={() => {
+                            const reason = window.prompt('Enter rejection reason');
+                            if (!reason || reason.trim().length < 3) return;
+                            rejectEotMutation.mutate({ eotId: row._id, reason: reason.trim() });
+                          }}
+                          isLoading={rejectEotMutation.isPending}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {row.status === 'pending_approval' && canEditWorkflow && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!py-1 !px-2 !text-[0.64rem]"
+                        onClick={() => withdrawEotMutation.mutate(row._id)}
+                        isLoading={withdrawEotMutation.isPending}
+                      >
+                        Withdraw
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
               </div>
@@ -780,6 +935,9 @@ export default function ProjectWorkflow({ projectId }: Props) {
                   {row.thresholdWarningNote ? (
                     <p className="text-[0.68rem] text-[var(--text-muted)]">{row.thresholdWarningNote}</p>
                   ) : null}
+                  {row.rejectionReason ? (
+                    <p className="text-[0.68rem] text-[var(--status-danger)]">Reason: {row.rejectionReason}</p>
+                  ) : null}
                   <div className="flex flex-wrap gap-1">
                     {(row.supportingFileIds || []).slice(0, 4).map((fileId) => (
                       <FileIdChip
@@ -789,6 +947,54 @@ export default function ProjectWorkflow({ projectId }: Props) {
                         label="Support"
                       />
                     ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {row.status === 'draft' && canEditWorkflow && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!py-1 !px-2 !text-[0.64rem]"
+                        onClick={() => submitPenaltyMutation.mutate(row._id)}
+                        isLoading={submitPenaltyMutation.isPending}
+                      >
+                        Submit
+                      </Button>
+                    )}
+                    {row.status === 'pending_approval' && canApproveWorkflow && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="!py-1 !px-2 !text-[0.64rem]"
+                          onClick={() => approvePenaltyMutation.mutate(row._id)}
+                          isLoading={approvePenaltyMutation.isPending}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="!py-1 !px-2 !text-[0.64rem]"
+                          onClick={() => {
+                            const reason = window.prompt('Enter rejection reason');
+                            if (!reason || reason.trim().length < 3) return;
+                            rejectPenaltyMutation.mutate({ penaltyId: row._id, reason: reason.trim() });
+                          }}
+                          isLoading={rejectPenaltyMutation.isPending}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="!py-1 !px-2 !text-[0.64rem]"
+                          onClick={() => waivePenaltyMutation.mutate(row._id)}
+                          isLoading={waivePenaltyMutation.isPending}
+                        >
+                          Waive
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

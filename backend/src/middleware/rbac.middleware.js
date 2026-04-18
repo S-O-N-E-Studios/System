@@ -7,7 +7,13 @@
 //  *   router.delete('/tenants/:id', authenticate, requireSuperAdmin, controller)
 
 
-const { ROLES, ADMIN_ROLES, WRITER_ROLES, APPROVER_ROLES } = require('../constants/roles');
+const {
+  ROLES,
+  ADMIN_ROLES,
+  WRITER_ROLES,
+  APPROVER_ROLES,
+  PROCUREMENT_STEP_REVIEW_ROLES,
+} = require('../constants/roles');
 const { sendForbidden, sendUnauthorized }  = require('../utils/apiResponse');
 
 
@@ -44,6 +50,28 @@ const requireDeptAdmin = requireRole([ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.
 //  PM, DEPT_ADMIN, ORG_ADMIN, SUPER_ADMIN 
 const requirePM = requireRole(WRITER_ROLES);
 const requireApprover = requireRole([ROLES.SUPER_ADMIN, ...APPROVER_ROLES]);
+
+/** Sub-consultant procurement step review/approval — client / org authority (not consultant PM). */
+const requireProcurementStepReviewer = requireRole(PROCUREMENT_STEP_REVIEW_ROLES);
+
+/** Consultants mark steps `not_applicable`; client roles approve / reject. */
+const requireProcurementStepReviewOrMarkNa = (req, res, next) => {
+  if (!req.user) {
+    return sendUnauthorized(res);
+  }
+  const status = req.body?.status;
+  const role = getEffectiveRole(req);
+  const consultantMarkNaRoles = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ORG_ADMIN,
+    ROLES.PM,
+    ROLES.MEMBER,
+  ];
+  if (status === 'not_applicable' && consultantMarkNaRoles.includes(role)) {
+    return next();
+  }
+  return requireProcurementStepReviewer(req, res, next);
+};
 
 //  Any authenticated user except CLIENT_TEMP 
 const requirePermanentUser = requireRole([
@@ -93,6 +121,8 @@ module.exports = {
   requireDeptAdmin,
   requirePM,
   requireApprover,
+  requireProcurementStepReviewer,
+  requireProcurementStepReviewOrMarkNa,
   requirePermanentUser,
   denyClientTemp,
   requireDeptScope,

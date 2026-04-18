@@ -24,6 +24,27 @@ type PendingApprovalSummary = {
   oldestPendingAt?: string;
 };
 
+type PendingEotSummary = {
+  eotId: string;
+  projectId: string;
+  projectName: string;
+  projectRefCode?: string;
+  requestedDays: number;
+  reason?: string;
+  createdAt?: string;
+};
+
+type PendingPenaltySummary = {
+  penaltyId: string;
+  projectId: string;
+  projectName: string;
+  projectRefCode?: string;
+  penaltyType: string;
+  amountCents: number;
+  reason?: string;
+  createdAt?: string;
+};
+
 export default function Approvals() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
 
@@ -32,7 +53,11 @@ export default function Approvals() {
     queryFn: async () => {
       const res = await apiClient.get(`/${tenantSlug}/approvals/pending-summary`);
       const body = res.data?.data || res.data;
-      return (body?.items || []) as PendingApprovalSummary[];
+      return {
+        stageApprovals: (body?.stageApprovals || body?.items || []) as PendingApprovalSummary[],
+        extensionOfTime: (body?.extensionOfTime || []) as PendingEotSummary[],
+        penalties: (body?.penalties || []) as PendingPenaltySummary[],
+      };
     },
     enabled: Boolean(tenantSlug),
   });
@@ -74,7 +99,9 @@ export default function Approvals() {
                 </Button>
               }
             />
-          ) : pendingQuery.data?.length ? (
+          ) : (
+            <>
+              {(pendingQuery.data?.stageApprovals?.length || 0) > 0 ? (
             <div className="overflow-x-auto">
               <table className={TABLE_BASE}>
                 <thead>
@@ -88,7 +115,7 @@ export default function Approvals() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingQuery.data.map((item) => (
+                  {pendingQuery.data?.stageApprovals?.map((item) => (
                     <tr key={item.projectId} className={TABLE_ROW_BASE}>
                       <td className={TABLE_CELL}>
                         <Link
@@ -122,13 +149,81 @@ export default function Approvals() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <EmptyState
-              title="No pending approvals"
-              description="All current approvals are resolved."
-              animationClassName="w-20 h-20"
-              className="py-6"
-            />
+              ) : null}
+
+              {(pendingQuery.data?.extensionOfTime?.length || 0) > 0 ? (
+                <div className="mt-6 overflow-x-auto">
+                  <h3 className="text-[0.82rem] text-[var(--text-muted)] mb-2">Extension of Time</h3>
+                  <table className={TABLE_BASE}>
+                    <thead>
+                      <tr className={TABLE_HEAD_ROW}>
+                        <th className={TABLE_HEAD_CELL}>Project</th>
+                        <th className={TABLE_HEAD_CELL}>Ref</th>
+                        <th className={TABLE_HEAD_CELL}>Requested Days</th>
+                        <th className={TABLE_HEAD_CELL}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingQuery.data?.extensionOfTime?.map((item) => (
+                        <tr key={item.eotId} className={TABLE_ROW_BASE}>
+                          <td className={TABLE_CELL}>
+                            <Link to={`/${tenantSlug}/projects/${item.projectId}`} className="text-[var(--accent)] hover:underline">
+                              {item.projectName || 'Untitled Project'}
+                            </Link>
+                          </td>
+                          <td className={TABLE_CELL}>{item.projectRefCode || '—'}</td>
+                          <td className={TABLE_CELL}>{item.requestedDays}</td>
+                          <td className={TABLE_CELL}>{item.reason || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {(pendingQuery.data?.penalties?.length || 0) > 0 ? (
+                <div className="mt-6 overflow-x-auto">
+                  <h3 className="text-[0.82rem] text-[var(--text-muted)] mb-2">Penalties</h3>
+                  <table className={TABLE_BASE}>
+                    <thead>
+                      <tr className={TABLE_HEAD_ROW}>
+                        <th className={TABLE_HEAD_CELL}>Project</th>
+                        <th className={TABLE_HEAD_CELL}>Ref</th>
+                        <th className={TABLE_HEAD_CELL}>Type</th>
+                        <th className={TABLE_HEAD_CELL}>Amount</th>
+                        <th className={TABLE_HEAD_CELL}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingQuery.data?.penalties?.map((item) => (
+                        <tr key={item.penaltyId} className={TABLE_ROW_BASE}>
+                          <td className={TABLE_CELL}>
+                            <Link to={`/${tenantSlug}/projects/${item.projectId}`} className="text-[var(--accent)] hover:underline">
+                              {item.projectName || 'Untitled Project'}
+                            </Link>
+                          </td>
+                          <td className={TABLE_CELL}>{item.projectRefCode || '—'}</td>
+                          <td className={TABLE_CELL}>{item.penaltyType || '—'}</td>
+                          <td className={TABLE_CELL}>R{(Number(item.amountCents || 0) / 100).toFixed(2)}</td>
+                          <td className={TABLE_CELL}>{item.reason || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {(pendingQuery.data?.stageApprovals?.length || 0) === 0 &&
+              (pendingQuery.data?.extensionOfTime?.length || 0) === 0 &&
+              (pendingQuery.data?.penalties?.length || 0) === 0 ? (
+                <EmptyState
+                  title="No pending approvals"
+                  description="All current approvals are resolved."
+                  animationClassName="w-20 h-20"
+                  className="py-6"
+                />
+              ) : null}
+            </>
           )}
         </div>
       </div>

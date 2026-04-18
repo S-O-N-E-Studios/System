@@ -30,8 +30,14 @@ const rejectEotSchema = Joi.object({
   reason: Joi.string().trim().min(3).max(4000).required(),
 });
 
+const approveEotSchema = Joi.object({
+  /** If omitted, defaults to full grant (requestedDays). */
+  daysApproved: Joi.number().integer().min(0).max(3650).optional(),
+});
+
 module.exports = {
   createEotSchema,
   updateEotSchema,
   rejectEotSchema,
+  approveEotSchema,
 };

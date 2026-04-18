@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Approvals from './Approvals';
@@ -28,18 +28,18 @@ function renderApprovals() {
 
 describe('Approvals screen', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('renders pending approval rows', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: {
         data: {
           items: [
             {
               projectId: 'p1',
               projectName: 'Madima Water Scheme',
-              projectRefCode: 'PRJ-2026-001',
+              projectRefCode: 'EVD-2026-001',
               stageTopLevel: 4,
               currentStage: 7,
               pendingCount: 3,
@@ -52,13 +52,14 @@ describe('Approvals screen', () => {
 
     renderApprovals();
 
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalled());
     expect(await screen.findByText('Madima Water Scheme')).toBeInTheDocument();
-    expect(screen.getByText('PRJ-2026-001')).toBeInTheDocument();
+    expect(screen.getByText('EVD-2026-001')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('renders empty state when no pending approvals exist', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { data: { items: [] } },
     } as never);
 

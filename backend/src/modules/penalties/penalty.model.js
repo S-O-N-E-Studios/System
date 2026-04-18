@@ -7,7 +7,11 @@ const penaltySchema = new mongoose.Schema(
     penaltyType: { type: String, enum: ['delay', 'quality', 'contractual', 'other'], default: 'other' },
     amountCents: { type: Number, required: true, min: 0 },
     reason: { type: String, required: true, trim: true },
-    status: { type: String, enum: ['draft', 'approved', 'waived'], default: 'draft' },
+    status: {
+      type: String,
+      enum: ['draft', 'pending_approval', 'approved', 'rejected', 'waived'],
+      default: 'draft',
+    },
     supportingFileIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'File' }],
     assignedApproverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     thresholdAmountCents: { type: Number, min: 0, default: null },
@@ -15,6 +19,7 @@ const penaltySchema = new mongoose.Schema(
     thresholdWarningNote: { type: String, trim: true, default: null },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     approvedAt: { type: Date, default: null },
+    rejectionReason: { type: String, trim: true, default: null },
   },
   { timestamps: true }
 );

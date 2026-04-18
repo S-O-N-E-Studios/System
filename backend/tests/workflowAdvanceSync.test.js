@@ -11,6 +11,10 @@ jest.mock('../src/modules/stage-gate/stageGate.service', () => ({
   checkStageGateWithActivities: jest.fn(),
 }));
 
+jest.mock('../src/modules/penalties/penalty.model', () => ({
+  find: jest.fn(),
+}));
+
 jest.mock('../src/constants/workflowProfiles', () => ({
   getStageDocumentSpecsForTenant: jest.fn(() => ({})),
 }));
@@ -33,6 +37,7 @@ jest.mock('../src/modules/procurement-trails/procurementTrail.model', () => ({
 const Project = require('../src/modules/projects/project.model');
 const File = require('../src/modules/files/file.model');
 const stageGateService = require('../src/modules/stage-gate/stageGate.service');
+const Penalty = require('../src/modules/penalties/penalty.model');
 const workflowService = require('../src/modules/workflow/workflow.service');
 
 describe('workflow service - legacy synchronization', () => {
@@ -43,6 +48,34 @@ describe('workflow service - legacy synchronization', () => {
     });
     stageGateService.checkStageGate.mockResolvedValue({ gatePassed: true, missing: [] });
     stageGateService.checkStageGateWithActivities.mockResolvedValue({ gatePassed: true, missing: [] });
+    Penalty.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([]),
+    });
+  });
+
+  it('syncs currentStage when advancing from stageTopLevel 2 to 3', async () => {
+    const project = {
+      _id: '507f191e810c19729de860e1',
+      stageTopLevel: 2,
+      currentStage: 3,
+      stageHistory: [],
+      status: 'active',
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    Project.findOne.mockResolvedValue(project);
+
+    const result = await workflowService.advanceWorkflow(
+      { _id: '507f191e810c19729de860e2' },
+      '507f191e810c19729de860e1',
+      '507f191e810c19729de860e3',
+    );
+
+    expect(result.advanced).toBe(true);
+    expect(result.newStageTopLevel).toBe(3);
+    expect(result.newLegacyStage).toBe(4);
+    expect(project.currentStage).toBe(4);
+    expect(project.stageCheckpoint).toBe('stage3.project_execution_gate');
+    expect(project.save).toHaveBeenCalledTimes(1);
   });
 
   it('syncs currentStage when advancing from stageTopLevel 4 to 5', async () => {
