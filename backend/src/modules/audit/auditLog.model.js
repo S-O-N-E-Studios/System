@@ -17,6 +17,7 @@ const auditLogSchema = new mongoose.Schema(
     overrideReason: { type: String, default: null },
     evidenceCountAtTime: { type: Number, default: null },
     checkResultsAtTime: { type: Object, default: null },
+    metadata: { type: Object, default: null },
     ipAddress: { type: String, default: null },
     userAgent: { type: String, default: null },
   },

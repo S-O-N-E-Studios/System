@@ -1,8 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 async function waitForBootstrap(page: Page) {
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByAltText('Loading')).toHaveCount(0, { timeout: 15000 });
+  await page.waitForLoadState('domcontentloaded');
 }
 
 function json(route: Route, data: unknown) {
@@ -13,8 +12,15 @@ function json(route: Route, data: unknown) {
   });
 }
 
-async function setupApiMocks(page: Page, stageTopLevel: 1 | 4 | 5) {
+type MockOptions = {
+  approverAccess?: boolean;
+  gateBlocked?: boolean;
+};
+
+async function setupApiMocks(page: Page, stageTopLevel: 1 | 4 | 5, options: MockOptions = {}) {
   const legacyStage = stageTopLevel === 1 ? 1 : stageTopLevel === 4 ? 7 : 9;
+  const approverAccess = Boolean(options.approverAccess);
+  const gateBlocked = Boolean(options.gateBlocked);
 
   await page.route('**/api/v1/**', async (route) => {
     const url = route.request().url();
@@ -28,13 +34,15 @@ async function setupApiMocks(page: Page, stageTopLevel: 1 | 4 | 5) {
     }
 
     if (url.endsWith('/auth/me') && method === 'GET') {
+      const membershipRole = approverAccess ? 'CLIENT_APPROVER' : 'PM';
       return json(route, {
         user: {
           _id: 'u1',
           email: 'pm@example.com',
           fullName: 'PM User',
-          role: 'PM',
-          tenants: [{ tenantId: 't1', tenantSlug: 'demo', name: 'Demo Tenant', role: 'PM' }],
+          role: membershipRole,
+          canApproveDocuments: approverAccess,
+          tenants: [{ tenantId: 't1', tenantSlug: 'demo', name: 'Demo Tenant', role: membershipRole }],
         },
       });
     }
@@ -58,6 +66,29 @@ async function setupApiMocks(page: Page, stageTopLevel: 1 | 4 | 5) {
         gateRequirements: [],
         canAdvance: true,
       });
+    }
+    if (url.includes('/demo/projects/p1/workflow/advance') && method === 'POST') {
+      if (gateBlocked) {
+        return route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: false,
+            error: 'WORKFLOW_GATE_FAILED',
+            message: 'Workflow checkpoint requirements not met',
+            requirements: [
+              {
+                code: 'MISSING_APPROVAL',
+                checkpoint: 'stage4.interim_payment.approval',
+                entityType: 'deliverable',
+                entityKey: 'monthly-progress-report',
+                detail: 'Monthly progress report is required for billing period 2026-03',
+              },
+            ],
+          }),
+        });
+      }
+      return json(route, { advanced: true });
     }
 
     if (url.includes('/demo/projects/p1/stage-status') && method === 'GET') {
@@ -97,13 +128,33 @@ async function setupApiMocks(page: Page, stageTopLevel: 1 | 4 | 5) {
     if (url.includes('/demo/projects/p1/eot') && method === 'GET') return json(route, { requests: [] });
     if (url.includes('/demo/projects/p1/penalties') && method === 'GET') return json(route, { penalties: [] });
     if (url.includes('/demo/projects/p1/audit') && method === 'GET') return json(route, { entries: [], page: 1, limit: 15, total: 0 });
-    if (url.includes('/demo/projects/p1/approvals/pending') && method === 'GET') return json(route, { approvals: [] });
+    if (url.includes('/demo/projects/p1/approvals/pending') && method === 'GET') {
+      return json(route, {
+        approvals: approverAccess
+          ? [
+              {
+                id: 'approval-1',
+                stage: legacyStage,
+                documentCategory: 'monthly-progress-report',
+                fileId: 'file-1',
+              },
+            ]
+          : [],
+      });
+    }
     if (url.includes('/demo/projects/p1/funding-sources') && method === 'GET') return json(route, { fundingSources: [] });
     if (url.includes('/demo/projects/p1/variations') && method === 'GET') return json(route, { variationOrders: [] });
     if (url.includes('/demo/projects/p1/media') && method === 'GET') return json(route, { media: [] });
     if (url.includes('/demo/projects') && method === 'GET') return json(route, { projects: [], total: 0 });
 
-    return json(route, {});
+    return route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: false,
+        message: `Unhandled mocked endpoint: ${method} ${url}`,
+      }),
+    });
   });
 }
 
@@ -134,5 +185,20 @@ test.describe('workflow stage journeys', () => {
     await loginAndOpenProject(page);
     await expect(page.getByText('Project Closure Deliverables')).toBeVisible();
     await expect(page.getByText('Extension of Time')).toHaveCount(0);
+  });
+
+  test('workflow gate failure shows canonical blocker details', async ({ page }) => {
+    await setupApiMocks(page, 4, { gateBlocked: true });
+    await loginAndOpenProject(page);
+    await page.getByRole('button', { name: /run gate check/i }).click();
+    await expect(page.getByText(/Gate blockers/i)).toBeVisible();
+    await expect(page.getByText(/Monthly progress report is required/i)).toBeVisible();
+  });
+
+  test('approver access shows approver actions panel', async ({ page }) => {
+    await setupApiMocks(page, 4, { approverAccess: true });
+    await loginAndOpenProject(page);
+    await expect(page.getByText(/Approver Actions/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Approve$/ })).toBeVisible();
   });
 });

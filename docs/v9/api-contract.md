@@ -54,15 +54,16 @@ All endpoints are under `/api/v1`.
 - `GET /:tenantSlug/projects/:projectId/billing-periods`
 - `GET /:tenantSlug/projects/:projectId/billing-periods/:period`
 
-### 4.2 Interim Payment Certificates (new canonical naming)
-- `GET /:tenantSlug/projects/:projectId/interim-payment-certificates`
-- `POST /:tenantSlug/projects/:projectId/interim-payment-certificates`
-  - body: `{ billingPeriod, amountClaimedCents, certificateFileId }`
-- `GET /:tenantSlug/projects/:projectId/interim-payment-certificates/:pcId`
-- `POST /:tenantSlug/projects/:projectId/interim-payment-certificates/:pcId/approve`
-  - body: `{ overrideReason? }`
-- `POST /:tenantSlug/projects/:projectId/interim-payment-certificates/:pcId/reject`
-  - body: `{ reason }`
+### 4.2 Interim Payment Certificates
+- Canonical (current runtime):
+  - `GET /:tenantSlug/projects/:projectId/payment-certificates`
+  - `POST /:tenantSlug/projects/:projectId/payment-certificates`
+- Alias (migration-safe):
+  - `GET /:tenantSlug/projects/:projectId/interim-payment-certificates`
+  - `POST /:tenantSlug/projects/:projectId/interim-payment-certificates`
+  - `GET /:tenantSlug/projects/:projectId/interim-payment-certificates/:pcId`
+  - `POST /:tenantSlug/projects/:projectId/interim-payment-certificates/:pcId/approve`
+  - `POST /:tenantSlug/projects/:projectId/interim-payment-certificates/:pcId/reject`
 
 ### 4.3 Variation Orders (retained)
 - `GET /:tenantSlug/projects/:projectId/variations`
@@ -74,15 +75,18 @@ All endpoints are under `/api/v1`.
 - `POST /:tenantSlug/projects/:projectId/variations/:voId/reject`
 - `POST /:tenantSlug/projects/:projectId/variations/:voId/withdraw`
 
-### 4.4 Extension of Time (new)
-- `GET /:tenantSlug/projects/:projectId/extension-of-time`
-- `POST /:tenantSlug/projects/:projectId/extension-of-time`
-- `GET /:tenantSlug/projects/:projectId/extension-of-time/:eotId`
-- `PATCH /:tenantSlug/projects/:projectId/extension-of-time/:eotId`
-- `POST /:tenantSlug/projects/:projectId/extension-of-time/:eotId/submit`
-- `POST /:tenantSlug/projects/:projectId/extension-of-time/:eotId/approve`
-- `POST /:tenantSlug/projects/:projectId/extension-of-time/:eotId/reject`
-- `POST /:tenantSlug/projects/:projectId/extension-of-time/:eotId/withdraw`
+### 4.4 Extension of Time (EOT)
+- Canonical (current runtime):
+  - `GET /:tenantSlug/projects/:projectId/eot`
+  - `POST /:tenantSlug/projects/:projectId/eot`
+  - `GET /:tenantSlug/projects/:projectId/eot/:eotId`
+  - `PATCH /:tenantSlug/projects/:projectId/eot/:eotId`
+  - `POST /:tenantSlug/projects/:projectId/eot/:eotId/submit`
+  - `POST /:tenantSlug/projects/:projectId/eot/:eotId/approve`
+  - `POST /:tenantSlug/projects/:projectId/eot/:eotId/reject`
+  - `POST /:tenantSlug/projects/:projectId/eot/:eotId/withdraw`
+- Alias (migration-safe):
+  - equivalent routes under `/:tenantSlug/projects/:projectId/extension-of-time/...`
 
 ### 4.5 Site Media (retained)
 - `GET /:tenantSlug/projects/:projectId/media`

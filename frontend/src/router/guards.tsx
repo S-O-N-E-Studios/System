@@ -7,7 +7,7 @@ import type { OrgType, TenantSummary } from '@/types';
 import { clientAccessCheck } from '@/api/clientAccess';
 import { useClientAccessStore } from '@/store/clientAccessStore';
 import { organizationApi } from '@/api/organization';
-import { canForRole } from '@/rbac/permissions';
+import { canForRole, hasDocumentApprovalAccess } from '@/rbac/permissions';
 import type { Permission } from '@/rbac/permissions';
 
 /** Role for the tenant in the current URL (not tenants[0]). */
@@ -301,7 +301,11 @@ export function PermissionGuard({
   }
 
   const tenantRole = tenantAccessForSlug(user.tenants, tenantSlug)?.role ?? user.role;
-  if (!canForRole(tenantRole, permission)) {
+  const hasPermission =
+    permission === 'approve_documents'
+      ? hasDocumentApprovalAccess(user, tenantSlug)
+      : canForRole(tenantRole, permission);
+  if (!hasPermission) {
     if (fallbackTo && tenantSlug) {
       return <Navigate to={`/${tenantSlug}/${fallbackTo}`} replace />;
     }

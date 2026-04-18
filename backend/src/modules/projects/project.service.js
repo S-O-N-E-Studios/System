@@ -277,6 +277,8 @@ const listPayments = async (tenant, projectId) => {
 const addPayment = async (tenant, projectId, data, recordedBy) => {
   const project = await projectRepo.findByIdLean(projectId, tenant._id);
   if (!project) throw Object.assign(new Error('Project not found'), { status: 404 });
+  const amount = Number(data.amount || 0);
+  const beforeExpenditure = Number(project.expenditureToDate || 0);
 
   const payment = await projectRepo.createPayment({
     ...data,
@@ -286,28 +288,66 @@ const addPayment = async (tenant, projectId, data, recordedBy) => {
   });
 
   await projectRepo.updateById(projectId, tenant._id, {
-    $inc: { expenditureToDate: data.amount },
+    $inc: { expenditureToDate: amount },
   });
 
   await CalendarEvent.createPaymentEvent(
-    tenant._id, projectId, data.paymentDate, data.amount, recordedBy
+    tenant._id, projectId, data.paymentDate, amount, recordedBy
   );
+
+  await logEvent({
+    tenantId: tenant._id,
+    projectId,
+    entityType: 'payment',
+    entityId: payment._id,
+    action: 'payment.created',
+    actor: { userId: recordedBy, role: null, name: null },
+    after: payment.toObject ? payment.toObject() : payment,
+    metadata: {
+      expenditureToDateBefore: beforeExpenditure,
+      expenditureToDateAfter: beforeExpenditure + amount,
+    },
+  });
 
   return payment;
 };
 
-const updatePayment = async (tenant, projectId, paymentId, updates) => {
+const updatePayment = async (tenant, projectId, paymentId, updates, actor) => {
   const existing = await projectRepo.findPaymentById(paymentId, tenant._id, projectId);
   if (!existing) throw Object.assign(new Error('Payment not found'), { status: 404 });
+  const project = await projectRepo.findByIdLean(projectId, tenant._id);
+  if (!project) throw Object.assign(new Error('Project not found'), { status: 404 });
+  const before = existing.toObject ? existing.toObject() : existing;
+  const beforeExpenditure = Number(project.expenditureToDate || 0);
 
-  if (updates.amount && updates.amount !== existing.amount) {
-    const diff = updates.amount - existing.amount;
+  if (updates.amount != null && updates.amount !== existing.amount) {
+    const diff = Number(updates.amount) - Number(existing.amount);
     await projectRepo.updateById(projectId, tenant._id, {
       $inc: { expenditureToDate: diff },
     });
   }
 
-  return projectRepo.updatePayment(paymentId, tenant._id, projectId, updates);
+  const payment = await projectRepo.updatePayment(paymentId, tenant._id, projectId, updates);
+  await logEvent({
+    tenantId: tenant._id,
+    projectId,
+    entityType: 'payment',
+    entityId: payment._id,
+    action: 'payment.updated',
+    actor: {
+      userId: actor?.userId,
+      role: actor?.role || null,
+      name: actor?.name || null,
+    },
+    before,
+    after: payment.toObject ? payment.toObject() : payment,
+    metadata: {
+      expenditureToDateBefore: beforeExpenditure,
+      expenditureToDateAfter:
+        beforeExpenditure + (Number(updates.amount ?? existing.amount) - Number(existing.amount)),
+    },
+  });
+  return payment;
 };
 
 const getPaymentForecast = async (tenant, projectId) => {

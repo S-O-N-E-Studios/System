@@ -33,6 +33,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { EMPTY_PINNED_LIST, useProjectStore } from '@/store/projectStore';
 import { useCan } from '@/rbac/useCan';
+import { hasDocumentApprovalAccess } from '@/rbac/permissions';
 import {
   advanceProjectStage,
   fetchProjectStageStatus,
@@ -171,7 +172,7 @@ export default function ProjectDetail() {
   const canEditProject = can('edit_project');
   const canCreateVariation = can('create_variation_order');
   const canUploadMedia = can('upload_media');
-  const canApproveDocuments = Boolean(user?.canApproveDocuments) || can('approve_documents');
+  const canApproveDocuments = hasDocumentApprovalAccess(user, tenantSlug);
   const togglePinnedProject = useProjectStore((s) => s.togglePinnedProject);
   const pinnedForTenant = useProjectStore((s) =>
     tenantSlug ? (s.pinnedProjectsByTenant[tenantSlug] ?? EMPTY_PINNED_LIST) : EMPTY_PINNED_LIST,

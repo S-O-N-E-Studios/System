@@ -93,7 +93,15 @@ const addPayment = async (req, res) => {
 
 const updatePayment = async (req, res) => {
   const payment = await projectService.updatePayment(
-    req.tenant, req.params.id, req.params.payId, req.body
+    req.tenant,
+    req.params.id,
+    req.params.payId,
+    req.body,
+    {
+      userId: req.user.sub,
+      role: req.tenantMembership?.role || req.user.role,
+      name: req.user.fullName || req.user.name || null,
+    }
   );
   return sendSuccess(res, { payment });
 };

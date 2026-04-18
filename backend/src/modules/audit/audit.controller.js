@@ -13,6 +13,7 @@ const toCsv = (rows) => {
     'overrideReason',
     'evidenceCountAtTime',
     'checkResultsAtTime',
+    'metadata',
     'before',
     'after',
   ];
@@ -28,6 +29,7 @@ const toCsv = (rows) => {
       row.overrideReason || '',
       row.evidenceCountAtTime != null ? String(row.evidenceCountAtTime) : '',
       row.checkResultsAtTime ? JSON.stringify(row.checkResultsAtTime) : '',
+      row.metadata ? JSON.stringify(row.metadata) : '',
       row.before ? JSON.stringify(row.before) : '',
       row.after ? JSON.stringify(row.after) : '',
     ]

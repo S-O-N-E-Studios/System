@@ -119,6 +119,42 @@ const openApiSpec = {
         responses: { 201: { description: 'EOT created' } },
       },
     },
+    '/{tenantSlug}/projects/{id}/eot': {
+      get: {
+        summary: 'List extension-of-time requests (canonical alias)',
+        parameters: [
+          { in: 'path', name: 'tenantSlug', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 200: { description: 'EOT list' } },
+      },
+      post: {
+        summary: 'Create extension-of-time request (canonical alias)',
+        parameters: [
+          { in: 'path', name: 'tenantSlug', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 201: { description: 'EOT created' } },
+      },
+    },
+    '/{tenantSlug}/projects/{id}/payment-certificates': {
+      get: {
+        summary: 'List payment certificates',
+        parameters: [
+          { in: 'path', name: 'tenantSlug', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 200: { description: 'Payment certificate list' } },
+      },
+      post: {
+        summary: 'Create payment certificate',
+        parameters: [
+          { in: 'path', name: 'tenantSlug', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 201: { description: 'Payment certificate created' } },
+      },
+    },
     '/{tenantSlug}/projects/{id}/penalties': {
       get: {
         summary: 'List penalties',

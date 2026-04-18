@@ -13,6 +13,22 @@ const serializeEot = (row) => {
   };
 };
 
+const ensureStatus = (res, request, allowedStatuses, actionLabel) => {
+  if (!request) {
+    res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
+    return false;
+  }
+  if (!allowedStatuses.includes(request.status)) {
+    res.status(422).json({
+      success: false,
+      error: 'INVALID_STATE',
+      message: `Only EOT requests in [${allowedStatuses.join(', ')}] can be ${actionLabel}.`,
+    });
+    return false;
+  }
+  return true;
+};
+
 const list = async (req, res) => {
   const requests = await service.list(req.tenant._id, req.params.id);
   return sendSuccess(res, { requests: requests.map(serializeEot) });
@@ -44,13 +60,22 @@ const getOne = async (req, res) => {
 };
 
 const update = async (req, res) => {
+  const existing = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
+  if (!existing) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
+  if (existing.status !== 'draft') {
+    return res.status(422).json({
+      success: false,
+      error: 'INVALID_STATE',
+      message: 'Only draft EOT requests can be updated.',
+    });
+  }
   const request = await service.update(req.tenant._id, req.params.id, req.params.eotId, req.body);
-  if (!request) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
   return sendSuccess(res, { request: serializeEot(request) });
 };
 
 const submit = async (req, res) => {
   const existing = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
+  if (!ensureStatus(res, existing, ['draft'], 'submitted')) return;
   const request = await service.setStatus(req.tenant._id, req.params.id, req.params.eotId, {
     status: 'pending_approval',
   });
@@ -74,16 +99,7 @@ const submit = async (req, res) => {
 
 const approve = async (req, res) => {
   const existing = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
-  if (!existing) {
-    return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'EOT request not found' });
-  }
-  if (existing.status !== 'pending_approval') {
-    return res.status(422).json({
-      success: false,
-      error: 'INVALID_STATE',
-      message: 'Only EOT requests pending approval can be approved.',
-    });
-  }
+  if (!ensureStatus(res, existing, ['pending_approval'], 'approved')) return;
   const requested = Number(existing.requestedDays);
   let daysApproved = req.body?.daysApproved;
   if (daysApproved === undefined || daysApproved === null) {
@@ -125,10 +141,15 @@ const approve = async (req, res) => {
 
 const reject = async (req, res) => {
   const existing = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
+  if (!ensureStatus(res, existing, ['pending_approval'], 'rejected')) return;
   const request = await service.setStatus(req.tenant._id, req.params.id, req.params.eotId, {
     status: 'rejected',
     rejectionReason: req.body?.reason || 'Rejected',
+    approvedBy: null,
+    approvedAt: null,
+    daysApproved: null,
   });
+  await service.syncProjectCompletionFromApprovedEots(req.tenant._id, req.params.id);
   await logEvent({
     tenantId: req.tenant._id,
     projectId: req.params.id,
@@ -149,9 +170,15 @@ const reject = async (req, res) => {
 
 const withdraw = async (req, res) => {
   const existing = await service.getOne(req.tenant._id, req.params.id, req.params.eotId);
+  if (!ensureStatus(res, existing, ['draft', 'pending_approval'], 'withdrawn')) return;
   const request = await service.setStatus(req.tenant._id, req.params.id, req.params.eotId, {
     status: 'withdrawn',
+    rejectionReason: null,
+    approvedBy: null,
+    approvedAt: null,
+    daysApproved: null,
   });
+  await service.syncProjectCompletionFromApprovedEots(req.tenant._id, req.params.id);
   await logEvent({
     tenantId: req.tenant._id,
     projectId: req.params.id,
@@ -167,7 +194,7 @@ const withdraw = async (req, res) => {
     after: request.toObject ? request.toObject() : request,
     req,
   });
-  return sendSuccess(res, { request });
+  return sendSuccess(res, { request: serializeEot(request) });
 };
 
 module.exports = {

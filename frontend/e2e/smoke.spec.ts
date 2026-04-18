@@ -1,8 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 async function waitForBootstrap(page: import('@playwright/test').Page) {
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByAltText('Loading')).toHaveCount(0, { timeout: 15000 });
+  await page.waitForLoadState('domcontentloaded');
 }
 
 test.describe('public shell', () => {

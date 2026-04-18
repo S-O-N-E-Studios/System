@@ -57,7 +57,7 @@ const getOne = (tenantId, projectId, eotId) =>
 
 const update = (tenantId, projectId, eotId, payload) =>
   ExtensionOfTime.findOneAndUpdate(
-    { _id: eotId, tenantId, projectId },
+    { _id: eotId, tenantId, projectId, status: 'draft' },
     { $set: payload },
     { new: true }
   );

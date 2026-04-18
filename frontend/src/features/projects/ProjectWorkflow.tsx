@@ -6,7 +6,9 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
+import { useAuthStore } from '@/store/authStore';
 import { useCan } from '@/rbac/useCan';
+import { hasDocumentApprovalAccess } from '@/rbac/permissions';
 import { stageApprovalsApi } from '@/api/stageApprovals';
 import Stage1ProcurementPanel from './Stage1ProcurementPanel';
 import StageDeliverableGrid from './StageDeliverableGrid';
@@ -83,11 +85,12 @@ export default function ProjectWorkflow({ projectId }: Props) {
   const queryClient = useQueryClient();
   const { addToast, openModal, closeModal } = useUiStore();
   const tenantSlug = useTenantStore((state) => state.getSlug());
+  const user = useAuthStore((state) => state.user);
   const can = useCan();
   const canEditWorkflow = can('create_project');
   const canConsultantProcurement = can('create_project') || can('edit_project');
-  const canReviewProcurement = can('approve_documents');
-  const canApproveWorkflow = can('approve_documents');
+  const canApproveWorkflow = hasDocumentApprovalAccess(user, tenantSlug || undefined);
+  const canReviewProcurement = canApproveWorkflow;
   const [blockedRequirements, setBlockedRequirements] = useState<WorkflowGateRequirement[]>([]);
   const [pendingStepReview, setPendingStepReview] = useState<{
     trailId: string;

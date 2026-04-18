@@ -1,15 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 async function waitForBootstrap(page: import('@playwright/test').Page) {
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByAltText('Loading')).toHaveCount(0, { timeout: 15000 });
+  await page.waitForLoadState('domcontentloaded');
 }
 
 test.describe('public auth journeys', () => {
   test('register page loads org wizard shell', async ({ page }) => {
     await page.goto('/register');
     await waitForBootstrap(page);
-    await expect(page.getByRole('heading', { name: /Organisation Details/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Organisation Details/i })).toBeVisible({ timeout: 15000 });
   });
 
   test('invite acceptance route renders', async ({ page }) => {

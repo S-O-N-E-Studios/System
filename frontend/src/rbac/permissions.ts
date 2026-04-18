@@ -1,4 +1,4 @@
-import type { UserRole } from '@/types';
+import type { User, UserRole } from '@/types';
 
 export type Permission =
   | 'view_dashboard'
@@ -47,4 +47,16 @@ export function canForRole(role: UserRole | undefined, permission: Permission): 
   if (!role) return false;
   if (role === 'SUPER_ADMIN') return true;
   return permissionAllowList[permission].includes(role);
+}
+
+export function getTenantRole(user: User | null | undefined, tenantSlug: string | undefined): UserRole | undefined {
+  if (!user) return undefined;
+  if (!tenantSlug) return user.role;
+  return user.tenants.find((tenant) => tenant.slug === tenantSlug)?.role ?? user.role;
+}
+
+export function hasDocumentApprovalAccess(user: User | null | undefined, tenantSlug: string | undefined): boolean {
+  if (!user) return false;
+  if (user.canApproveDocuments) return true;
+  return canForRole(getTenantRole(user, tenantSlug), 'approve_documents');
 }

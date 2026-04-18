@@ -27,9 +27,13 @@ const logEvent = async ({
   overrideReason = null,
   evidenceCountAtTime = null,
   checkResultsAtTime = null,
+  checksAtTime = null,
+  metadata = null,
   req = null,
 }) => {
   if (!tenantId || !entityType || !action || !actor.userId) return null;
+
+  const normalizedCheckResultsAtTime = checkResultsAtTime || checksAtTime || null;
 
   return AuditLog.create({
     tenantId,
@@ -46,7 +50,8 @@ const logEvent = async ({
     overrideFlag,
     overrideReason,
     evidenceCountAtTime,
-    checkResultsAtTime,
+    checkResultsAtTime: normalizedCheckResultsAtTime,
+    metadata,
     ipAddress: req?.ip || req?.headers?.['x-forwarded-for'] || null,
     userAgent: req?.headers?.['user-agent'] || null,
   });
