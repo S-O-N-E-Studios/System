@@ -181,7 +181,7 @@ export const workflowApi = {
   },
 
   listExtensionOfTime: async (projectId: string): Promise<ExtensionOfTimeRequest[]> => {
-    const res = await apiClient.get(`/${slug()}/projects/${projectId}/extension-of-time`);
+    const res = await apiClient.get(`/${slug()}/projects/${projectId}/eot`);
     const body = res.data?.data || res.data;
     return body?.requests || [];
   },
@@ -192,27 +192,27 @@ export const workflowApi = {
     payload?: { daysApproved?: number }
   ) => {
     const res = await apiClient.post(
-      `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/approve`,
+      `/${slug()}/projects/${projectId}/eot/${eotId}/approve`,
       payload ?? {}
     );
     return res.data?.data?.request || res.data?.request;
   },
 
   submitExtensionOfTime: async (projectId: string, eotId: string) => {
-    const res = await apiClient.post(`/${slug()}/projects/${projectId}/extension-of-time/${eotId}/submit`);
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/eot/${eotId}/submit`);
     return res.data?.data?.request || res.data?.request;
   },
 
   rejectExtensionOfTime: async (projectId: string, eotId: string, payload: { reason: string }) => {
     const res = await apiClient.post(
-      `/${slug()}/projects/${projectId}/extension-of-time/${eotId}/reject`,
+      `/${slug()}/projects/${projectId}/eot/${eotId}/reject`,
       payload
     );
     return res.data?.data?.request || res.data?.request;
   },
 
   withdrawExtensionOfTime: async (projectId: string, eotId: string) => {
-    const res = await apiClient.post(`/${slug()}/projects/${projectId}/extension-of-time/${eotId}/withdraw`);
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/eot/${eotId}/withdraw`);
     return res.data?.data?.request || res.data?.request;
   },
 
@@ -231,7 +231,7 @@ export const workflowApi = {
       thresholdWarningNote?: string;
     }
   ) => {
-    const res = await apiClient.post(`/${slug()}/projects/${projectId}/extension-of-time`, payload);
+    const res = await apiClient.post(`/${slug()}/projects/${projectId}/eot`, payload);
     return res.data?.data?.request || res.data?.request;
   },
 

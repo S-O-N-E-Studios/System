@@ -33,6 +33,14 @@ vi.mock('@/api/workflow', () => ({
   },
 }));
 
+vi.mock('@/api/stageApprovals', () => ({
+  stageApprovalsApi: {
+    pending: vi.fn(),
+    approve: vi.fn(),
+    reject: vi.fn(),
+  },
+}));
+
 vi.mock('@/store/uiStore', () => ({
   useUiStore: () => ({
     openModal: openModalSpy,
@@ -46,6 +54,7 @@ vi.mock('@/rbac/useCan', () => ({
 }));
 
 import { workflowApi } from '@/api/workflow';
+import { stageApprovalsApi } from '@/api/stageApprovals';
 
 function renderWorkflow() {
   const queryClient = new QueryClient({
@@ -85,6 +94,9 @@ describe('ProjectWorkflow', () => {
     vi.mocked(workflowApi.listPenalties).mockResolvedValue([]);
     vi.mocked(workflowApi.listAuditLog).mockResolvedValue({ entries: [], page: 1, limit: 6, total: 0 });
     vi.mocked(workflowApi.advanceWorkflow).mockResolvedValue({});
+    vi.mocked(stageApprovalsApi.pending).mockResolvedValue([]);
+    vi.mocked(stageApprovalsApi.approve).mockResolvedValue();
+    vi.mocked(stageApprovalsApi.reject).mockResolvedValue();
   });
 
   it('shows New buttons for EOT and penalties even when lists are empty', async () => {

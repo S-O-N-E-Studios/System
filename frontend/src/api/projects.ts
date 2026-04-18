@@ -62,17 +62,17 @@ export const projectsApi = {
   },
 
   listPayments: async (projectId: string) => {
-    const res = await apiClient.get<ApiResponse<{ payments: unknown[] }>>(`/${slug()}/projects/${projectId}/payments`);
+    const res = await apiClient.get<ApiResponse<{ payments: unknown[] }>>(`/${slug()}/projects/${projectId}/payment-certificates`);
     return res.data.data.payments;
   },
 
   addPayment: async (projectId: string, data: Record<string, unknown>) => {
-    const res = await apiClient.post<ApiResponse<{ payment: unknown }>>(`/${slug()}/projects/${projectId}/payments`, data);
+    const res = await apiClient.post<ApiResponse<{ payment: unknown }>>(`/${slug()}/projects/${projectId}/payment-certificates`, data);
     return res.data.data.payment;
   },
 
   getPaymentForecast: async (projectId: string) => {
-    const res = await apiClient.get<ApiResponse<{ forecast: unknown[] }>>(`/${slug()}/projects/${projectId}/payment-forecast`);
+    const res = await apiClient.get<ApiResponse<{ forecast: unknown[] }>>(`/${slug()}/projects/${projectId}/billing-periods`);
     return res.data.data.forecast;
   },
 };

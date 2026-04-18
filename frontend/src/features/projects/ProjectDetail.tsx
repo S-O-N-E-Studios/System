@@ -116,9 +116,18 @@ function centsToRands(value: unknown): number {
   return Number.isFinite(n) ? n / 100 : 0;
 }
 
+function mapLegacyStageToTopLevel(legacyStage: number): number {
+  if (legacyStage <= 1) return 1;
+  if (legacyStage <= 3) return 2;
+  if (legacyStage <= 6) return 3;
+  if (legacyStage <= 8) return 4;
+  return 5;
+}
+
 export default function ProjectDetail() {
   const { tenantSlug, id } = useParams<{ tenantSlug: string; id: string }>();
-  const [activeTab, setActiveTab] = useState<typeof detailTabs[number]>('Overview');
+  const [activeTab, setActiveTab] = useState<typeof detailTabs[number]>('Workflow');
+  const [showLegacyWorkspace, setShowLegacyWorkspace] = useState(false);
   const [stageDrawerOpen, setStageDrawerOpen] = useState<ProjectStage | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [, setProjectLoading] = useState(true);
@@ -206,7 +215,6 @@ export default function ProjectDetail() {
     project?.balance != null ? centsToRands(project.balance) : (contractValue - expenditure);
   const percentComplete =
     project?.percentComplete ?? progressFromLifecycleStage(currentStage);
-  const topLevelStage = Number(project?.stageTopLevel || 1);
 
   const projectRecord = project as (Project & Record<string, unknown>) | null;
   const paymentPlan: { year: number; q1: number; q2: number; q3: number; q4: number }[] =
@@ -260,7 +268,9 @@ export default function ProjectDetail() {
     queryFn: () => workflowApi.getWorkflow(id || ''),
     enabled: Boolean(id),
   });
-  const effectiveTopLevelStage = Number(workflowSummaryQuery.data?.stageTopLevel || topLevelStage);
+  const effectiveTopLevelStage =
+    Number(workflowSummaryQuery.data?.stageTopLevel) ||
+    mapLegacyStageToTopLevel(currentStage);
 
   useEffect(() => {
     let cancelled = false;
@@ -271,7 +281,6 @@ export default function ProjectDetail() {
         const res = await projectsApi.getById(id);
         if (!cancelled) {
           setProject(res);
-          if (res.currentStage) setCurrentStage(res.currentStage);
         }
       } catch {
         // Keep defaults if API unavailable
@@ -513,23 +522,47 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Tab navigation */}
-      <div className="flex items-center gap-0 border-b border-[var(--border-default)] mb-8 overflow-x-auto">
-        {detailTabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={[
-              'text-button px-5 py-3 whitespace-nowrap transition-all duration-300',
-              activeTab === tab
-                ? 'text-[var(--accent-sand)] border-b-2 border-[var(--accent-sand)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
-            ].join(' ')}
+      <div className="mb-6 border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[0.64rem] uppercase tracking-[0.12em] text-[var(--text-muted)]">Primary View</p>
+          <p className="text-[0.82rem] text-[var(--text-primary)]">Stage-driven workflow panel</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant={activeTab === 'Workflow' ? 'primary' : 'secondary'}
+            onClick={() => setActiveTab('Workflow')}
           >
-            {tab}
-          </button>
-        ))}
+            Workflow
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowLegacyWorkspace((prev) => !prev)}
+          >
+            {showLegacyWorkspace ? 'Hide Legacy Workspace' : 'Open Legacy Workspace'}
+          </Button>
+        </div>
       </div>
+
+      {showLegacyWorkspace && (
+        <div className="flex items-center gap-0 border-b border-[var(--border-default)] mb-8 overflow-x-auto">
+          {detailTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={[
+                'text-button px-5 py-3 whitespace-nowrap transition-all duration-300',
+                activeTab === tab
+                  ? 'text-[var(--accent-sand)] border-b-2 border-[var(--accent-sand)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ═══ Overview Tab ═══ */}
       {activeTab === 'Overview' && (

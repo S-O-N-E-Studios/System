@@ -7,12 +7,15 @@ import Modal from '@/components/ui/Modal';
 import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useCan } from '@/rbac/useCan';
+import { stageApprovalsApi } from '@/api/stageApprovals';
+import Stage1ProcurementPanel from './Stage1ProcurementPanel';
+import StageDeliverableGrid from './StageDeliverableGrid';
+import Stage4ConstructionPanel from './Stage4ConstructionPanel';
 import {
   workflowApi,
   type ProcurementStepStatus,
   type WorkflowGateRequirement,
 } from '@/api/workflow';
-import { procurementStepStatusLabel } from '@/utils/statusLabels';
 
 const FALLBACK_TOP_LEVEL_STAGES = [
   { id: 1, label: 'Initiation' },
@@ -31,11 +34,7 @@ const REQUIRED_APPOINTMENT_TYPES = [
   'structural_engineer',
 ] as const;
 
-const STEP_KEYS = ['advert', 'recommendations', 'approval', 'appointment_letter', 'sla'] as const;
-
-function prettyLabel(value: string) {
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-}
+type StepKey = 'advert' | 'recommendations' | 'approval' | 'appointment_letter' | 'sla';
 
 function parseIdList(input: string) {
   return input
@@ -92,7 +91,7 @@ export default function ProjectWorkflow({ projectId }: Props) {
   const [blockedRequirements, setBlockedRequirements] = useState<WorkflowGateRequirement[]>([]);
   const [pendingStepReview, setPendingStepReview] = useState<{
     trailId: string;
-    stepKey: (typeof STEP_KEYS)[number];
+    stepKey: StepKey;
     status: ProcurementStepStatus;
   } | null>(null);
   const [procReason, setProcReason] = useState('');
@@ -187,6 +186,11 @@ export default function ProjectWorkflow({ projectId }: Props) {
     queryFn: () => workflowApi.listAuditLog(projectId, { limit: 6 }),
     enabled: Boolean(projectId),
   });
+  const pendingApprovalsQuery = useQuery({
+    queryKey: ['project-stage-approvals-pending', projectId],
+    queryFn: () => stageApprovalsApi.pending(projectId),
+    enabled: Boolean(projectId) && canApproveWorkflow,
+  });
 
   const advanceMutation = useMutation({
     mutationFn: () => workflowApi.advanceWorkflow(projectId),
@@ -223,7 +227,7 @@ export default function ProjectWorkflow({ projectId }: Props) {
       reason,
     }: {
       trailId: string;
-      stepKey: (typeof STEP_KEYS)[number];
+      stepKey: StepKey;
       status: ProcurementStepStatus;
       reason?: string;
     }) => workflowApi.reviewProcurementStep(projectId, trailId, stepKey, { status, reason }),
@@ -366,6 +370,25 @@ export default function ProjectWorkflow({ projectId }: Props) {
     },
     onError: () => addToast({ type: 'error', message: 'Could not withdraw EOT request.' }),
   });
+  const approveStageApprovalMutation = useMutation({
+    mutationFn: (approvalId: string) => stageApprovalsApi.approve(projectId, approvalId),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'Document approved.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-stage-approvals-pending', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['project-workflow', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not approve document.' }),
+  });
+  const rejectStageApprovalMutation = useMutation({
+    mutationFn: ({ approvalId, reason }: { approvalId: string; reason: string }) =>
+      stageApprovalsApi.reject(projectId, approvalId, reason),
+    onSuccess: async () => {
+      addToast({ type: 'success', message: 'Document rejected.' });
+      await queryClient.invalidateQueries({ queryKey: ['project-stage-approvals-pending', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['project-workflow', projectId] });
+    },
+    onError: () => addToast({ type: 'error', message: 'Could not reject document.' }),
+  });
 
   const createPenaltyMutation = useMutation({
     mutationFn: ({
@@ -475,6 +498,7 @@ export default function ProjectWorkflow({ projectId }: Props) {
   const eotRequests = eotQuery.data || [];
   const penalties = penaltiesQuery.data || [];
   const auditEntries = auditQuery.data?.entries || [];
+  const pendingApprovals = pendingApprovalsQuery.data || [];
   const eotThresholdExceeded =
     Number.isFinite(Number(eotDays)) &&
     Number.isFinite(Number(eotThresholdDays)) &&
@@ -502,6 +526,28 @@ export default function ProjectWorkflow({ projectId }: Props) {
     setProcReason('');
     closeModal();
   };
+
+  const handleRejectEot = (eotId: string) => {
+    const reason = window.prompt('Enter rejection reason');
+    if (!reason || reason.trim().length < 3) return;
+    rejectEotMutation.mutate({ eotId, reason: reason.trim() });
+  };
+
+  const handleRejectPenalty = (penaltyId: string) => {
+    const reason = window.prompt('Enter rejection reason');
+    if (!reason || reason.trim().length < 3) return;
+    rejectPenaltyMutation.mutate({ penaltyId, reason: reason.trim() });
+  };
+
+  const renderFileChip = ({
+    fileId,
+    label,
+    key,
+  }: {
+    fileId?: string | null;
+    label?: string;
+    key?: string;
+  }) => <FileIdChip key={key} tenantSlug={tenantSlug || ''} fileId={fileId} label={label} />;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -534,6 +580,59 @@ export default function ProjectWorkflow({ projectId }: Props) {
           Run Gate Check
         </Button>
       </div>
+
+      {canApproveWorkflow && (
+        <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <p className="text-[0.68rem] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Approver Actions
+            </p>
+            <span className="text-[0.7rem] text-[var(--text-muted)]">
+              {pendingApprovals.length} pending document approval{pendingApprovals.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          {pendingApprovals.length === 0 ? (
+            <p className="text-[0.72rem] text-[var(--text-muted)]">No pending stage documents for this project.</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingApprovals.slice(0, 3).map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border border-[var(--border-default)] px-3 py-2"
+                >
+                  <p className="text-[0.72rem] text-[var(--text-primary)]">
+                    Stage {item.stage} · {item.documentCategory} · {formatIdShort(item.fileId)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="!py-1 !px-2 !text-[0.64rem]"
+                      onClick={() => approveStageApprovalMutation.mutate(item.id)}
+                      isLoading={approveStageApprovalMutation.isPending}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="!py-1 !px-2 !text-[0.64rem]"
+                      onClick={() => {
+                        const reason = window.prompt('Enter rejection reason');
+                        if (!reason || reason.trim().length < 3) return;
+                        rejectStageApprovalMutation.mutate({ approvalId: item.id, reason: reason.trim() });
+                      }}
+                      isLoading={rejectStageApprovalMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         {stages.map((stage) => {
@@ -600,408 +699,77 @@ export default function ProjectWorkflow({ projectId }: Props) {
         </div>
       )}
 
-      <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-4 space-y-4">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between gap-3 text-left"
-          onClick={() =>
-            setExpandedSections((prev) => ({ ...prev, procurement: !prev.procurement }))
+      <StageDeliverableGrid
+        stageTopLevel={stageTopLevel}
+        blockers={effectiveBlockers}
+      />
+
+      <Stage1ProcurementPanel
+        expanded={expandedSections.procurement}
+        onToggle={() => setExpandedSections((prev) => ({ ...prev, procurement: !prev.procurement }))}
+        missingAppointmentTypes={missingAppointmentTypes as unknown as string[]}
+        trails={trails}
+        isLoading={trailsQuery.isLoading}
+        canConsultantProcurement={canConsultantProcurement}
+        canReviewProcurement={canReviewProcurement}
+        onAddTrail={(appointmentType) => createTrailMutation.mutate(appointmentType)}
+        isAddingTrail={createTrailMutation.isPending}
+        onWarn={(message) => addToast({ type: 'warning', message })}
+        onSelectStepStatus={({ trailId, stepKey, status, reason }) => {
+          if (status === 'not_approved') {
+            setPendingStepReview({ trailId, stepKey, status });
+            setProcReason(reason || '');
+            openModal(PROC_REASON_MODAL_ID);
+            return;
           }
-        >
-          <div>
-            <h4 className="text-h3 text-[0.95rem]">Sub-consultant procurement trails</h4>
-            <p className="text-[0.72rem] text-[var(--text-muted)]">
-              Each appointment follows Advert, Recommendations, Approval, Appointment Letter, and SLA. Consultants mark
-              steps Not applicable where a role is not required; client approvers record Approved or Not approved.
-            </p>
-          </div>
-          <span className="text-[0.68rem] text-[var(--text-muted)]">
-            {expandedSections.procurement ? 'Hide' : 'Show'}
-          </span>
-        </button>
+          reviewStepMutation.mutate({ trailId, stepKey, status });
+        }}
+      />
 
-        {expandedSections.procurement && (
-          <>
-
-        {missingAppointmentTypes.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {missingAppointmentTypes.map((type) => (
-              <Button
-                key={type}
-                type="button"
-                variant="secondary"
-                className="!py-1.5 !px-2.5 !text-[0.68rem]"
-                onClick={() => createTrailMutation.mutate(type)}
-                isLoading={createTrailMutation.isPending}
-              >
-                Add {prettyLabel(type)}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {trailsQuery.isLoading ? (
-          <p className="text-[0.75rem] text-[var(--text-muted)]">Loading procurement trails...</p>
-        ) : trails.length === 0 ? (
-          <p className="text-[0.75rem] text-[var(--text-muted)]">
-            No procurement trails yet. Add appointment types to begin.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[0.76rem]">
-              <thead>
-                <tr className="border-b border-[var(--border-default)]">
-                  <th className="text-left py-2 pr-3">Appointment</th>
-                  {STEP_KEYS.map((step) => (
-                    <th key={step} className="text-left py-2 pr-3">
-                      {prettyLabel(step)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {trails.map((trail) => (
-                  <tr key={trail._id} className="border-b border-[var(--border-default)]">
-                    <td className="py-2 pr-3 text-[var(--text-primary)]">{prettyLabel(trail.appointmentType)}</td>
-                    {STEP_KEYS.map((stepKey) => {
-                      const step = trail.steps.find((s) => s.stepKey === stepKey);
-                      const status = step?.status || 'not_applicable';
-                      const canUseStepControl = canReviewProcurement || canConsultantProcurement;
-                      return (
-                        <td key={`${trail._id}-${stepKey}`} className="py-2 pr-3">
-                          <select
-                            value={status}
-                            onChange={(e) => {
-                              if (!canUseStepControl) return;
-                              const nextStatus = e.target.value as ProcurementStepStatus;
-                              if (!canReviewProcurement && nextStatus !== 'not_applicable') {
-                                addToast({
-                                  type: 'warning',
-                                  message: 'Only client approvers can mark steps approved or not approved.',
-                                });
-                                return;
-                              }
-                              if (!canConsultantProcurement && nextStatus === 'not_applicable') {
-                                addToast({
-                                  type: 'warning',
-                                  message: 'Only the consulting team can mark a step as not applicable.',
-                                });
-                                return;
-                              }
-                              if (nextStatus === 'not_approved') {
-                                setPendingStepReview({
-                                  trailId: trail._id,
-                                  stepKey,
-                                  status: nextStatus,
-                                });
-                                setProcReason(step?.reason || '');
-                                openModal(PROC_REASON_MODAL_ID);
-                                return;
-                              }
-                              reviewStepMutation.mutate({
-                                trailId: trail._id,
-                                stepKey,
-                                status: nextStatus,
-                              });
-                            }}
-                            className="bg-transparent border border-[var(--border-default)] px-2 py-1 text-[0.72rem]"
-                            disabled={!canUseStepControl}
-                          >
-                            <option value="approved">Approved</option>
-                            <option value="not_approved">{procurementStepStatusLabel('not_approved')}</option>
-                            <option value="not_applicable">{procurementStepStatusLabel('not_applicable')}</option>
-                          </select>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-          </>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-4 space-y-3">
-          <button
-            type="button"
-            className="w-full flex items-center justify-between"
-            onClick={() => setExpandedSections((prev) => ({ ...prev, performance: !prev.performance }))}
-          >
-            <h4 className="text-h3 text-[0.9rem]">Performance Snapshot</h4>
-            <span className="text-[0.68rem] text-[var(--text-muted)]">
-              {expandedSections.performance ? 'Hide' : 'Show'}
-            </span>
-          </button>
-          {expandedSections.performance &&
-            (latestPerformance ? (
-              <div className="space-y-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="!py-1.5 !px-2.5 !text-[0.68rem]"
-                  onClick={() => createPerformanceMutation.mutate()}
-                  isLoading={createPerformanceMutation.isPending}
-                >
-                  Capture
-                </Button>
-                <div className="space-y-1">
-                  <p className="text-[0.74rem] text-[var(--text-primary)]">Period: {latestPerformance.period}</p>
-                  <p className="text-[0.7rem] text-[var(--text-muted)]">
-                    Consultant RAG: {latestPerformance.consultant.rag}
-                  </p>
-                  <p className="text-[0.7rem] text-[var(--text-muted)]">
-                    Construction RAG: {latestPerformance.construction.rag}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[0.72rem] text-[var(--text-muted)]">No snapshot yet.</p>
-            ))}
-        </div>
-
-        <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-4 space-y-3">
-          <button
-            type="button"
-            className="w-full flex items-center justify-between"
-            onClick={() => setExpandedSections((prev) => ({ ...prev, eot: !prev.eot }))}
-          >
-            <h4 className="text-h3 text-[0.9rem]">Extension of Time</h4>
-            <span className="text-[0.68rem] text-[var(--text-muted)]">
-              {expandedSections.eot ? 'Hide' : 'Show'}
-            </span>
-          </button>
-          {expandedSections.eot &&
-            (
-              <div className="space-y-2">
-                {canEditWorkflow && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="!py-1.5 !px-2.5 !text-[0.68rem]"
-                    onClick={() => openModal(EOT_MODAL_ID)}
-                    isLoading={createEotMutation.isPending}
-                  >
-                    New
-                  </Button>
-                )}
-                {eotRequests.length === 0 ? (
-                  <p className="text-[0.72rem] text-[var(--text-muted)]">No EOT requests.</p>
-                ) : eotRequests.slice(0, 3).map((row) => (
-                <div key={row._id} className="border border-[var(--border-default)] p-2 space-y-1">
-                  <p className="text-[0.72rem] text-[var(--text-primary)]">
-                    {row.referenceNumber} · {row.status} · {row.requestedDays} days
-                  </p>
-                  {row.assignedApproverId ? (
-                    <p className="text-[0.68rem] text-[var(--text-muted)]">
-                      Approver: {formatIdShort(row.assignedApproverId)}
-                    </p>
-                  ) : null}
-                  {row.thresholdExceeded ? (
-                    <p className="text-[0.68rem] text-[var(--status-warning)]">
-                      Threshold exceeded
-                      {row.requestedDaysThreshold ? ` (${row.requestedDaysThreshold} days)` : ''}
-                    </p>
-                  ) : null}
-                  {row.thresholdWarningNote ? (
-                    <p className="text-[0.68rem] text-[var(--text-muted)]">{row.thresholdWarningNote}</p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-1">
-                    <FileIdChip
-                      tenantSlug={tenantSlug || ''}
-                      fileId={row.consultantRecommendationFileId}
-                      label="Consultant"
-                    />
-                    <FileIdChip tenantSlug={tenantSlug || ''} fileId={row.pmuRecommendationFileId} label="PMU" />
-                    <FileIdChip tenantSlug={tenantSlug || ''} fileId={row.approvalFileId} label="Approval" />
-                    {(row.supportingFileIds || []).slice(0, 3).map((fileId) => (
-                      <FileIdChip
-                        key={`${row._id}-${fileId}`}
-                        tenantSlug={tenantSlug || ''}
-                        fileId={fileId}
-                        label="Support"
-                      />
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {row.status === 'draft' && canEditWorkflow && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!py-1 !px-2 !text-[0.64rem]"
-                        onClick={() => submitEotMutation.mutate(row._id)}
-                        isLoading={submitEotMutation.isPending}
-                      >
-                        Submit
-                      </Button>
-                    )}
-                    {row.status === 'pending_approval' && canApproveWorkflow && (
-                      <>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!py-1 !px-2 !text-[0.64rem]"
-                          onClick={() =>
-                            approveEotMutation.mutate({
-                              eotId: row._id,
-                              daysApproved: row.requestedDays,
-                            })
-                          }
-                          isLoading={approveEotMutation.isPending}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!py-1 !px-2 !text-[0.64rem]"
-                          onClick={() => {
-                            const reason = window.prompt('Enter rejection reason');
-                            if (!reason || reason.trim().length < 3) return;
-                            rejectEotMutation.mutate({ eotId: row._id, reason: reason.trim() });
-                          }}
-                          isLoading={rejectEotMutation.isPending}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    {row.status === 'pending_approval' && canEditWorkflow && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!py-1 !px-2 !text-[0.64rem]"
-                        onClick={() => withdrawEotMutation.mutate(row._id)}
-                        isLoading={withdrawEotMutation.isPending}
-                      >
-                        Withdraw
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              </div>
-            )}
-        </div>
-
-        <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-4 space-y-3">
-          <button
-            type="button"
-            className="w-full flex items-center justify-between"
-            onClick={() => setExpandedSections((prev) => ({ ...prev, penalties: !prev.penalties }))}
-          >
-            <h4 className="text-h3 text-[0.9rem]">Penalties</h4>
-            <span className="text-[0.68rem] text-[var(--text-muted)]">
-              {expandedSections.penalties ? 'Hide' : 'Show'}
-            </span>
-          </button>
-          {expandedSections.penalties &&
-            (
-              <div className="space-y-2">
-                {canEditWorkflow && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="!py-1.5 !px-2.5 !text-[0.68rem]"
-                    onClick={() => openModal(PENALTY_MODAL_ID)}
-                    isLoading={createPenaltyMutation.isPending}
-                  >
-                    New
-                  </Button>
-                )}
-                {penalties.length === 0 ? (
-                  <p className="text-[0.72rem] text-[var(--text-muted)]">No penalties recorded.</p>
-                ) : penalties.slice(0, 3).map((row) => (
-                <div key={row._id} className="border border-[var(--border-default)] p-2 space-y-1">
-                  <p className="text-[0.72rem] text-[var(--text-primary)]">
-                    {row.penaltyType} · R{(row.amountCents / 100).toFixed(2)} · {row.status}
-                  </p>
-                  {row.assignedApproverId ? (
-                    <p className="text-[0.68rem] text-[var(--text-muted)]">
-                      Approver: {formatIdShort(row.assignedApproverId)}
-                    </p>
-                  ) : null}
-                  {row.thresholdExceeded ? (
-                    <p className="text-[0.68rem] text-[var(--status-warning)]">
-                      Threshold exceeded
-                      {typeof row.thresholdAmountCents === 'number'
-                        ? ` (R${(row.thresholdAmountCents / 100).toFixed(2)})`
-                        : ''}
-                    </p>
-                  ) : null}
-                  {row.thresholdWarningNote ? (
-                    <p className="text-[0.68rem] text-[var(--text-muted)]">{row.thresholdWarningNote}</p>
-                  ) : null}
-                  {row.rejectionReason ? (
-                    <p className="text-[0.68rem] text-[var(--status-danger)]">Reason: {row.rejectionReason}</p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-1">
-                    {(row.supportingFileIds || []).slice(0, 4).map((fileId) => (
-                      <FileIdChip
-                        key={`${row._id}-${fileId}`}
-                        tenantSlug={tenantSlug || ''}
-                        fileId={fileId}
-                        label="Support"
-                      />
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {row.status === 'draft' && canEditWorkflow && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!py-1 !px-2 !text-[0.64rem]"
-                        onClick={() => submitPenaltyMutation.mutate(row._id)}
-                        isLoading={submitPenaltyMutation.isPending}
-                      >
-                        Submit
-                      </Button>
-                    )}
-                    {row.status === 'pending_approval' && canApproveWorkflow && (
-                      <>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!py-1 !px-2 !text-[0.64rem]"
-                          onClick={() => approvePenaltyMutation.mutate(row._id)}
-                          isLoading={approvePenaltyMutation.isPending}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!py-1 !px-2 !text-[0.64rem]"
-                          onClick={() => {
-                            const reason = window.prompt('Enter rejection reason');
-                            if (!reason || reason.trim().length < 3) return;
-                            rejectPenaltyMutation.mutate({ penaltyId: row._id, reason: reason.trim() });
-                          }}
-                          isLoading={rejectPenaltyMutation.isPending}
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!py-1 !px-2 !text-[0.64rem]"
-                          onClick={() => waivePenaltyMutation.mutate(row._id)}
-                          isLoading={waivePenaltyMutation.isPending}
-                        >
-                          Waive
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-              </div>
-            )}
-        </div>
-      </div>
+      <Stage4ConstructionPanel
+        expandedPerformance={expandedSections.performance}
+        expandedEot={expandedSections.eot}
+        expandedPenalties={expandedSections.penalties}
+        onTogglePerformance={() => setExpandedSections((prev) => ({ ...prev, performance: !prev.performance }))}
+        onToggleEot={() => setExpandedSections((prev) => ({ ...prev, eot: !prev.eot }))}
+        onTogglePenalties={() => setExpandedSections((prev) => ({ ...prev, penalties: !prev.penalties }))}
+        latestPerformance={latestPerformance}
+        onCapturePerformance={() => createPerformanceMutation.mutate()}
+        isCapturingPerformance={createPerformanceMutation.isPending}
+        canEditWorkflow={canEditWorkflow}
+        canApproveWorkflow={canApproveWorkflow}
+        eotRequests={eotRequests}
+        penalties={penalties}
+        onOpenEotCreate={() => openModal(EOT_MODAL_ID)}
+        onSubmitEot={(eotId) => submitEotMutation.mutate(eotId)}
+        onApproveEot={(eotId, requestedDays) =>
+          approveEotMutation.mutate({
+            eotId,
+            daysApproved: requestedDays,
+          })
+        }
+        onRejectEot={handleRejectEot}
+        onWithdrawEot={(eotId) => withdrawEotMutation.mutate(eotId)}
+        onOpenPenaltyCreate={() => openModal(PENALTY_MODAL_ID)}
+        onSubmitPenalty={(penaltyId) => submitPenaltyMutation.mutate(penaltyId)}
+        onApprovePenalty={(penaltyId) => approvePenaltyMutation.mutate(penaltyId)}
+        onRejectPenalty={handleRejectPenalty}
+        onWaivePenalty={(penaltyId) => waivePenaltyMutation.mutate(penaltyId)}
+        isBusy={{
+          createEot: createEotMutation.isPending,
+          submitEot: submitEotMutation.isPending,
+          approveEot: approveEotMutation.isPending,
+          rejectEot: rejectEotMutation.isPending,
+          withdrawEot: withdrawEotMutation.isPending,
+          createPenalty: createPenaltyMutation.isPending,
+          submitPenalty: submitPenaltyMutation.isPending,
+          approvePenalty: approvePenaltyMutation.isPending,
+          rejectPenalty: rejectPenaltyMutation.isPending,
+          waivePenalty: waivePenaltyMutation.isPending,
+        }}
+        formatIdShort={formatIdShort}
+        renderFileChip={renderFileChip}
+      />
 
       <div className="border border-[var(--border-default)] bg-[var(--bg-surface-alt)] p-4 space-y-3">
         <button

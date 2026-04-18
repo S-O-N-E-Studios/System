@@ -69,8 +69,18 @@ router.get('/:id/payments',
   requireProjectScope,
   asyncHandler(ctrl.listPayments)
 );
+router.get('/:id/payment-certificates',
+  requireProjectScope,
+  asyncHandler(ctrl.listPayments)
+);
 
 router.post('/:id/payments',
+  denyClientTemp,
+  requirePM,
+  validate(createPaymentSchema),
+  asyncHandler(ctrl.addPayment)
+);
+router.post('/:id/payment-certificates',
   denyClientTemp,
   requirePM,
   validate(createPaymentSchema),
@@ -83,13 +93,29 @@ router.patch('/:id/payments/:payId',
   validate(updatePaymentSchema),
   asyncHandler(ctrl.updatePayment)
 );
+router.patch('/:id/payment-certificates/:payId',
+  denyClientTemp,
+  requirePM,
+  validate(updatePaymentSchema),
+  asyncHandler(ctrl.updatePayment)
+);
 
 router.get('/:id/payment-forecast',
   requireProjectScope,
   asyncHandler(ctrl.getPaymentForecast)
 );
+router.get('/:id/billing-periods',
+  requireProjectScope,
+  asyncHandler(ctrl.getPaymentForecast)
+);
 
 router.post('/:id/payment-forecast',
+  denyClientTemp,
+  requirePM,
+  validate(forecastEntrySchema),
+  asyncHandler(ctrl.upsertForecast)
+);
+router.post('/:id/billing-periods',
   denyClientTemp,
   requirePM,
   validate(forecastEntrySchema),
@@ -105,6 +131,7 @@ router.use('/:id/media', requireProjectScope, require('../files/media.routes'));
 router.use('/:id/workflow', requireProjectScope, require('../workflow/workflow.routes'));
 router.use('/:id/procurement-trails', requireProjectScope, require('../procurement-trails/procurementTrail.routes'));
 router.use('/:id/extension-of-time', requireProjectScope, require('../extension-of-time/extensionOfTime.routes'));
+router.use('/:id/eot', requireProjectScope, require('../extension-of-time/extensionOfTime.routes'));
 router.use('/:id/penalties', requireProjectScope, require('../penalties/penalty.routes'));
 router.use('/:id/performance', requireProjectScope, require('../performance/performance.routes'));
 router.use('/:id/audit', requireProjectScope, require('../audit/audit.routes'));
